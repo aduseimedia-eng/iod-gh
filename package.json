@@ -6,7 +6,11 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "setup-db": "node scripts/setup-database.js"
+    "db:check": "node scripts/check-db-connection.js",
+    "setup-db": "node scripts/setup-database.js",
+    "backup:railway": "node scripts/backup-railway-postgres.js",
+    "sync:railway-to-local": "node scripts/backup-railway-postgres.js --sync-railway-to-local",
+    "sync:local-to-railway": "node scripts/backup-railway-postgres.js --sync-local-to-railway"
   },
   "keywords": [
     "database",

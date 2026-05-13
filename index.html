@@ -242,7 +242,6 @@
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.15);
             padding: 1rem 1.75rem;
-            border-radius: 16px;
             min-width: 120px;
             transition: all 0.3s ease;
         }
@@ -250,7 +249,6 @@
         .welcome-stat:hover {
             background: rgba(255, 255, 255, 0.18);
             transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
         }
 
         .welcome-stat-value {
@@ -526,8 +524,6 @@
             justify-content: space-between;
             align-items: flex-start;
             margin-bottom: 2rem;
-            padding-bottom: 1.5rem;
-            border-bottom: 2px solid #f1f5f9;
         }
 
         .section-title {
@@ -535,18 +531,6 @@
             font-weight: 700;
             color: var(--primary);
             margin: 0;
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-        }
-
-        .section-title::before {
-            content: '';
-            width: 4px;
-            height: 24px;
-            background: linear-gradient(to bottom, #2C1972, #2CA58D);
-            border-radius: 4px;
-            flex-shrink: 0;
         }
 
         .section-subtitle {
@@ -560,9 +544,6 @@
         .table-container {
             overflow-x: auto;
             margin-bottom: 2rem;
-            border-radius: 14px;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
         }
 
         .table-scroll {
@@ -1005,11 +986,9 @@
         .member-type-card {
             background: var(--bg-white);
             border: none;
-            border-radius: 16px;
             padding: 1.75rem 1.25rem 1.5rem;
             cursor: pointer;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: var(--shadow-sm);
             position: relative;
             overflow: hidden;
             text-align: center;
@@ -2488,7 +2467,7 @@
 
             <!-- Username Tab -->
             <div id="settings-panel-username" style="padding: 1.5rem 2rem 2rem;">
-                <div style="background: white; border-radius: 16px; padding: 1.8rem; border: 1px solid var(--border); box-shadow: var(--shadow-sm);">
+                <div style="background: white; padding: 1.8rem; border: 1px solid var(--border);">
                     <div class="form-group" style="margin-bottom: 1.2rem;">
                         <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;">
                             <i class="fas fa-at" style="margin-right: 6px; color: var(--secondary);"></i>Current Username
@@ -2520,7 +2499,7 @@
 
             <!-- Password Tab -->
             <div id="settings-panel-password" style="padding: 1.5rem 2rem 2rem; display: none;">
-                <div style="background: white; border-radius: 16px; padding: 1.8rem; border: 1px solid var(--border); box-shadow: var(--shadow-sm);">
+                <div style="background: white; padding: 1.8rem; border: 1px solid var(--border);">
                     <div style="display: flex; align-items: flex-start; gap: 0.75rem; background: linear-gradient(135deg, #eff6ff, #eefbf7); border: 1px solid #bfdbfe; border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
                         <i class="fas fa-database" style="color: var(--secondary); margin-top: 2px;"></i>
                         <div style="font-size: 0.8rem; line-height: 1.5; color: var(--text-dark);">
@@ -4418,7 +4397,7 @@
             // Create and show modal
             const modalHtml = `
                 <div id="payment-edit-modal" style="display: flex; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center;">
-                    <div style="background: white; padding: 2rem; border-radius: 16px; width: 90%; max-width: 540px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); max-height:90vh; overflow-y:auto;">
+                    <div style="background: white; padding: 2rem; width: 90%; max-width: 540px; max-height:90vh; overflow-y:auto;">
                         <h3 style="margin: 0 0 1.2rem; color: #12086f; display: flex; align-items: center; gap: 0.5rem;">
                             <i class="fas fa-edit"></i> ${subData.is_virtual ? 'Record' : 'Edit'} Payment - Year ${subData.year}
                         </h3>
