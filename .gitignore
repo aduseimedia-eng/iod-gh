@@ -1,12 +1,26 @@
 # Environment variables (contains passwords and secrets)
 .env
+.env.local
+.env.*.local
 
 # Node.js
 node_modules/
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Uploads
+# Uploads and temporary files
 uploads/
+temp/
+*.tmp
+
+# Logs
+logs/
+*.log
+
+# Sensitive files
+cookie.txt
+error-output.txt
 
 # OS files
 Thumbs.db
