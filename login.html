@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoD Ghana - Login</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+                background: #2C1972;
+            position: relative;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: drift 20s linear infinite;
+        }
+
+        @keyframes drift {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 50px 40px;
+            width: 420px;
+            max-width: 90vw;
+                box-shadow: 0 25px 60px rgba(44, 25, 114, 0.3);
+            position: relative;
+            z-index: 1;
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo-section {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .logo-icon {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #1a365d, #2b6cb0);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 18px;
+            box-shadow: 0 8px 25px rgba(26, 54, 93, 0.3);
+        }
+
+        .logo-icon i {
+            font-size: 32px;
+            color: white;
+        }
+
+        .logo-section h1 {
+            font-size: 22px;
+                color: #2C1972;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .logo-section p {
+            color: #718096;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 22px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a0aec0;
+            font-size: 16px;
+            transition: color 0.3s;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            padding: 14px 15px 14px 45px;
+                background: #2C1972;
+            border-radius: 12px;
+            font-size: 15px;
+            color: #2d3748;
+            background: #f7fafc;
+            transition: all 0.3s;
+            outline: none;
+        }
+
+        .input-wrapper input:focus {
+            border-color: #2b6cb0;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(43, 108, 176, 0.1);
+        }
+
+        .input-wrapper input:focus + i,
+        .input-wrapper input:focus ~ i {
+            color: #2b6cb0;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #a0aec0;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 5px;
+            transition: color 0.3s;
+        }
+
+        .toggle-password:hover {
+            color: #2b6cb0;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #1a365d, #2b6cb0);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            letter-spacing: 0.5px;
+            margin-top: 10px;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(26, 54, 93, 0.35);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .login-btn .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin: 0 auto;
+        }
+
+        .login-btn.loading .spinner { display: inline-block; }
+        .login-btn.loading .btn-text { display: none; }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #fff5f5;
+            color: #c53030;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 20px;
+            border: 1px solid #fed7d7;
+            display: none;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .error-message.show { display: block; }
+
+        .footer-text {
+            text-align: center;
+            margin-top: 25px;
+            color: #a0aec0;
+            font-size: 12px;
+        }
+
+        .footer-text i { color: #e53e3e; }
+
+        /* Password Reset Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal.show { display: flex; }
+
+        .modal-content {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 40px;
+            width: 420px;
+            max-width: 90vw;
+            box-shadow: 0 25px 60px rgba(44, 25, 114, 0.3);
+            animation: slideUp 0.4s ease-out;
+            margin: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 15px;
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+            color: #2C1972;
+            font-weight: 700;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: #a0aec0;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.3s;
+        }
+
+        .close-modal:hover {
+            color: #e53e3e;
+        }
+
+        .reset-form-group {
+            margin-bottom: 20px;
+        }
+
+        .reset-form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .reset-form-group input,
+        .reset-form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #2d3748;
+            transition: all 0.3s;
+            outline: none;
+        }
+
+        .reset-form-group input:focus,
+        .reset-form-group select:focus {
+            border-color: #2b6cb0;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(43, 108, 176, 0.1);
+        }
+
+        .reset-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #1a365d, #2b6cb0);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 15px;
+        }
+
+        .reset-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(26, 54, 93, 0.35);
+        }
+
+        .reset-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .reset-success {
+            background: #f0fff4;
+            color: #22543d;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 15px;
+            border: 1px solid #c6f6d5;
+            display: none;
+        }
+
+        .reset-success.show { display: block; }
+
+        .forgot-password-link {
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .forgot-password-link a {
+            color: #2b6cb0;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .forgot-password-link a:hover {
+            color: #1a365d;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo-section">
+            <div class="logo-icon" style="margin-bottom: 0.5rem;">
+                <img src="IoD_Logo_png.png" alt="IoD-Ghana Logo" width="75" height="75" style="display: block; margin: 0 auto; border-radius: 12px; box-shadow: 0 2px 8px rgba(18,8,111,0.08); background: #fff; border: 2px solid #1a365d; padding: 4px;" />
+            </div>
+            <h1>Institute of Directors-Ghana</h1>
+            <p>Member Database Management System</p>
+        </div>
+
+        <div class="error-message" id="error-msg">
+            <i class="fas fa-exclamation-circle"></i> <span id="error-text"></span>
+        </div>
+
+        <form id="login-form" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label>Username</label>
+                <div class="input-wrapper">
+                    <input type="text" id="username" placeholder="Enter your username" required autocomplete="off">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <div class="input-wrapper">
+                    <input type="password" id="password" placeholder="Enter your password" required autocomplete="off">
+                    <i class="fas fa-lock"></i>
+                    <button type="button" class="toggle-password" onclick="togglePassword()">
+                        <i class="fas fa-eye" id="eye-icon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" class="login-btn" id="login-btn">
+                <span class="btn-text">Sign In</span>
+                <div class="spinner"></div>
+            </button>
+        </form>
+
+        <div class="forgot-password-link">
+            <a onclick="openResetModal()"><i class="fas fa-key"></i> Forgot your password?</a>
+        </div>
+
+        <div class="footer-text">
+            <i class="fas fa-lock"></i> Secure access &bull; Authorized personnel only
+            <br><br>
+            <a href="/staff-dashboard.html" style="color: #63b3ed; text-decoration: none; font-size: 13px;"><i class="fas fa-eye"></i> Staff View-Only Dashboard</a>
+        </div>
+    </div>
+
+    <!-- Password Reset Modal -->
+    <div id="resetModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-key"></i> Reset Password</h2>
+                <button type="button" class="close-modal" onclick="closeResetModal()">&times;</button>
+            </div>
+
+            <div class="error-message" id="reset-error-msg">
+                <i class="fas fa-exclamation-circle"></i> <span id="reset-error-text"></span>
+            </div>
+
+            <div class="reset-success" id="reset-success">
+                <i class="fas fa-check-circle"></i> <span id="reset-success-text"></span>
+            </div>
+
+            <!-- Step 1: Request Reset Code -->
+            <div id="reset-step1">
+                <form id="request-code-form" onsubmit="requestResetCode(event)">
+                    <p style="font-size: 13px; color: #718096; margin-bottom: 20px; line-height: 1.5;">
+                        <i class="fas fa-info-circle"></i> Enter your admin username to receive a verification code from the server administrator.
+                    </p>
+                    <div class="reset-form-group">
+                        <label>Admin Username</label>
+                        <input type="text" id="reset-username-step1" placeholder="Enter your admin username" required autocomplete="off">
+                    </div>
+                    <button type="submit" class="reset-btn" id="request-code-btn">
+                        <span id="request-code-text">Request Reset Code</span>
+                        <div class="spinner" style="border-color: rgba(255,255,255,0.3); border-top-color: white;"></div>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Step 2: Reset Password with Code -->
+            <div id="reset-step2" style="display: none;">
+                <form id="reset-form" onsubmit="handlePasswordReset(event)">
+                    <p style="font-size: 13px; color: #718096; margin-bottom: 20px; line-height: 1.5;">
+                        <i class="fas fa-info-circle"></i> Check the server console or logs for your verification code. It's valid for 30 minutes.
+                    </p>
+                    
+                    <div class="reset-form-group">
+                        <label>Verification Code</label>
+                        <input type="text" id="reset-code" placeholder="Enter 6-digit code from server" required autocomplete="off" maxlength="6">
+                    </div>
+
+                    <div class="reset-form-group">
+                        <label>New Password</label>
+                        <input type="password" id="reset-password" placeholder="Enter new password (min 8 chars)" required>
+                    </div>
+
+                    <div class="reset-form-group">
+                        <label>Confirm Password</label>
+                        <input type="password" id="reset-confirm" placeholder="Confirm new password" required>
+                    </div>
+
+                    <button type="submit" class="reset-btn" id="reset-btn" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                        <span class="btn-text">Reset Password</span>
+                        <div class="spinner" style="display: none; border-color: rgba(255,255,255,0.3); border-top-color: white;"></div>
+                    </button>
+                    <button type="button" class="reset-btn" onclick="backToStep1()" style="background: #cbd5e0; color: #2d3748; margin-top: 8px;">Back</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script>
+        let resetUsername = ''; // Store username across steps
+
+        // Check if already logged in
+        fetch('/api/auth-status')
+            .then(r => r.json())
+            .then(data => {
+                if (data.authenticated) window.location.href = '/';
+            })
+            .catch(() => {});
+
+        function togglePassword() {
+            const input = document.getElementById('password');
+            const icon = document.getElementById('eye-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        }
+
+        // Password Reset Modal Functions
+        function openResetModal() {
+            document.getElementById('resetModal').classList.add('show');
+            resetUsername = '';
+            document.getElementById('request-code-form').reset();
+            document.getElementById('reset-form').reset();
+            document.getElementById('reset-step1').style.display = 'block';
+            document.getElementById('reset-step2').style.display = 'none';
+            document.getElementById('reset-error-msg').classList.remove('show');
+            document.getElementById('reset-success').classList.remove('show');
+        }
+
+        function closeResetModal() {
+            document.getElementById('resetModal').classList.remove('show');
+            document.getElementById('request-code-form').reset();
+            document.getElementById('reset-form').reset();
+            resetUsername = '';
+        }
+
+        function backToStep1() {
+            document.getElementById('reset-step2').style.display = 'none';
+            document.getElementById('reset-step1').style.display = 'block';
+            document.getElementById('reset-error-msg').classList.remove('show');
+            document.getElementById('reset-success').classList.remove('show');
+            document.getElementById('reset-form').reset();
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('resetModal');
+            if (event.target === modal) {
+                closeResetModal();
+            }
+        }
+
+        // Step 1: Request Reset Code
+        async function requestResetCode(e) {
+            e.preventDefault();
+            const btn = document.getElementById('request-code-btn');
+            const btnText = document.getElementById('request-code-text');
+            const spinner = btn.querySelector('.spinner');
+            const errorMsg = document.getElementById('reset-error-msg');
+            const errorText = document.getElementById('reset-error-text');
+            const successMsg = document.getElementById('reset-success');
+            const successText = document.getElementById('reset-success-text');
+
+            const username = document.getElementById('reset-username-step1').value.trim();
+
+            if (!username) {
+                errorText.textContent = 'Username is required';
+                errorMsg.classList.add('show');
+                return;
+            }
+
+            btn.disabled = true;
+            btnText.style.display = 'none';
+            spinner.style.display = 'inline-block';
+            errorMsg.classList.remove('show');
+            successMsg.classList.remove('show');
+
+            try {
+                const response = await fetch('/api/request-password-reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resetUsername = username;
+                    successText.textContent = 'Verification code has been generated. Check the server console for the 6-digit code.';
+                    successMsg.classList.add('show');
+                    
+                    setTimeout(() => {
+                        document.getElementById('reset-step1').style.display = 'none';
+                        document.getElementById('reset-step2').style.display = 'block';
+                        document.getElementById('reset-success').classList.remove('show');
+                    }, 2000);
+                } else {
+                    errorText.textContent = data.error || 'Failed to request reset code';
+                    errorMsg.classList.add('show');
+                }
+            } catch (err) {
+                console.error('Request code error:', err);
+                errorText.textContent = 'Connection error. Please try again.';
+                errorMsg.classList.add('show');
+            } finally {
+                btn.disabled = false;
+                btnText.style.display = 'inline';
+                spinner.style.display = 'none';
+            }
+        }
+
+        // Step 2: Handle password reset with code
+        async function handlePasswordReset(e) {
+            e.preventDefault();
+            const btn = document.getElementById('reset-btn');
+            const btnText = btn.querySelector('.btn-text');
+            const spinner = btn.querySelector('.spinner');
+            const errorMsg = document.getElementById('reset-error-msg');
+            const errorText = document.getElementById('reset-error-text');
+            const successMsg = document.getElementById('reset-success');
+            const successText = document.getElementById('reset-success-text');
+
+            const code = document.getElementById('reset-code').value.trim();
+            const newPassword = document.getElementById('reset-password').value;
+            const confirmPassword = document.getElementById('reset-confirm').value;
+
+            // Client-side validation
+            if (!code) {
+                errorText.textContent = 'Verification code is required';
+                errorMsg.classList.add('show');
+                return;
+            }
+
+            if (newPassword.length < 8) {
+                errorText.textContent = 'Password must be at least 8 characters long';
+                errorMsg.classList.add('show');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                errorText.textContent = 'Passwords do not match';
+                errorMsg.classList.add('show');
+                return;
+            }
+
+            btn.disabled = true;
+            btnText.style.display = 'none';
+            spinner.style.display = 'inline-block';
+            errorMsg.classList.remove('show');
+            successMsg.classList.remove('show');
+
+            try {
+                const response = await fetch('/api/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: resetUsername,
+                        newPassword: newPassword,
+                        verificationCode: code
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    successText.textContent = data.message || 'Password reset successfully! Redirecting to login...';
+                    successMsg.classList.add('show');
+                    
+                    setTimeout(() => {
+                        closeResetModal();
+                        document.getElementById('username').value = resetUsername;
+                        document.getElementById('password').value = '';
+                        document.getElementById('password').focus();
+                    }, 2000);
+                } else {
+                    errorText.textContent = data.error || 'Password reset failed';
+                    errorMsg.classList.add('show');
+                }
+            } catch (err) {
+                console.error('Reset error:', err);
+                errorText.textContent = 'Connection error. Please try again.';
+                errorMsg.classList.add('show');
+            } finally {
+                btn.disabled = false;
+                btnText.style.display = 'inline';
+                spinner.style.display = 'none';
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const btn = document.getElementById('login-btn');
+            const errorMsg = document.getElementById('error-msg');
+            const errorText = document.getElementById('error-text');
+
+            btn.classList.add('loading');
+            btn.disabled = true;
+            errorMsg.classList.remove('show');
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: document.getElementById('username').value.trim(),
+                        password: document.getElementById('password').value
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    errorText.textContent = data.error || 'Invalid username or password';
+                    errorMsg.classList.add('show');
+                }
+            } catch (err) {
+                errorText.textContent = 'Connection error. Please try again.';
+                errorMsg.classList.add('show');
+            } finally {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('password').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') document.getElementById('login-form').requestSubmit();
+        });
+    </script>
+</body>
+</html>

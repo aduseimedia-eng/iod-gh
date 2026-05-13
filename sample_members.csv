@@ -1,0 +1,6 @@
+member_type,title,first_name,surname,gender,organization,sector,region,designation,date_of_admission,phone_number,email
+AIOD,Mr,John,Smith,Male,Tech Corp,Private,Greater Accra,Director,2023-01-15,0201234567,john@example.com
+AIOD,Mrs,Jane,Doe,Female,Finance Ltd,Private,Ashanti,Manager,2023-02-20,0209876543,jane@example.com
+FIOD,Prof,Samuel,Johnson,Male,University,Public,Greater Accra,Professor,2022-06-10,0203334444,samuel@example.com
+AIOD,Ms,Mary,Williams,Female,Consulting,Private,Western,Consultant,2023-03-05,0205555666,mary@example.com
+MIOD,Dr,Peter,Brown,Male,Hospital,Public,Central,Doctor,2023-04-12,0207777888,peter@example.com

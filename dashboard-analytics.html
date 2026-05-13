@@ -1,0 +1,2390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOD Ghana - Analytics Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: #f8f9fa;
+            color: #212529;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2.5rem auto;
+            padding: 0 1.5rem;
+        }
+
+        /* Header */
+        header {
+            background: #2C1972;
+            color: white;
+            padding: 1.25rem 2rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.07);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .logo-section {
+            flex-shrink: 0;
+        }
+
+        .header-text h1 {
+            color: white;
+            font-size: 1.5rem;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .header-text p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.85rem;
+            margin: 0;
+        }
+
+        /* Navigation & Refresh Button */
+        .nav-right {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .nav-btn, .refresh-btn {
+            background: transparent;
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-btn:hover, .refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: white;
+            transform: translateY(-1px);
+        }
+
+        .nav-btn.active {
+            background: #12086f; /* Deep Purple */
+            border-color: #12086f;
+            color: white;
+        }
+
+        /* KPI Cards */
+        .kpi-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .kpi-card {
+            background: white;
+            padding: 1.75rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: 1px solid #dee2e6;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+        }
+        
+        .kpi-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .kpi-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .kpi-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            background: #0A2342;
+            border-radius: 50%;
+            color: white;
+            font-size: 1.25rem;
+        }
+
+        .kpi-value {
+            color: #0A2342;
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            line-height: 1.1;
+        }
+
+        .kpi-subtitle {
+            color: #6c757d;
+            font-size: 0.8rem;
+            margin-top: auto;
+        }
+
+        /* Charts Section */
+        .charts-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .chart-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+            border: 1px solid #dee2e6;
+        }
+
+        .chart-title {
+            color: #0A2342;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        /* Gender Breakdown */
+        .gender-section {
+            margin-bottom: 2.5rem;
+        }
+
+        .gender-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .gender-type-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+            border: 1px solid #dee2e6;
+        }
+
+        .gender-type-card h4 {
+            font-size: 0.95rem;
+            color: #0A2342;
+            margin-bottom: 1rem;
+            padding-bottom: 0.6rem;
+            border-bottom: 2px solid;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .gender-type-card.aiod h4 { border-color: #3b82f6; }
+        .gender-type-card.miod h4 { border-color: #8b5cf6; }
+        .gender-type-card.fiod h4 { border-color: #06b6d4; }
+        .gender-type-card.honorary h4 { border-color: #ec4899; }
+        .gender-type-card.corporate h4 { border-color: #f59e0b; }
+
+        .gender-bar-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.6rem;
+            gap: 0.5rem;
+        }
+
+        .gender-bar-label {
+            width: 65px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .gender-bar-track {
+            flex: 1;
+            height: 22px;
+            background: #f1f3f5;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .gender-bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: white;
+            min-width: 28px;
+            transition: width 0.6s ease;
+        }
+
+        .gender-bar-fill.male { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .gender-bar-fill.female { background: linear-gradient(135deg, #ec4899, #db2777); }
+        .gender-bar-fill.other { background: linear-gradient(135deg, #9ca3af, #6b7280); }
+
+        .gender-bar-count {
+            width: 40px;
+            text-align: right;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #212529;
+        }
+
+        .gender-total {
+            text-align: center;
+            margin-top: 0.75rem;
+            padding-top: 0.6rem;
+            border-top: 1px solid #e9ecef;
+            font-size: 0.85rem;
+            color: #495057;
+            font-weight: 600;
+        }
+
+        .gender-total span {
+            color: #0A2342;
+            font-size: 1.1rem;
+        }
+
+        /* Tables */
+        .table-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+            margin-bottom: 2.5rem;
+            overflow-x: auto;
+            border: 1px solid #dee2e6;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8f9fa;
+            color: #212529;
+            padding: 0.85rem 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        td {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 0.85rem;
+            color: #212529;
+        }
+
+        tbody tr:hover {
+            background: #f1f3f5;
+        }
+
+        /* Clickable table rows */
+        tbody tr[onclick] {
+            transition: all 0.2s ease;
+        }
+        
+        tbody tr[onclick]:hover {
+            background: #e8f4fd;
+            transform: translateX(4px);
+            box-shadow: -4px 0 0 #12086f;
+        }
+        
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .alert {
+            padding: 1rem 1.25rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: none;
+            border: 1px solid transparent;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: #e9f7ec;
+            color: #1e7e34;
+            border-color: #d1e7dd;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.85rem 0;
+            border-bottom: 1px solid #e9ecef;
+            align-items: center;
+        }
+
+        .metric-row:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+
+        .metric-value {
+            color: #212529;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #2CA58D; /* Teal */
+            transition: width 0.3s;
+        }
+
+        /* Regional Performance Enhanced Styles */
+        .regional-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .regional-grid::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .regional-grid::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+
+        .regional-grid::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #0A2342, #12086f);
+            border-radius: 10px;
+        }
+
+        .region-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .region-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            border-color: #0A2342;
+        }
+
+        .region-card.top-performer {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border-color: #10b981;
+        }
+
+        .region-card.top-performer::before {
+            content: '★';
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            color: #10b981;
+            font-size: 1.25rem;
+        }
+
+        .region-card.needs-attention {
+            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+            border-color: #ef4444;
+        }
+
+        .region-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .region-name {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #0A2342;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .region-rank {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0A2342, #12086f);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .region-rank.gold {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .region-rank.silver {
+            background: linear-gradient(135deg, #9ca3af, #6b7280);
+        }
+
+        .region-rank.bronze {
+            background: linear-gradient(135deg, #d97706, #b45309);
+        }
+
+        .region-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .region-stat {
+            text-align: center;
+            padding: 0.5rem;
+            background: rgba(10, 35, 66, 0.04);
+            border-radius: 8px;
+        }
+
+        .region-stat-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #0A2342;
+        }
+
+        .region-stat-label {
+            font-size: 0.7rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .region-progress {
+            margin-top: 0.75rem;
+        }
+
+        .region-progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.4rem;
+        }
+
+        .region-progress-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+
+        .region-progress-value {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #0A2342;
+        }
+
+        .region-progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e5e7eb;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .region-progress-fill {
+            height: 100%;
+            border-radius: 5px;
+            transition: width 0.5s ease;
+            background: linear-gradient(90deg, #10b981, #059669);
+        }
+
+        .region-progress-fill.medium {
+            background: linear-gradient(90deg, #f59e0b, #d97706);
+        }
+
+        .region-progress-fill.low {
+            background: linear-gradient(90deg, #ef4444, #dc2626);
+        }
+
+        .region-revenue {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
+            padding-top: 0.75rem;
+            border-top: 1px dashed #e5e7eb;
+        }
+
+        .region-revenue-label {
+            font-size: 0.8rem;
+            color: #6b7280;
+        }
+
+        .region-revenue-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #10b981;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(10, 35, 66, 0.2);
+            border-top-color: #0A2342;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Refresh button loading state */
+        .refresh-btn.loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .refresh-btn.loading i {
+            animation: spin 1s linear infinite;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.3rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid;
+        }
+
+        .badge-paid {
+            background-color: #e9f7ec;
+            color: #1e7e34;
+            border-color: #d1e7dd;
+        }
+
+        .badge-pending {
+            background-color: #fff8e6;
+            color: #b38600;
+            border-color: #ffeeba;
+        }
+
+        .badge-overdue {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .pagination button {
+            padding: 0.6rem 1rem;
+            background: #fff;
+            border: 1px solid #ddd;
+            color: #12086f;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            min-width: 40px;
+        }
+
+        .pagination button:hover {
+            border-color: #12086f;
+            background: #12086f;
+            color: white;
+        }
+
+        .pagination button.active {
+            background: #12086f;
+            color: white;
+            border-color: #12086f;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+            
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+
+            header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        #memberTypeFilter {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 0.6rem 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-chevron-down' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            padding-right: 2.5rem;
+        }
+        #memberTypeFilter option {
+            background-color: #0A2342;
+        }
+
+        .export-btn {
+            padding: 0.4rem 0.8rem;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .export-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .export-btn i {
+            font-size: 0.7rem;
+        }
+
+        .section-footer {
+            display: flex;
+            justify-content: flex-end;
+            padding-top: 1rem;
+            margin-top: 1rem;
+            border-top: 1px solid #eee;
+        }
+
+        .analytics-subtitle {
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin: -0.5rem 0 1.25rem;
+        }
+
+        .insight-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .chart-canvas-wrap {
+            position: relative;
+            height: 300px;
+        }
+
+        .insight-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .insight-stat {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 0.8rem;
+        }
+
+        .insight-stat-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-bottom: 0.25rem;
+        }
+
+        .insight-stat-value {
+            font-size: 1.05rem;
+            color: #0A2342;
+            font-weight: 700;
+        }
+
+        .top-insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        .top-insight-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid #e5e7eb;
+            border-left: 4px solid #0A2342;
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .top-insight-card.success { border-left-color: #10b981; }
+        .top-insight-card.info { border-left-color: #2563eb; }
+        .top-insight-card.warning { border-left-color: #f59e0b; }
+        .top-insight-card.risk { border-left-color: #ef4444; }
+
+        .top-insight-head {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.55rem;
+        }
+
+        .top-insight-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #0A2342;
+            color: #fff;
+            font-size: 0.82rem;
+        }
+
+        .top-insight-card.success .top-insight-icon { background: #10b981; }
+        .top-insight-card.info .top-insight-icon { background: #2563eb; }
+        .top-insight-card.warning .top-insight-icon { background: #f59e0b; }
+        .top-insight-card.risk .top-insight-icon { background: #ef4444; }
+
+        .top-insight-title {
+            font-size: 0.8rem;
+            color: #6b7280;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .top-insight-value {
+            font-size: 1.05rem;
+            color: #0A2342;
+            font-weight: 700;
+            margin-bottom: 0.2rem;
+            line-height: 1.25;
+        }
+
+        .top-insight-detail {
+            font-size: 0.76rem;
+            color: #6b7280;
+            line-height: 1.35;
+        }
+
+        @media (max-width: 900px) {
+            .insight-stat-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <div class="logo-section">
+                <img src="White IOD_Logo_png.png" width="60px" alt="IoD-Ghana Logo" height="60px">
+            </div>
+            <div class="header-text">
+                <h1>Analytics Dashboard</h1>
+                <p>Institute of Directors - Ghana</p>
+            </div>
+        </div>
+        <div class="nav-right">
+             <div style="display: flex; align-items: center; gap: 1rem;">
+                <select id="memberTypeFilter" onchange="handleMemberTypeChange()">
+                    <option value="">All Member Types</option>
+                    <option value="AIOD">Associate, Institute of Directors</option>
+                    <option value="FIOD">Fellow, Institute of Directors</option>
+                    <option value="MIOD">Member, Institute of Directors</option>
+                    <option value="Honorary">Honorary Fellows</option>
+                    <option value="Corporate">Corporate Members</option>
+                </select>
+            </div>
+            <a href="index.html" class="nav-btn" title="Back to Dashboard">
+                <i class="fas fa-arrow-left"></i> Dashboard
+            </a>
+            <a href="good_standing.html" class="nav-btn" title="Good Standing Report">
+                <i class="fas fa-check-circle"></i> Good Standing
+            </a>
+            <a href="dashboard-analytics.html" class="nav-btn active" title="Analytics Dashboard">
+                <i class="fas fa-chart-line"></i> Analytics
+            </a>
+            <button class="refresh-btn" onclick="refreshAllData()">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+            <a href="index.html#settings" class="nav-btn" title="Account Settings" style="cursor: pointer;">
+                <i class="fas fa-cog"></i>
+            </a>
+            <button onclick="logout()" class="nav-btn" title="Sign Out" style="background: rgba(220,38,38,0.15); color: #fca5a5; border: 1px solid rgba(220,38,38,0.3); cursor: pointer;">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Alert Messages -->
+        <div id="alertSuccess" class="alert alert-success"></div>
+        <div id="alertError" class="alert alert-error"></div>
+
+        <!-- KPI Cards Section -->
+        <div class="kpi-section">
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <div class="kpi-label">Total Members</div>
+                    <div class="kpi-icon"><i class="fas fa-users"></i></div>
+                </div>
+                <div class="kpi-value" id="totalMembers">-</div>
+                <div class="kpi-subtitle">Active members</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <div class="kpi-label">Members Paid</div>
+                    <div class="kpi-icon"><i class="fas fa-check-circle"></i></div>
+                </div>
+                <div class="kpi-value" id="membersPaid">-</div>
+                <div class="kpi-subtitle">Current year 2026</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <div class="kpi-label">Payment Rate</div>
+                    <div class="kpi-icon"><i class="fas fa-percent"></i></div>
+                </div>
+                <div class="kpi-value" id="paymentRate">-%</div>
+                <div class="kpi-subtitle">Payment completion</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <div class="kpi-label">Total Revenue</div>
+                    <div class="kpi-icon"><i class="fas fa-money-bill-wave"></i></div>
+                </div>
+                <div class="kpi-value" id="totalRevenue">₵0.00</div>
+                <div class="kpi-subtitle">2026 income</div>
+            </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 1.5rem;">
+            <button class="export-btn" onclick="exportKPIData()">
+                <i class="fas fa-file-excel"></i> Export KPIs
+            </button>
+        </div>
+
+        <!-- Top 5 Insights Summary -->
+        <div class="table-card">
+            <div class="chart-title">
+                <i class="fas fa-lightbulb"></i> Top 5 Insights Summary
+            </div>
+            <div id="topInsightsContent" class="top-insights-grid">
+                <div class="empty-state" style="grid-column: 1 / -1; padding: 24px 18px;">
+                    <div class="loading-spinner"></div>
+                    <p>Generating insights...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-section">
+            <!-- Payment by Member Type -->
+            <div class="chart-card">
+                <div class="chart-title">
+                    <i class="fas fa-chart-pie"></i> Payment by Member Type
+                </div>
+                <div id="paymentByTypeContent">
+                    <div class="empty-state">
+                        <div class="loading-spinner"></div>
+                        <p>Loading...</p>
+                    </div>
+                </div>
+                <div class="section-footer">
+                    <button class="export-btn" onclick="exportPaymentByType()">
+                        <i class="fas fa-file-excel"></i> Export
+                    </button>
+                </div>
+            </div>
+
+            <!-- Gender Breakdown by Member Type -->
+            <div class="chart-card" style="grid-column: span 2;">
+                <div class="chart-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                    <span><i class="fas fa-venus-mars"></i> Gender Breakdown by Member Category</span>
+                    <select id="genderYearFilter" onchange="loadGenderByType()" style="padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid #dee2e6; font-size: 0.8rem; cursor: pointer;">
+                        <option value="all">All Years</option>
+                    </select>
+                </div>
+                <div id="genderByTypeContent">
+                    <div class="empty-state">
+                        <div class="loading-spinner"></div>
+                        <p>Loading...</p>
+                    </div>
+                </div>
+                <div class="section-footer">
+                    <button class="export-btn" onclick="exportGenderBreakdown()">
+                        <i class="fas fa-file-excel"></i> Export
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Yearly Trends Table -->
+        <div class="table-card">
+            <div class="chart-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <span><i class="fas fa-chart-line"></i> Yearly Revenue Trends (Last 10 Years)</span>
+                <button class="export-btn" onclick="exportYearlyTrends()">
+                    <i class="fas fa-file-excel"></i> Export
+                </button>
+            </div>
+            <div id="yearlyTrendsContent">
+                <div class="empty-state">
+                    <div class="loading-spinner"></div>
+                    <p>Loading...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Unpaid Subscriptions -->
+        <div class="table-card">
+            <div class="chart-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <span><i class="fas fa-exclamation-triangle"></i> Unpaid Subscriptions (Action Required)</span>
+                <button class="export-btn" onclick="exportUnpaidSubscriptions()">
+                    <i class="fas fa-file-excel"></i> Export
+                </button>
+            </div>
+            <div id="unpaidSubscriptionsContent">
+                <div class="empty-state">
+                    <div class="loading-spinner"></div>
+                    <p>Loading...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Member Analytics -->
+        <div class="table-card">
+            <div class="chart-title">
+                <i class="fas fa-magnifying-glass-chart"></i> Advanced Member Analytics
+            </div>
+            <p class="analytics-subtitle">Additional member insights on growth, payment behavior, cohorts, churn, and forecasted revenue.</p>
+
+            <div class="insight-grid">
+                <div class="chart-card">
+                    <div class="chart-title" style="margin-bottom: 1rem;">
+                        <i class="fas fa-chart-area"></i> Member Growth (Last 12 Months)
+                    </div>
+                    <div id="memberGrowthContent">
+                        <div class="empty-state">
+                            <div class="loading-spinner"></div>
+                            <p>Loading...</p>
+                        </div>
+                    </div>
+                    <div class="section-footer">
+                        <button class="export-btn" onclick="exportMemberGrowth()">
+                            <i class="fas fa-file-excel"></i> Export
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-title" style="margin-bottom: 1rem;">
+                        <i class="fas fa-credit-card"></i> Payment Method Breakdown (12 Months)
+                    </div>
+                    <div id="paymentMethodsContent">
+                        <div class="empty-state">
+                            <div class="loading-spinner"></div>
+                            <p>Loading...</p>
+                        </div>
+                    </div>
+                    <div class="section-footer">
+                        <button class="export-btn" onclick="exportPaymentMethods()">
+                            <i class="fas fa-file-excel"></i> Export
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-title" style="margin-bottom: 1rem;">
+                        <i class="fas fa-globe-africa"></i> Regional Performance (Current Year)
+                    </div>
+                    <div id="advancedRegionalPerformanceContent">
+                        <div class="empty-state">
+                            <div class="loading-spinner"></div>
+                            <p>Loading...</p>
+                        </div>
+                    </div>
+                    <div class="section-footer">
+                        <button class="export-btn" onclick="exportRegionalPerformance()">
+                            <i class="fas fa-file-excel"></i> Export
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-title" style="display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                        <span><i class="fas fa-users-viewfinder"></i> Cohort Performance</span>
+                        <select id="cohortYearFilter" onchange="renderCohortAnalysis()" style="padding: 0.35rem 0.7rem; border-radius: 6px; border: 1px solid #dee2e6; font-size: 0.78rem; cursor: pointer;">
+                            <option value="all">All Years</option>
+                        </select>
+                    </div>
+                    <div id="cohortAnalysisContent">
+                        <div class="empty-state">
+                            <div class="loading-spinner"></div>
+                            <p>Loading...</p>
+                        </div>
+                    </div>
+                    <div class="section-footer">
+                        <button class="export-btn" onclick="exportCohortAnalysis()">
+                            <i class="fas fa-file-excel"></i> Export
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-title" style="margin-bottom: 1rem;">
+                        <i class="fas fa-sack-dollar"></i> Revenue Forecast
+                    </div>
+                    <div id="revenueForecastContent">
+                        <div class="empty-state">
+                            <div class="loading-spinner"></div>
+                            <p>Loading...</p>
+                        </div>
+                    </div>
+                    <div class="section-footer">
+                        <button class="export-btn" onclick="exportRevenueForecast()">
+                            <i class="fas fa-file-excel"></i> Export
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <div class="chart-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <span><i class="fas fa-user-clock"></i> Churn Watchlist (Members Behind on Subscription)</span>
+                <button class="export-btn" onclick="exportChurnAnalysis()">
+                    <i class="fas fa-file-excel"></i> Export
+                </button>
+            </div>
+            <div id="churnAnalysisContent">
+                <div class="empty-state">
+                    <div class="loading-spinner"></div>
+                    <p>Loading...</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Auth helpers
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login.html';
+        }
+        const _origFetch = window.fetch;
+        window.fetch = async function(...args) {
+            const response = await _origFetch(...args);
+            if (response.status === 401) window.location.href = '/login.html';
+            return response;
+        };
+
+        const API_BASE = '';
+        let currentOverviewData = null;
+        let paymentByTypeData = [];
+        let regionalPerformanceData = [];
+
+        // Utility functions
+        function showAlert(message, type = 'success') {
+            const alertEl = type === 'success' ? document.getElementById('alertSuccess') : document.getElementById('alertError');
+            alertEl.textContent = message;
+            alertEl.classList.add('show');
+            setTimeout(() => alertEl.classList.remove('show'), 5000);
+        }
+
+        function formatCurrency(value) {
+            const num = parseFloat(value) || 0;
+            return '₵' + new Intl.NumberFormat('en-GH', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(num);
+        }
+
+        function formatPercent(value) {
+            const num = parseFloat(value) || 0;
+            return num.toFixed(2) + '%';
+        }
+
+        function formatMemberType(type) {
+            return type === 'AIOD'
+                ? 'Associate, IoD'
+                : type === 'MIOD'
+                ? 'Member, IoD'
+                : type === 'FIOD'
+                ? 'Fellow, IoD'
+                : type === 'Honorary'
+                ? 'Honorary Fellows'
+                : type === 'Corporate'
+                ? 'Corporate Members'
+                : (type || 'Unknown');
+        }
+
+        // Navigate to member dashboard
+        function navigateToMember(memberId) {
+            window.location.href = `index.html?viewMember=${memberId}`;
+        }
+
+        // Get current member type filter
+        function getCurrentMemberTypeFilter() {
+            return document.getElementById('memberTypeFilter').value || null;
+        }
+
+        function buildDashboardUrl(path, extraParams = {}) {
+            const params = new URLSearchParams();
+            const memberType = getCurrentMemberTypeFilter();
+
+            if (memberType) {
+                params.set('memberType', memberType);
+            }
+
+            Object.entries(extraParams).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && value !== '') {
+                    params.set(key, value);
+                }
+            });
+
+            const queryString = params.toString();
+            return `${API_BASE}${path}${queryString ? `?${queryString}` : ''}`;
+        }
+
+        // Handle member type filter change
+        function handleMemberTypeChange() {
+            refreshAllData();
+        }
+
+        // Load current year overview
+        async function loadCurrentYearOverview() {
+            try {
+                const memberType = getCurrentMemberTypeFilter();
+                let url = `${API_BASE}/api/dashboard/current-year-overview`;
+                if (memberType) {
+                    url += `?memberType=${memberType}`;
+                }
+                const response = await fetch(url);
+                const data = await response.json();
+                currentOverviewData = data && typeof data === 'object' ? data : null;
+                console.log('Current year overview data:', data);
+
+                if (data && Object.keys(data).length > 0) {
+                    document.getElementById('totalMembers').textContent = parseInt(data.total_members || 0).toLocaleString();
+                    document.getElementById('membersPaid').textContent = parseInt(data.members_paid || 0).toLocaleString();
+                    document.getElementById('paymentRate').textContent = formatPercent(data.payment_rate_percent);
+                    document.getElementById('totalRevenue').textContent = formatCurrency(data.total_revenue);
+                    console.log('Total revenue set to:', formatCurrency(data.total_revenue));
+                }
+            } catch (err) {
+                console.error('Error loading overview:', err);
+                currentOverviewData = null;
+            }
+        }
+
+        // Load payment by type
+        async function loadPaymentByType() {
+            try {
+                const memberType = getCurrentMemberTypeFilter();
+                let url = `${API_BASE}/api/dashboard/paid-by-type`;
+                if (memberType) {
+                    url += `?memberType=${memberType}`;
+                }
+                const response = await fetch(url);
+                let data = await response.json();
+
+                // Filter out Honorary members (they have waived fees)
+                data = data.filter(row => row.member_type !== 'Honorary');
+                paymentByTypeData = Array.isArray(data) ? data : [];
+
+                if (data && data.length > 0) {
+                    const html = data.map(row => `
+                        <div class="metric-row">
+                            <div class="metric-label">${formatMemberType(row.member_type)}</div>
+                            <div style="flex: 1; margin: 0 15px;">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${row.paid_percent || 0}%"></div>
+                                </div>
+                            </div>
+                            <div class="metric-value">${row.paid_members || 0}/${row.total_members || 0}</div>
+                            <div style="color: #2CA58D; font-weight: 600; width: 60px; text-align: right;">${formatPercent(row.paid_percent)}</div>
+                        </div>
+                    `).join('');
+                    document.getElementById('paymentByTypeContent').innerHTML = html;
+                } else {
+                    document.getElementById('paymentByTypeContent').innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No data available for the selected filter.</p></div>';
+                }
+            } catch (err) {
+                console.error('Error loading payment by type:', err);
+                paymentByTypeData = [];
+                document.getElementById('paymentByTypeContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i><p>Failed to load data. Check server connection.</p></div>';
+            }
+        }
+
+        // Load regional performance
+
+        async function loadRegionalPerformance() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/regional-performance'));
+                let data = await response.json();
+                regionalPerformanceData = Array.isArray(data) ? data : [];
+
+                renderAdvancedRegionalPerformance();
+            } catch (err) {
+                console.error('Error loading regional performance:', err);
+                regionalPerformanceData = [];
+                renderAdvancedRegionalPerformance();
+            }
+        }
+
+        function renderAdvancedRegionalPerformance() {
+            const content = document.getElementById('advancedRegionalPerformanceContent');
+            if (!content) return;
+
+            if (!regionalPerformanceData.length) {
+                content.innerHTML = '<div class="empty-state"><i class="fas fa-globe-africa"></i><p>No regional data available.</p></div>';
+                return;
+            }
+
+            const ranked = [...regionalPerformanceData]
+                .sort((a, b) => parseFloat(b.payment_rate || 0) - parseFloat(a.payment_rate || 0))
+                .slice(0, 8);
+
+            const html = `
+                <div style="margin-bottom: 0.7rem; color: #6b7280; font-size: 0.82rem; font-weight: 600;">
+                    Top ${ranked.length} regions by payment rate
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Region</th>
+                            <th>Paid/Total</th>
+                            <th>Rate</th>
+                            <th>Revenue</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${ranked.map(row => `
+                            <tr>
+                                <td><strong>${row.region || 'Unknown'}</strong></td>
+                                <td>${parseInt(row.paid_members || 0, 10).toLocaleString()}/${parseInt(row.total_members || 0, 10).toLocaleString()}</td>
+                                <td><span class="status-badge ${parseFloat(row.payment_rate || 0) >= 60 ? 'badge-paid' : parseFloat(row.payment_rate || 0) >= 40 ? 'badge-pending' : 'badge-overdue'}">${parseFloat(row.payment_rate || 0).toFixed(1)}%</span></td>
+                                <td>${formatCurrency(row.region_revenue || 0)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            content.innerHTML = html;
+        }
+
+        // Load yearly trends
+        async function loadYearlyTrends() {
+            try {
+                const memberType = getCurrentMemberTypeFilter();
+                let url = `${API_BASE}/api/dashboard/yearly-trends`;
+                if (memberType) {
+                    url += `?memberType=${memberType}`;
+                }
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data && data.length > 0) {
+                    const html = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Year</th>
+                                    <th>Total Members</th>
+                                    <th>Paid Members</th>
+                                    <th>Payment Rate</th>
+                                    <th>Total Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.map(row => `
+                                    <tr>
+                                        <td><strong>${row.subscription_year}</strong></td>
+                                        <td>${row.members_count?.toLocaleString() || '-'}</td>
+                                        <td>${row.paid_members?.toLocaleString() || '-'}</td>
+                                        <td><span class="status-badge badge-paid">${formatPercent(row.payment_rate)}</span></td>
+                                        <td><strong>${formatCurrency(row.total_revenue)}</strong></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    document.getElementById('yearlyTrendsContent').innerHTML = html;
+                } else {
+                    document.getElementById('yearlyTrendsContent').innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No data available</p></div>';
+                }
+            } catch (err) {
+                console.error('Error loading yearly trends:', err);
+                document.getElementById('yearlyTrendsContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i><p>Failed to load data.</p></div>';
+            }
+        }
+
+        // Load admission years for gender filter
+        async function loadGenderYearFilter() {
+            try {
+                const response = await fetch(`${API_BASE}/api/dashboard/admission-years`);
+                const years = await response.json();
+                const select = document.getElementById('genderYearFilter');
+                if (select && years && years.length > 0) {
+                    // Keep "All Years" option and add years
+                    select.innerHTML = '<option value="all">All Years</option>';
+                    years.forEach(year => {
+                        const option = document.createElement('option');
+                        option.value = year;
+                        option.textContent = year;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (err) {
+                console.error('Error loading gender year filter:', err);
+            }
+        }
+
+        // Load gender breakdown by member type
+        async function loadGenderByType() {
+            try {
+                const yearFilter = document.getElementById('genderYearFilter')?.value || 'all';
+                const response = await fetch(`${API_BASE}/api/dashboard/gender-by-type?year=${yearFilter}`);
+                const data = await response.json();
+
+                const typeOrder = ['AIOD', 'MIOD', 'FIOD', 'Honorary', 'Corporate'];
+                const typeClasses = { AIOD: 'aiod', MIOD: 'miod', FIOD: 'fiod', Honorary: 'honorary', Corporate: 'corporate' };
+                const typeIcons = { AIOD: 'fa-users', MIOD: 'fa-star', FIOD: 'fa-trophy', Honorary: 'fa-crown', Corporate: 'fa-building' };
+
+                // Initialize all categories with 0 values
+                const grouped = {};
+                typeOrder.forEach(type => {
+                    grouped[type] = { Male: 0, Female: 0, 'Not Specified': 0 };
+                });
+
+                // Fill in actual data
+                if (data && data.length > 0) {
+                    data.forEach(row => {
+                        if (grouped[row.member_type]) {
+                            grouped[row.member_type][row.gender] = parseInt(row.count);
+                        }
+                    });
+                }
+
+                const yearLabel = yearFilter === 'all' ? '' : ` (${yearFilter})`;
+                const html = '<div class="gender-grid">' + typeOrder.map(type => {
+                    const g = grouped[type];
+                    const total = g.Male + g.Female + g['Not Specified'];
+                    const mPct = total ? (g.Male / total * 100).toFixed(0) : 0;
+                    const fPct = total ? (g.Female / total * 100).toFixed(0) : 0;
+                    const oPct = total ? (g['Not Specified'] / total * 100).toFixed(0) : 0;
+
+                    let bars = '';
+                    if (total === 0) {
+                        bars = '<div class="gender-bar-row" style="color:#9ca3af; font-size:0.85rem; text-align:center; padding:1rem 0;">No members</div>';
+                    } else {
+                        if (g.Male > 0) bars += `
+                            <div class="gender-bar-row">
+                                <div class="gender-bar-label"><i class="fas fa-mars" style="color:#3b82f6"></i> Male</div>
+                                <div class="gender-bar-track"><div class="gender-bar-fill male" style="width:${mPct}%">${mPct}%</div></div>
+                                <div class="gender-bar-count">${g.Male}</div>
+                            </div>`;
+                        if (g.Female > 0) bars += `
+                            <div class="gender-bar-row">
+                                <div class="gender-bar-label"><i class="fas fa-venus" style="color:#ec4899"></i> Female</div>
+                                <div class="gender-bar-track"><div class="gender-bar-fill female" style="width:${fPct}%">${fPct}%</div></div>
+                                <div class="gender-bar-count">${g.Female}</div>
+                            </div>`;
+                        if (g['Not Specified'] > 0) bars += `
+                            <div class="gender-bar-row">
+                                <div class="gender-bar-label"><i class="fas fa-question" style="color:#9ca3af"></i> N/A</div>
+                                <div class="gender-bar-track"><div class="gender-bar-fill other" style="width:${oPct}%">${oPct}%</div></div>
+                                <div class="gender-bar-count">${g['Not Specified']}</div>
+                            </div>`;
+                    }
+
+                    return `
+                        <div class="gender-type-card ${typeClasses[type]}">
+                            <h4><i class="fas ${typeIcons[type]}"></i> ${type}</h4>
+                            ${bars}
+                            <div class="gender-total">Total: <span>${total}</span></div>
+                        </div>`;
+                }).join('') + '</div>';
+
+                document.getElementById('genderByTypeContent').innerHTML = html;
+            } catch (err) {
+                console.error('Error loading gender by type:', err);
+                document.getElementById('genderByTypeContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i><p>Failed to load gender data.</p></div>';
+            }
+        }
+
+        // Unpaid subscriptions pagination state
+        let unpaidData = [];
+        let unpaidCurrentPage = 1;
+        const unpaidPerPage = 10;
+
+        // Load unpaid subscriptions
+        async function loadUnpaidSubscriptions() {
+            try {
+                const currentYear = new Date().getFullYear();
+                const response = await fetch(`${API_BASE}/api/dashboard/unpaid-subscriptions?year=${currentYear}`);
+                const data = await response.json();
+                unpaidData = Array.isArray(data) ? data : [];
+                unpaidCurrentPage = 1;
+                renderUnpaidPage();
+            } catch (err) {
+                console.error('Error loading unpaid subscriptions:', err);
+                unpaidData = [];
+                document.getElementById('unpaidSubscriptionsContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i><p>Failed to load data.</p></div>';
+            }
+        }
+
+        function renderUnpaidPage() {
+            const currentYear = new Date().getFullYear();
+            if (unpaidData && unpaidData.length > 0) {
+                const totalPages = Math.ceil(unpaidData.length / unpaidPerPage);
+                const startIdx = (unpaidCurrentPage - 1) * unpaidPerPage;
+                const endIdx = Math.min(startIdx + unpaidPerPage, unpaidData.length);
+                const pageData = unpaidData.slice(startIdx, endIdx);
+
+                // Generate page buttons (show only nearby pages like index.html)
+                let pageButtons = '';
+                for (let i = 1; i <= totalPages; i++) {
+                    if (i === unpaidCurrentPage) {
+                        pageButtons += `<button class="active">${i}</button>`;
+                    } else if (i <= unpaidCurrentPage + 2 && i >= unpaidCurrentPage - 2) {
+                        pageButtons += `<button onclick="goToUnpaidPage(${i})">${i}</button>`;
+                    }
+                }
+
+                const html = `
+                    <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 600; color: #12086f;">Unpaid for ${currentYear} (${unpaidData.length} members)</span>
+                        <span style="color: #666; font-size: 0.85rem;">Showing ${startIdx + 1}-${endIdx} of ${unpaidData.length}</span>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Member Type</th>
+                                <th>Member #</th>
+                                <th>Name</th>
+                                <th>Phone Number</th>
+                                <th>Status</th>
+                                <th>Amount Owed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${pageData.map(row => {
+                                const statusClass = row.status === 'Not Paid' ? 'badge-overdue' : 'badge-pending';
+                                const formatMemberType = (type) => type === 'AIOD' ? 'Associate, IoD' : type === 'MIOD' ? 'Member, IoD' : type === 'FIOD' ? 'Fellow, IoD' : type === 'Honorary' ? 'Honorary Fellows' : type === 'Corporate' ? 'Corporate Members' : type;
+                                return `
+                                    <tr onclick="navigateToMember(${row.member_id})" style="cursor: pointer;" title="Click to view member details">
+                                        <td><span class="status-badge badge-paid">${formatMemberType(row.member_type)}</span></td>
+                                        <td><strong>${row.membership_number || 'N/A'}</strong></td>
+                                        <td>${row.member_name}</td>
+                                        <td>${row.phone_number || 'N/A'}</td>
+                                        <td><span class="status-badge ${statusClass}">${row.status}</span></td>
+                                        <td><strong style="color: #dc3545;">${formatCurrency(row.amount_owed)}</strong></td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                    ${totalPages > 1 ? `
+                    <div class="pagination">
+                        ${unpaidCurrentPage > 1 ? `<button onclick="goToUnpaidPage(${unpaidCurrentPage - 1})">Previous</button>` : ''}
+                        ${pageButtons}
+                        ${unpaidCurrentPage < totalPages ? `<button onclick="goToUnpaidPage(${unpaidCurrentPage + 1})">Next</button>` : ''}
+                    </div>
+                    ` : ''}
+                `;
+                document.getElementById('unpaidSubscriptionsContent').innerHTML = html;
+            } else {
+                document.getElementById('unpaidSubscriptionsContent').innerHTML = '<div class="empty-state"><i class="fas fa-check-circle"></i><p>All subscriptions are paid for ' + currentYear + '! 🎉</p></div>';
+            }
+        }
+
+        function goToUnpaidPage(page) {
+            const totalPages = Math.ceil(unpaidData.length / unpaidPerPage);
+            if (page < 1 || page > totalPages) return;
+            unpaidCurrentPage = page;
+            renderUnpaidPage();
+        }
+
+        // Advanced analytics state
+        let memberGrowthChartInstance = null;
+        let memberGrowthData = [];
+        let paymentMethodsData = [];
+        let cohortAnalysisData = [];
+        let churnAnalysisData = [];
+        let revenueForecastData = [];
+
+        function renderInsightCard({ tone = 'info', icon, title, value, detail }) {
+            return `
+                <div class="top-insight-card ${tone}">
+                    <div class="top-insight-head">
+                        <span class="top-insight-icon"><i class="fas ${icon}"></i></span>
+                        <span class="top-insight-title">${title}</span>
+                    </div>
+                    <div class="top-insight-value">${value}</div>
+                    <div class="top-insight-detail">${detail}</div>
+                </div>
+            `;
+        }
+
+        function updateTopInsightsSummary() {
+            const container = document.getElementById('topInsightsContent');
+            if (!container) return;
+
+            const insights = [];
+            const currentYear = new Date().getFullYear();
+
+            if (currentOverviewData && Object.keys(currentOverviewData).length > 0) {
+                const totalMembers = parseInt(currentOverviewData.total_members || 0, 10);
+                const paidMembers = parseInt(currentOverviewData.members_paid || 0, 10);
+                const paymentRate = parseFloat(currentOverviewData.payment_rate_percent || 0);
+                insights.push({
+                    tone: paymentRate >= 70 ? 'success' : paymentRate >= 50 ? 'warning' : 'risk',
+                    icon: 'fa-percent',
+                    title: 'Current Payment Completion',
+                    value: `${paymentRate.toFixed(1)}% paid`,
+                    detail: `${paidMembers.toLocaleString()} of ${totalMembers.toLocaleString()} members in ${currentYear}`
+                });
+            } else {
+                insights.push({
+                    tone: 'info',
+                    icon: 'fa-percent',
+                    title: 'Current Payment Completion',
+                    value: 'No data yet',
+                    detail: `Awaiting ${currentYear} payment overview`
+                });
+            }
+
+            if (paymentByTypeData.length) {
+                const bestType = [...paymentByTypeData].sort((a, b) => parseFloat(b.paid_percent || 0) - parseFloat(a.paid_percent || 0))[0];
+                insights.push({
+                    tone: 'success',
+                    icon: 'fa-trophy',
+                    title: 'Best Paying Member Category',
+                    value: `${formatMemberType(bestType.member_type)}`,
+                    detail: `${parseFloat(bestType.paid_percent || 0).toFixed(1)}% paid (${bestType.paid_members || 0}/${bestType.total_members || 0})`
+                });
+            } else {
+                insights.push({
+                    tone: 'info',
+                    icon: 'fa-trophy',
+                    title: 'Best Paying Member Category',
+                    value: 'No category data',
+                    detail: 'Load member-type payment data to view this insight'
+                });
+            }
+
+            if (regionalPerformanceData.length) {
+                const bestRegion = [...regionalPerformanceData].sort((a, b) => parseFloat(b.payment_rate || 0) - parseFloat(a.payment_rate || 0))[0];
+                insights.push({
+                    tone: 'info',
+                    icon: 'fa-map-location-dot',
+                    title: 'Top Region by Payment Rate',
+                    value: `${bestRegion.region || 'Unknown'}`,
+                    detail: `${parseFloat(bestRegion.payment_rate || 0).toFixed(1)}% paid (${bestRegion.paid_members || 0}/${bestRegion.total_members || 0})`
+                });
+            } else {
+                insights.push({
+                    tone: 'info',
+                    icon: 'fa-map-location-dot',
+                    title: 'Top Region by Payment Rate',
+                    value: 'No regional data',
+                    detail: 'Regional performance data is not available yet'
+                });
+            }
+
+            if (memberGrowthData.length) {
+                const growthOrdered = [...memberGrowthData].sort((a, b) => new Date(a.month) - new Date(b.month));
+                const bestMonth = [...growthOrdered].sort((a, b) => parseInt(b.new_members || 0, 10) - parseInt(a.new_members || 0, 10))[0];
+                const latestPoint = growthOrdered[growthOrdered.length - 1];
+                const monthLabel = new Date(bestMonth.month).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                insights.push({
+                    tone: 'success',
+                    icon: 'fa-user-plus',
+                    title: 'Strongest Growth Month',
+                    value: `${monthLabel}`,
+                    detail: `${parseInt(bestMonth.new_members || 0, 10).toLocaleString()} new members; cumulative ${parseInt(latestPoint.cumulative || 0, 10).toLocaleString()}`
+                });
+            } else {
+                insights.push({
+                    tone: 'info',
+                    icon: 'fa-user-plus',
+                    title: 'Strongest Growth Month',
+                    value: 'No growth data',
+                    detail: 'Member growth insight will appear once data loads'
+                });
+            }
+
+            const highRiskMembers = churnAnalysisData.filter(row => {
+                if (row.years_since_paid === null || row.years_since_paid === undefined) return true;
+                return parseInt(row.years_since_paid, 10) >= 2;
+            }).length;
+            const totalOutstanding = unpaidData.reduce((sum, row) => sum + (parseFloat(row.amount_owed) || 0), 0);
+            insights.push({
+                tone: highRiskMembers > 0 ? 'risk' : 'success',
+                icon: 'fa-triangle-exclamation',
+                title: 'At-Risk Membership Follow-up',
+                value: `${highRiskMembers.toLocaleString()} high-risk members`,
+                detail: `${unpaidData.length.toLocaleString()} unpaid members; ${formatCurrency(totalOutstanding)} outstanding`
+            });
+
+            container.innerHTML = insights.slice(0, 5).map(renderInsightCard).join('');
+        }
+
+        async function loadMemberGrowth() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/member-growth'));
+                const data = await response.json();
+                memberGrowthData = Array.isArray(data) ? data : [];
+
+                const content = document.getElementById('memberGrowthContent');
+                if (!memberGrowthData.length) {
+                    if (memberGrowthChartInstance) {
+                        memberGrowthChartInstance.destroy();
+                        memberGrowthChartInstance = null;
+                    }
+                    content.innerHTML = '<div class="empty-state"><i class="fas fa-chart-area"></i><p>No member growth data available.</p></div>';
+                    return;
+                }
+
+                if (!document.getElementById('memberGrowthChart')) {
+                    content.innerHTML = '<div class="chart-canvas-wrap"><canvas id="memberGrowthChart"></canvas></div>';
+                }
+
+                const ordered = [...memberGrowthData].sort((a, b) => new Date(a.month) - new Date(b.month));
+                const labels = ordered.map(row => {
+                    const monthDate = new Date(row.month);
+                    return monthDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                });
+                const newMembers = ordered.map(row => parseInt(row.new_members || 0, 10));
+                const cumulative = ordered.map(row => parseInt(row.cumulative || 0, 10));
+
+                const canvas = document.getElementById('memberGrowthChart');
+                if (memberGrowthChartInstance) {
+                    memberGrowthChartInstance.destroy();
+                    memberGrowthChartInstance = null;
+                }
+
+                memberGrowthChartInstance = new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                type: 'bar',
+                                label: 'New Members',
+                                data: newMembers,
+                                backgroundColor: 'rgba(18, 8, 111, 0.7)',
+                                borderColor: '#12086f',
+                                borderWidth: 1,
+                                borderRadius: 6
+                            },
+                            {
+                                type: 'line',
+                                label: 'Cumulative Members',
+                                data: cumulative,
+                                borderColor: '#2CA58D',
+                                backgroundColor: 'rgba(44, 165, 141, 0.12)',
+                                borderWidth: 3,
+                                tension: 0.3,
+                                fill: true,
+                                pointRadius: 3,
+                                pointHoverRadius: 5
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { usePointStyle: true }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { precision: 0 }
+                            }
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error('Error loading member growth:', err);
+                document.getElementById('memberGrowthContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i><p>Failed to load member growth data.</p></div>';
+            }
+        }
+
+        async function loadPaymentMethods() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/payment-methods'));
+                const data = await response.json();
+                paymentMethodsData = Array.isArray(data) ? data : [];
+
+                if (!paymentMethodsData.length) {
+                    document.getElementById('paymentMethodsContent').innerHTML = '<div class="empty-state"><i class="fas fa-credit-card"></i><p>No payment method data available.</p></div>';
+                    return;
+                }
+
+                const totalPaid = paymentMethodsData.reduce((sum, row) => sum + (parseFloat(row.total_paid) || 0), 0);
+                const html = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Method</th>
+                                <th>Transactions</th>
+                                <th>Total Paid</th>
+                                <th>Avg Payment</th>
+                                <th>Share</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${paymentMethodsData.map(row => {
+                                const methodTotal = parseFloat(row.total_paid) || 0;
+                                const share = totalPaid > 0 ? (methodTotal / totalPaid) * 100 : 0;
+                                return `
+                                    <tr>
+                                        <td><strong>${row.payment_method || 'Not Specified'}</strong></td>
+                                        <td>${parseInt(row.transactions || 0, 10).toLocaleString()}</td>
+                                        <td>${formatCurrency(methodTotal)}</td>
+                                        <td>${formatCurrency(row.avg_payment || 0)}</td>
+                                        <td><span class="status-badge badge-paid">${share.toFixed(1)}%</span></td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+                document.getElementById('paymentMethodsContent').innerHTML = html;
+            } catch (err) {
+                console.error('Error loading payment methods:', err);
+                document.getElementById('paymentMethodsContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i><p>Failed to load payment methods.</p></div>';
+            }
+        }
+
+        async function loadCohortAnalysis() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/cohort-analysis'));
+                const data = await response.json();
+                cohortAnalysisData = Array.isArray(data) ? data : [];
+
+                if (!cohortAnalysisData.length) {
+                    const select = document.getElementById('cohortYearFilter');
+                    if (select) {
+                        select.innerHTML = '<option value="all">All Years</option>';
+                    }
+                    document.getElementById('cohortAnalysisContent').innerHTML = '<div class="empty-state"><i class="fas fa-users-viewfinder"></i><p>No cohort data available.</p></div>';
+                    return;
+                }
+
+                populateCohortYearFilter();
+                renderCohortAnalysis();
+            } catch (err) {
+                console.error('Error loading cohort analysis:', err);
+                const select = document.getElementById('cohortYearFilter');
+                if (select) {
+                    select.innerHTML = '<option value="all">All Years</option>';
+                }
+                document.getElementById('cohortAnalysisContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i><p>Failed to load cohort analysis.</p></div>';
+            }
+        }
+
+        function populateCohortYearFilter() {
+            const select = document.getElementById('cohortYearFilter');
+            if (!select) return;
+
+            const previousValue = select.value;
+            const isFirstLoad = select.dataset.initialized !== 'true';
+            const currentYear = new Date().getFullYear();
+            const years = [...new Set(
+                cohortAnalysisData
+                    .map(row => parseInt(row.cohort_year, 10))
+                    .filter(year => Number.isFinite(year))
+            )].sort((a, b) => b - a);
+
+            if (!years.includes(currentYear)) {
+                years.push(currentYear);
+                years.sort((a, b) => b - a);
+            }
+
+            select.innerHTML = '<option value="all">All Years</option>' +
+                years.map(year => `<option value="${year}">${year}${year === currentYear ? ' (Current)' : ''}</option>`).join('');
+
+            if (years.length === 0) {
+                select.value = 'all';
+                select.dataset.initialized = 'true';
+                return;
+            }
+
+            if (isFirstLoad) {
+                select.value = String(currentYear);
+            } else if (previousValue && (previousValue === 'all' || years.includes(parseInt(previousValue, 10)))) {
+                select.value = previousValue;
+            } else {
+                select.value = String(currentYear);
+            }
+
+            select.dataset.initialized = 'true';
+        }
+
+        function renderCohortAnalysis() {
+            const content = document.getElementById('cohortAnalysisContent');
+            if (!content) return;
+
+            if (!cohortAnalysisData.length) {
+                content.innerHTML = '<div class="empty-state"><i class="fas fa-users-viewfinder"></i><p>No cohort data available.</p></div>';
+                return;
+            }
+
+            const selectedYear = document.getElementById('cohortYearFilter')?.value || 'all';
+            let rows = [...cohortAnalysisData].sort((a, b) => parseInt(b.cohort_year || 0, 10) - parseInt(a.cohort_year || 0, 10));
+
+            if (selectedYear !== 'all') {
+                rows = rows.filter(row => String(row.cohort_year) === selectedYear);
+            }
+
+            if (!rows.length) {
+                content.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No cohort data for the selected year.</p></div>';
+                return;
+            }
+
+            const html = `
+                <div style="margin-bottom: 0.7rem; color: #6b7280; font-size: 0.82rem; font-weight: 600;">
+                    Showing: ${selectedYear === 'all' ? 'All Cohort Years' : `Cohort ${selectedYear}`}
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Cohort Year</th>
+                            <th>Years as Member</th>
+                            <th>Cohort Size</th>
+                            <th>Paid This Year</th>
+                            <th>Payment Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(row => {
+                            const rate = parseFloat(row.payment_rate || 0);
+                            const badgeClass = rate >= 75 ? 'badge-paid' : rate >= 50 ? 'badge-pending' : 'badge-overdue';
+                            return `
+                                <tr>
+                                    <td><strong>${row.cohort_year}</strong></td>
+                                    <td>${parseInt(row.years_as_member || 0, 10)} years</td>
+                                    <td>${parseInt(row.cohort_size || 0, 10).toLocaleString()}</td>
+                                    <td>${parseInt(row.paid_in_latest || 0, 10).toLocaleString()}</td>
+                                    <td><span class="status-badge ${badgeClass}">${rate.toFixed(1)}%</span></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            content.innerHTML = html;
+        }
+
+        async function loadRevenueForecast() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/revenue-forecast'));
+                const data = await response.json();
+                revenueForecastData = Array.isArray(data) ? data : [];
+
+                if (!revenueForecastData.length) {
+                    document.getElementById('revenueForecastContent').innerHTML = '<div class="empty-state"><i class="fas fa-sack-dollar"></i><p>No revenue forecast data available.</p></div>';
+                    return;
+                }
+
+                const ordered = [...revenueForecastData].sort((a, b) => parseInt(a.subscription_year, 10) - parseInt(b.subscription_year, 10));
+                const latestRow = ordered[ordered.length - 1];
+                const latestRevenue = parseFloat(latestRow.latest_revenue || latestRow.yearly_revenue || 0);
+                const forecastedRevenue = parseFloat(latestRow.forecasted_revenue_5pct_growth || 0);
+                const projectedIncrease = forecastedRevenue - latestRevenue;
+
+                const html = `
+                    <div class="insight-stat-grid">
+                        <div class="insight-stat">
+                            <div class="insight-stat-label">Latest Revenue (${latestRow.subscription_year})</div>
+                            <div class="insight-stat-value">${formatCurrency(latestRevenue)}</div>
+                        </div>
+                        <div class="insight-stat">
+                            <div class="insight-stat-label">Projected (+5%)</div>
+                            <div class="insight-stat-value">${formatCurrency(forecastedRevenue)}</div>
+                        </div>
+                        <div class="insight-stat">
+                            <div class="insight-stat-label">Projected Increase</div>
+                            <div class="insight-stat-value">${formatCurrency(projectedIncrease)}</div>
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>Revenue</th>
+                                <th>Paid Members</th>
+                                <th>Avg Per Member</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${ordered.map(row => `
+                                <tr>
+                                    <td><strong>${row.subscription_year}</strong></td>
+                                    <td>${formatCurrency(row.yearly_revenue || 0)}</td>
+                                    <td>${parseInt(row.paid_members || 0, 10).toLocaleString()}</td>
+                                    <td>${formatCurrency(row.avg_per_member || 0)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                document.getElementById('revenueForecastContent').innerHTML = html;
+            } catch (err) {
+                console.error('Error loading revenue forecast:', err);
+                document.getElementById('revenueForecastContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i><p>Failed to load revenue forecast.</p></div>';
+            }
+        }
+
+        async function loadChurnAnalysis() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/churn-analysis'));
+                const data = await response.json();
+                churnAnalysisData = Array.isArray(data) ? data : [];
+
+                if (!churnAnalysisData.length) {
+                    document.getElementById('churnAnalysisContent').innerHTML = '<div class="empty-state"><i class="fas fa-user-clock"></i><p>No churn-risk members found.</p></div>';
+                    return;
+                }
+
+                const rowsToDisplay = churnAnalysisData.slice(0, 25);
+                const html = `
+                    <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 600; color: #12086f;">Top ${rowsToDisplay.length} members needing follow-up</span>
+                        <span style="color: #666; font-size: 0.85rem;">Total flagged: ${churnAnalysisData.length}</span>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Member Type</th>
+                                <th>Member #</th>
+                                <th>Name</th>
+                                <th>Last Paid Year</th>
+                                <th>Years Since Paid</th>
+                                <th>Risk Level</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsToDisplay.map(row => {
+                                const years = row.years_since_paid === null ? null : parseInt(row.years_since_paid, 10);
+                                const riskClass = years === null || years >= 3 ? 'badge-overdue' : years >= 2 ? 'badge-pending' : 'badge-paid';
+                                const riskLabel = years === null || years >= 3 ? 'High' : years >= 2 ? 'Medium' : 'Low';
+                                const yearsLabel = years === null ? 'Never' : `${years} year${years === 1 ? '' : 's'}`;
+                                const lastPaidYear = row.last_paid_year || 'Never';
+                                const rowAction = row.member_id ? `onclick="navigateToMember(${row.member_id})" style="cursor:pointer;" title="Click to view member details"` : '';
+                                return `
+                                    <tr ${rowAction}>
+                                        <td><span class="status-badge badge-paid">${row.member_type || 'Unknown'}</span></td>
+                                        <td><strong>${row.membership_number || 'N/A'}</strong></td>
+                                        <td>${row.member_name || 'Unknown'}</td>
+                                        <td>${lastPaidYear}</td>
+                                        <td>${yearsLabel}</td>
+                                        <td><span class="status-badge ${riskClass}">${riskLabel}</span></td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+                document.getElementById('churnAnalysisContent').innerHTML = html;
+            } catch (err) {
+                console.error('Error loading churn analysis:', err);
+                document.getElementById('churnAnalysisContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i><p>Failed to load churn analysis.</p></div>';
+            }
+        }
+
+        // Refresh all data
+        async function refreshAllData() {
+            const btn = document.querySelector('.refresh-btn');
+            if (btn) {
+                btn.classList.add('loading');
+                btn.disabled = true;
+            }
+
+            try {
+                // Load each function independently so one failure doesn't stop others
+                await Promise.allSettled([
+                    loadCurrentYearOverview(),
+                    loadPaymentByType(),
+                    loadGenderByType(),
+                    loadRegionalPerformance(),
+                    loadYearlyTrends(),
+                    loadUnpaidSubscriptions(),
+                    loadMemberGrowth(),
+                    loadPaymentMethods(),
+                    loadCohortAnalysis(),
+                    loadRevenueForecast(),
+                    loadChurnAnalysis()
+                ]);
+                updateTopInsightsSummary();
+                showAlert('Dashboard updated successfully', 'success');
+            } catch (err) {
+                console.error('Error refreshing dashboard:', err);
+                showAlert('Error refreshing dashboard', 'error');
+            } finally {
+                if (btn) {
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                }
+            }
+        }
+
+        // Load all data on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadGenderYearFilter();
+            refreshAllData();
+        });
+
+        // Auto-refresh every 5 minutes
+        setInterval(refreshAllData, 5 * 60 * 1000);
+
+        // ==========================================
+        // EXPORT FUNCTIONS
+        // ==========================================
+        function downloadCSV(filename, csvContent) {
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+        }
+
+        function exportKPIData() {
+            const totalMembers = document.getElementById('totalMembers').textContent;
+            const membersPaid = document.getElementById('membersPaid').textContent;
+            const paymentRate = document.getElementById('paymentRate').textContent;
+            const totalRevenue = document.getElementById('totalRevenue').textContent;
+
+            const csv = `KPI Summary - ${new Date().toLocaleDateString()}\n\nMetric,Value\nTotal Members,${totalMembers}\nMembers Paid,${membersPaid}\nPayment Rate,${paymentRate}\nTotal Revenue,"${totalRevenue}"`;
+            downloadCSV('KPI_Summary.csv', csv);
+            showAlert('KPI data exported successfully', 'success');
+        }
+
+        async function exportPaymentByType() {
+            try {
+                const url = buildDashboardUrl('/api/dashboard/paid-by-type');
+                const response = await fetch(url);
+                const data = await response.json();
+
+                let csv = 'Payment by Member Type\n\nMember Type,Paid,Unpaid,Total,Payment Rate';
+                data.forEach(row => {
+                    const rate = row.total_members > 0 ? ((row.paid_members / row.total_members) * 100).toFixed(1) : 0;
+                    csv += `\n${row.member_type},${row.paid_members},${row.total_members - row.paid_members},${row.total_members},${rate}%`;
+                });
+                downloadCSV('Payment_By_Type.csv', csv);
+                showAlert('Payment by type data exported successfully', 'success');
+            } catch (err) {
+                showAlert('Failed to export data', 'error');
+            }
+        }
+
+        async function exportGenderBreakdown() {
+            try {
+                const yearFilter = document.getElementById('genderYearFilter')?.value || 'all';
+                const response = await fetch(`${API_BASE}/api/dashboard/gender-by-type?year=${yearFilter}`);
+                const data = await response.json();
+
+                const typeOrder = ['AIOD', 'MIOD', 'FIOD', 'Honorary', 'Corporate'];
+                const grouped = {};
+                typeOrder.forEach(type => grouped[type] = { Male: 0, Female: 0, 'Not Specified': 0 });
+                data.forEach(row => {
+                    if (grouped[row.member_type]) grouped[row.member_type][row.gender] = parseInt(row.count);
+                });
+
+                const yearLabel = yearFilter === 'all' ? 'All Years' : yearFilter;
+                let csv = `Gender Breakdown by Member Category (${yearLabel})\n\nMember Type,Male,Female,Not Specified,Total`;
+                typeOrder.forEach(type => {
+                    const g = grouped[type];
+                    const total = g.Male + g.Female + g['Not Specified'];
+                    csv += `\n${type},${g.Male},${g.Female},${g['Not Specified']},${total}`;
+                });
+                downloadCSV('Gender_Breakdown.csv', csv);
+                showAlert('Gender breakdown exported successfully', 'success');
+            } catch (err) {
+                showAlert('Failed to export data', 'error');
+            }
+        }
+
+        async function exportRegionalPerformance() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/regional-performance'));
+                const data = await response.json();
+
+                let csv = 'Regional Performance\n\nRegion,Total Members,Paid Members,Payment Rate,Total Revenue';
+                data.forEach(row => {
+                    csv += `\n${row.region},${row.total_members},${row.paid_members},${parseFloat(row.payment_rate).toFixed(1)}%,"₵${parseFloat(row.region_revenue || 0).toFixed(2)}"`;
+                });
+                downloadCSV('Regional_Performance.csv', csv);
+                showAlert('Regional performance exported successfully', 'success');
+            } catch (err) {
+                showAlert('Failed to export data', 'error');
+            }
+        }
+
+        async function exportYearlyTrends() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/yearly-trends'));
+                const data = await response.json();
+
+                let csv = 'Yearly Revenue Trends\n\nYear,Total Members,Paid Members,Payment Rate,Total Revenue';
+                data.forEach(row => {
+                    csv += `\n${row.subscription_year},${row.members_count || 0},${row.paid_members || 0},${parseFloat(row.payment_rate || 0).toFixed(1)}%,"₵${parseFloat(row.total_revenue || 0).toFixed(2)}"`;
+                });
+                downloadCSV('Yearly_Trends.csv', csv);
+                showAlert('Yearly trends exported successfully', 'success');
+            } catch (err) {
+                showAlert('Failed to export data', 'error');
+            }
+        }
+
+        async function exportMemberGrowth() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/member-growth'));
+                const data = await response.json();
+                const rows = Array.isArray(data) ? data : [];
+                if (!rows.length) {
+                    showAlert('No member growth data to export', 'error');
+                    return;
+                }
+
+                const ordered = [...rows].sort((a, b) => new Date(a.month) - new Date(b.month));
+                let csv = 'Member Growth (Last 12 Months)\n\nMonth,New Members,Cumulative Members';
+                ordered.forEach(row => {
+                    const monthDate = new Date(row.month).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                    csv += `\n${monthDate},${row.new_members || 0},${row.cumulative || 0}`;
+                });
+                downloadCSV('Member_Growth.csv', csv);
+                showAlert('Member growth exported successfully', 'success');
+            } catch (err) {
+                showAlert('Failed to export member growth', 'error');
+            }
+        }
+
+        async function exportPaymentMethods() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/payment-methods'));
+                const data = await response.json();
+                const rows = Array.isArray(data) ? data : [];
+                if (!rows.length) {
+                    showAlert('No payment method data to export', 'error');
+                    return;
+                }
+
+                let csv = 'Payment Methods (Last 12 Months)\n\nMethod,Transactions,Total Paid,Average Payment';
+                rows.forEach(row => {
+                    csv += `\n${row.payment_method || 'Not Specified'},${row.transactions || 0},${parseFloat(row.total_paid || 0).toFixed(2)},${parseFloat(row.avg_payment || 0).toFixed(2)}`;
+                });
+                downloadCSV('Payment_Methods.csv', csv);
+                showAlert('Payment methods exported successfully', 'success');
+            } catch (err) {
+                showAlert('Failed to export payment methods', 'error');
+            }
+        }
+
+        async function exportCohortAnalysis() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/cohort-analysis'));
+                const data = await response.json();
+                const rows = Array.isArray(data) ? data : [];
+                if (!rows.length) {
+                    showAlert('No cohort data to export', 'error');
+                    return;
+                }
+
+                let csv = 'Cohort Performance\n\nCohort Year,Years as Member,Cohort Size,Paid This Year,Payment Rate';
+                rows.forEach(row => {
+                    csv += `\n${row.cohort_year},${row.years_as_member || 0},${row.cohort_size || 0},${row.paid_in_latest || 0},${parseFloat(row.payment_rate || 0).toFixed(1)}%`;
+                });
+                downloadCSV('Cohort_Performance.csv', csv);
+                showAlert('Cohort analysis exported successfully', 'success');
+            } catch (err) {
+                showAlert('Failed to export cohort analysis', 'error');
+            }
+        }
+
+        async function exportRevenueForecast() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/revenue-forecast'));
+                const data = await response.json();
+                const rows = Array.isArray(data) ? data : [];
+                if (!rows.length) {
+                    showAlert('No revenue forecast data to export', 'error');
+                    return;
+                }
+
+                let csv = 'Revenue Forecast\n\nYear,Yearly Revenue,Paid Members,Average Per Member,Latest Revenue,Forecast (+5%)';
+                rows.forEach(row => {
+                    csv += `\n${row.subscription_year},${parseFloat(row.yearly_revenue || 0).toFixed(2)},${row.paid_members || 0},${parseFloat(row.avg_per_member || 0).toFixed(2)},${parseFloat(row.latest_revenue || 0).toFixed(2)},${parseFloat(row.forecasted_revenue_5pct_growth || 0).toFixed(2)}`;
+                });
+                downloadCSV('Revenue_Forecast.csv', csv);
+                showAlert('Revenue forecast exported successfully', 'success');
+            } catch (err) {
+                showAlert('Failed to export revenue forecast', 'error');
+            }
+        }
+
+        async function exportChurnAnalysis() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/churn-analysis'));
+                const data = await response.json();
+                const rows = Array.isArray(data) ? data : [];
+                if (!rows.length) {
+                    showAlert('No churn data to export', 'error');
+                    return;
+                }
+
+                let csv = 'Churn Watchlist\n\nMember Type,Membership Number,Member Name,Last Paid Year,Years Since Paid';
+                rows.forEach(row => {
+                    const years = row.years_since_paid === null ? 'Never' : row.years_since_paid;
+                    csv += `\n${row.member_type || ''},${row.membership_number || ''},"${row.member_name || ''}",${row.last_paid_year || 'Never'},${years}`;
+                });
+                downloadCSV('Churn_Watchlist.csv', csv);
+                showAlert('Churn watchlist exported successfully', 'success');
+            } catch (err) {
+                showAlert('Failed to export churn watchlist', 'error');
+            }
+        }
+
+        function exportUnpaidSubscriptions() {
+            if (!unpaidData || unpaidData.length === 0) {
+                showAlert('No unpaid subscriptions to export', 'error');
+                return;
+            }
+
+            let csv = 'Unpaid Subscriptions\n\nMembership No,Member Type,Full Name,Organization,Email';
+            unpaidData.forEach(row => {
+                const fullName = `${row.first_name || ''} ${row.surname || row.last_name || ''}`.trim();
+                csv += `\n${row.membership_number},${row.member_type},"${fullName}","${row.organization || ''}",${row.email || ''}`;
+            });
+            downloadCSV('Unpaid_Subscriptions.csv', csv);
+            showAlert('Unpaid subscriptions exported successfully', 'success');
+        }
+    </script>
+</body>
+</html>

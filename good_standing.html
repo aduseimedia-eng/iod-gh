@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Members in Good Standing | IOD Ghana</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #0A2342; /* Dark Blue */
+            --primary-light: #1a3657;
+            --primary-dark: #051424;
+            --secondary: #2CA58D; /* Teal */
+                --primary: #2C1972; /* Brand Navy */
+                --accent: #2C1972; /* Brand Navy */
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --text-dark: #212529;
+            --text-light: #6c757d;
+            --bg-light: #f8f9fa;
+            --bg-white: #ffffff;
+            --border: #dee2e6;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.07);
+            --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 1.25rem 2rem;
+            box-shadow: var(--shadow-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .logo-section {
+            flex-shrink: 0;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        header p {
+            font-size: 0.85rem;
+            margin: 0;
+            opacity: 0.8;
+        }
+
+        /* Navigation Buttons */
+        .nav-right {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .nav-btn {
+            background: transparent;
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: white;
+            transform: translateY(-1px);
+        }
+
+        .nav-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2.5rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .controls-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: var(--shadow-md);
+            padding: 1.5rem 2rem;
+            border: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        label {
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        select, button {
+            padding: 0.75rem 1.25rem;
+            border-radius: 25px;
+            border: 1px solid var(--border);
+            font-size: 0.95rem;
+            font-family: inherit;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        select {
+            background: white;
+            color: var(--text-dark);
+            cursor: pointer;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236c757d' class='bi bi-chevron-down' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            padding-right: 2.5rem;
+        }
+
+        select:hover {
+            border-color: var(--primary);
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(10, 35, 66, 0.15);
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        button:hover {
+            background: #051424; /* primary-dark */
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        button.export-btn {
+            background: var(--accent);
+            color: white;
+        }
+        
+        button.export-btn:hover {
+            background: #1a0a8f;
+        }
+
+        /* Summary Cards Grid */
+        .summary-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .summary-card {
+            background: var(--primary);
+            color: white;
+            padding: 1.75rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow-md);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .summary-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .summary-card-text {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-card-value {
+            font-size: 2.25rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .summary-card-icon {
+            font-size: 2.5rem;
+            opacity: 0.3;
+        }
+
+        /* Member Group Cards */
+        .member-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow-md);
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .table-scroll-wrap {
+            max-height: 420px;
+            overflow-y: auto;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .table-scroll-wrap table {
+            margin: 0;
+        }
+
+        .table-scroll-wrap thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: var(--bg-light);
+            box-shadow: 0 1px 0 var(--border);
+        }
+
+        .card-title {
+            color: var(--primary);
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .member-count {
+            background: var(--primary);
+            color: white;
+            padding: 0.2rem 0.7rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: auto;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: var(--primary);
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
+
+        th {
+            background: var(--bg-light);
+            color: var(--text-dark);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        tbody tr:hover {
+            background: #f1f3f5;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--text-light);
+            font-size: 1rem;
+            background-color: var(--bg-light);
+            border-radius: 12px;
+        }
+
+        .no-data i {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .loading-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--text-light);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 32px;
+            height: 32px;
+            border: 3px solid rgba(10, 35, 66, 0.2);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 1024px) {
+            .summary-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            header {
+                padding: 1.5rem;
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+
+            header h1 {
+                font-size: 1.25rem;
+            }
+
+            header p {
+                font-size: 0.8rem;
+            }
+
+            .container {
+                padding: 0 1rem;
+                margin: 1.5rem auto;
+            }
+
+            .controls-card {
+                padding: 1.25rem;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            label, select, button {
+                width: 100%;
+            }
+
+            .member-card {
+                padding: 1rem;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 0.7rem 0.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <div class="logo-section">
+                <img src="White IOD_Logo_png.png" width="60px" alt="IoD-Ghana Logo" height="60px">
+            </div>
+            <div class="header-text">
+                <h1>Members in Good Standing</h1>
+                <p>IOD Ghana - Paid Members by Year & Category</p>
+            </div>
+        </div>
+        <div class="nav-right">
+            <a href="index.html" class="nav-btn" title="Back to Dashboard">
+                <i class="fas fa-arrow-left"></i> Dashboard
+            </a>
+            <a href="good_standing.html" class="nav-btn active">
+                <i class="fas fa-check-circle"></i> Good Standing
+            </a>
+            <a href="dashboard-analytics.html" class="nav-btn">
+                <i class="fas fa-chart-line"></i> Analytics
+            </a>
+            <a href="index.html#settings" class="nav-btn" title="Account Settings" style="cursor: pointer;">
+                <i class="fas fa-cog"></i>
+            </a>
+            <button onclick="logout()" class="nav-btn" title="Sign Out" style="background: rgba(220,38,38,0.15); color: #fca5a5; border: 1px solid rgba(220,38,38,0.3); cursor: pointer;">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+        </div>
+    </header>
+    <div class="container">
+        <!-- Subscription Rates Configuration Section -->
+        <div class="controls-card" id="rates-config-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3 style="margin: 0; color: var(--primary); font-size: 1.1rem;">
+                    <i class="fas fa-cog"></i> Subscription Rates Configuration
+                </h3>
+                <button onclick="toggleRatesSection()" id="toggle-rates-btn" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+                    <i class="fas fa-chevron-down" id="rates-toggle-icon"></i> <span id="rates-toggle-text">Show</span>
+                </button>
+            </div>
+            <div id="rates-config-content" style="display: none;">
+                <div style="margin-bottom: 1rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                    <label for="rates-year-select"><i class="fas fa-calendar"></i> Year:</label>
+                    <select id="rates-year-select" onchange="loadRatesForYear()"></select>
+                    <label for="early-bird-deadline"><i class="fas fa-clock"></i> Early Bird Deadline:</label>
+                    <input type="date" id="early-bird-deadline" style="padding: 0.5rem; border: 1px solid var(--border); border-radius: 5px;">
+                    <button onclick="saveAllRates()" style="background: var(--success);">
+                        <i class="fas fa-save"></i> Save Rates
+                    </button>
+                </div>
+                <div id="rates-table-container">
+                    <table style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>Member Type</th>
+                                <th>Regular Amount (GHS)</th>
+                                <th>Early Bird Amount (GHS)</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rates-table-body">
+                            <!-- Rates will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-light); margin-top: 1rem;">
+                    <i class="fas fa-info-circle"></i> Set the expected subscription amount for each member category. 
+                    Early bird rate applies to payments made before the deadline date.
+                    When a member pays more than expected, the excess is carried forward as credit to the next year.
+                </p>
+            </div>
+        </div>
+
+        <div class="controls-card">
+            <div class="controls">
+                <label for="year-select"><i class="fas fa-calendar-alt"></i> Select Year:</label>
+                <select id="year-select" onchange="loadGoodStanding()"></select>
+                <button onclick="loadGoodStanding()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                <button onclick="exportGoodStandingCSV()" class="export-btn"><i class="fas fa-file-csv"></i> Export CSV</button>
+            </div>
+        </div>
+        <div id="good-standing-content"></div>
+    </div>
+    <script>
+        // Auth helpers
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login.html';
+        }
+        const _origFetch = window.fetch;
+        window.fetch = async function(...args) {
+            const response = await _origFetch(...args);
+            if (response.status === 401) window.location.href = '/login.html';
+            return response;
+        };
+
+        let currentGoodStandingData = [];
+        let currentYear = null;
+        let currentRates = {};
+        const memberTypes = ['AIOD', 'FIOD', 'MIOD', 'Honorary'];
+        const corpCategories = ['Platinum', 'Gold', 'Silver', 'Bronze'];
+        // Combined list for rates config: individual types + Corporate categories
+        const allRateKeys = [
+            { type: 'AIOD', category: null, label: 'Associate, Institute of Directors' },
+            { type: 'FIOD', category: null, label: 'Fellow, Institute of Directors' },
+            { type: 'MIOD', category: null, label: 'Member, Institute of Directors' },
+            { type: 'Corporate', category: 'Platinum', label: 'Corporate - Platinum' },
+            { type: 'Corporate', category: 'Gold', label: 'Corporate - Gold' },
+            { type: 'Corporate', category: 'Silver', label: 'Corporate - Silver' },
+            { type: 'Corporate', category: 'Bronze', label: 'Corporate - Bronze' },
+            { type: 'Honorary', category: null, label: 'Honorary Fellows' }
+        ];
+
+        // ============================================================
+        // SUBSCRIPTION RATES MANAGEMENT
+        // ============================================================
+        
+        function toggleRatesSection() {
+            const content = document.getElementById('rates-config-content');
+            const icon = document.getElementById('rates-toggle-icon');
+            const text = document.getElementById('rates-toggle-text');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.className = 'fas fa-chevron-up';
+                text.textContent = 'Hide';
+                loadRatesForYear();
+            } else {
+                content.style.display = 'none';
+                icon.className = 'fas fa-chevron-down';
+                text.textContent = 'Show';
+            }
+        }
+        
+        async function populateRatesYearSelect() {
+            const select = document.getElementById('rates-year-select');
+            const currentYear = new Date().getFullYear();
+            const years = [];
+            // Fixed range: 2025-2035
+            for (let y = 2035; y >= 2025; y--) {
+                years.push(y);
+            }
+            select.innerHTML = years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('');
+        }
+        
+        async function loadRatesForYear() {
+            const year = document.getElementById('rates-year-select').value;
+            if (!year) return;
+            
+            try {
+                const res = await fetch(`/api/subscription-rates/${year}`);
+                const rates = await res.json();
+                
+                // Convert to lookup object keyed by "type" or "type-category"
+                currentRates = {};
+                let earlyBirdDeadline = null;
+                rates.forEach(r => {
+                    const key = r.membership_category ? `${r.member_type}-${r.membership_category}` : r.member_type;
+                    currentRates[key] = r;
+                    if (r.early_bird_deadline) earlyBirdDeadline = r.early_bird_deadline;
+                });
+                
+                // Set the early bird deadline input
+                const deadlineInput = document.getElementById('early-bird-deadline');
+                if (earlyBirdDeadline) {
+                    deadlineInput.value = earlyBirdDeadline.split('T')[0];
+                } else {
+                    deadlineInput.value = '';
+                }
+                
+                renderRatesTable(year);
+            } catch (error) {
+                console.error('Error loading rates:', error);
+            }
+        }
+        
+        function renderRatesTable(year) {
+            const tbody = document.getElementById('rates-table-body');
+            
+            const defaultAmounts = {
+                'AIOD': 350,
+                'FIOD': 500,
+                'MIOD': 400,
+                'Corporate-Platinum': 10000,
+                'Corporate-Gold': 7500,
+                'Corporate-Silver': 5000,
+                'Corporate-Bronze': 3000,
+                'Honorary': 0
+            };
+            
+            tbody.innerHTML = allRateKeys.map(item => {
+                const key = item.category ? `${item.type}-${item.category}` : item.type;
+                const rate = currentRates[key] || { expected_amount: defaultAmounts[key] || 0, early_bird_amount: null, description: '' };
+                const isReadonly = item.type === 'Honorary' ? 'readonly' : '';
+                const bgColor = item.type === 'Corporate' ? 'style="background: #f0f7ff;"' : '';
+                
+                return `
+                    <tr ${bgColor}>
+                        <td><strong>${item.label}</strong></td>
+                        <td>
+                            <input type="number" 
+                                   id="rate-${key}" 
+                                   value="${rate.expected_amount || 0}" 
+                                   min="0" 
+                                   step="0.01"
+                                   style="width: 120px; padding: 0.5rem; border: 1px solid var(--border); border-radius: 5px;"
+                                   ${isReadonly}>
+                        </td>
+                        <td>
+                            <input type="number" 
+                                   id="rate-early-${key}" 
+                                   value="${rate.early_bird_amount || ''}" 
+                                   min="0" 
+                                   step="0.01"
+                                   placeholder="No discount"
+                                   style="width: 120px; padding: 0.5rem; border: 1px solid var(--border); border-radius: 5px;"
+                                   ${isReadonly}>
+                        </td>
+                        <td>
+                            <input type="text" 
+                                   id="rate-desc-${key}" 
+                                   value="${rate.description || ''}" 
+                                   placeholder="Optional description"
+                                   style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 5px;">
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        async function saveAllRates() {
+            const year = document.getElementById('rates-year-select').value;
+            const earlyBirdDeadline = document.getElementById('early-bird-deadline').value || null;
+            
+            const rates = allRateKeys.map(item => {
+                const key = item.category ? `${item.type}-${item.category}` : item.type;
+                const earlyBirdValue = document.getElementById(`rate-early-${key}`).value;
+                return {
+                    member_type: item.type,
+                    membership_category: item.category,
+                    expected_amount: parseFloat(document.getElementById(`rate-${key}`).value) || 0,
+                    early_bird_amount: earlyBirdValue ? parseFloat(earlyBirdValue) : null,
+                    description: document.getElementById(`rate-desc-${key}`).value
+                };
+            });
+            
+            try {
+                const res = await fetch('/api/subscription-rates/bulk', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subscription_year: parseInt(year), rates, early_bird_deadline: earlyBirdDeadline })
+                });
+                
+                if (res.ok) {
+                    alert(`Subscription rates for ${year} saved successfully!`);
+                    loadRatesForYear();
+                } else {
+                    const error = await res.json();
+                    alert('Error saving rates: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving rates:', error);
+                alert('Error saving rates. Please check the server connection.');
+            }
+        }
+
+        // ============================================================
+        // GOOD STANDING REPORT
+        // ============================================================
+
+        async function fetchYears() {
+            const res = await fetch('/api/subscription-years');
+            const years = await res.json();
+            return years.sort((a,b) => b - a);
+        }
+        
+        async function populateYearSelect() {
+            try {
+                let apiYears = await fetchYears();
+                const select = document.getElementById('year-select');
+                
+                // Always provide a range of years (2025-2035)
+                const defaultYears = [2035, 2034, 2033, 2032, 2031, 2030, 2029, 2028, 2027, 2026, 2025];
+                
+                // Merge API years with defaults (remove duplicates)
+                const allYears = [...new Set([...apiYears, ...defaultYears])].sort((a, b) => b - a);
+                
+                select.innerHTML = allYears.map(y => `<option value="${y}">${y}</option>`).join('');
+                
+                if(allYears.length) {
+                    const targetYear = 2026;
+                    if (allYears.includes(targetYear)) {
+                        select.value = targetYear;
+                    } else {
+                        select.value = allYears[0];
+                    }
+                    loadGoodStanding();
+                }
+            } catch (error) {
+                console.error('Error fetching years:', error);
+                document.getElementById('good-standing-content').innerHTML = `<div class="no-data"><p>Could not load available years.</p></div>`;
+            }
+        }
+
+        function formatGoodStandingFullName(member) {
+            const personalName = `${member.first_name || ''} ${member.surname || member.last_name || ''}`.trim();
+            if (member.member_type === 'Corporate') {
+                return member.organization || personalName || 'N/A';
+            }
+            return personalName || member.organization || 'N/A';
+        }
+
+        function formatGoodStandingAmount(value) {
+            const amount = parseFloat(value);
+            return Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
+        }
+
+        function renderGoodStandingTableHeader() {
+            return `<thead><tr>
+                <th>Membership No.</th>
+                <th>Full Name</th>
+                <th>Expected (₵) Amount</th>
+                <th>Paid (₵)</th>
+                <th>Credit Applied (₵)</th>
+                <th>Payment Date</th>
+            </tr></thead>`;
+        }
+
+        function renderGoodStandingTableRow(member) {
+            return `<tr>
+                <td><strong>${member.membership_number || 'N/A'}</strong></td>
+                <td>${formatGoodStandingFullName(member)}</td>
+                <td>${formatGoodStandingAmount(member.expected_amount)}</td>
+                <td>${formatGoodStandingAmount(member.amount_paid)}</td>
+                <td>${formatGoodStandingAmount(member.credit_applied)}</td>
+                <td>${member.payment_date || '-'}</td>
+            </tr>`;
+        }
+
+        async function loadGoodStanding() {
+            const year = document.getElementById('year-select').value;
+            if (!year) return;
+            
+            currentYear = year;
+            const contentEl = document.getElementById('good-standing-content');
+            contentEl.innerHTML = `<div class="member-card"><div class="loading-state"><div class="loading-spinner"></div><p>Loading report for ${year}...</p></div></div>`;
+
+            try {
+                const res = await fetch(`/api/good-standing/${year}`);
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                const members = await res.json();
+                currentGoodStandingData = members;
+                
+                const groups = { FIOD: [], MIOD: [], AIOD: [] };
+                const corpGroups = { Platinum: [], Gold: [], Silver: [], Bronze: [] };
+                const waivedMembers = [];
+                const honoraryMembers = [];
+                members.forEach(m => {
+                    // Honorary → separate section
+                    if (m.member_type === 'Honorary') {
+                        honoraryMembers.push(m);
+                        return;
+                    }
+                    // Waived non-Honorary → only waived section (not type groups)
+                    if (m.status === 'Waived') {
+                        waivedMembers.push(m);
+                        return;
+                    }
+                    // Paid members → their type groups
+                    if (m.member_type === 'Corporate') {
+                        const cat = m.membership_category || 'Bronze';
+                        if (corpGroups[cat]) corpGroups[cat].push(m);
+                        else corpGroups['Bronze'].push(m);
+                    } else if (groups[m.member_type]) {
+                        groups[m.member_type].push(m);
+                    }
+                });
+                
+                let totalMembers = members.length;
+                let totalRevenue = members.reduce((sum, m) => sum + (parseFloat(m.amount_paid) || 0) + (parseFloat(m.credit_applied) || 0), 0);
+                let totalCorporate = members.filter(m => m.member_type === 'Corporate' && m.status !== 'Waived').length;
+                let totalWaived = waivedMembers.length;
+                let totalHonorary = honoraryMembers.length;
+                
+                let html = `<h2><i class="fas fa-clipboard-check"></i> Good Standing Report for ${year}</h2>`;
+                
+                // Summary Cards
+                html += `<div class="summary-section">
+                    <div class="summary-card" style="background: var(--primary);">
+                        <div>
+                            <div class="summary-card-text">Year of Good Standing</div>
+                            <div class="summary-card-value">${year}</div>
+                        </div>
+                        <div class="summary-card-icon"><i class="fas fa-calendar-check"></i></div>
+                    </div>
+                    <div class="summary-card" style="background: var(--secondary);">
+                        <div>
+                            <div class="summary-card-text">Total Members</div>
+                            <div class="summary-card-value">${totalMembers}</div>
+                        </div>
+                        <div class="summary-card-icon"><i class="fas fa-users"></i></div>
+                    </div>
+                    <div class="summary-card" style="background: #6366f1; color: white;">
+                        <div>
+                            <div class="summary-card-text">Corporate Partners</div>
+                            <div class="summary-card-value">${totalCorporate}</div>
+                        </div>
+                        <div class="summary-card-icon"><i class="fas fa-building"></i></div>
+                    </div>
+                    <div class="summary-card" style="background: var(--accent); color: white;">
+                        <div>
+                            <div class="summary-card-text">Total Revenue</div>
+                            <div class="summary-card-value">₵${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                        </div>
+                        <div class="summary-card-icon"><i class="fas fa-money-bill-wave"></i></div>
+                    </div>
+                    ${totalWaived > 0 ? `<div class="summary-card" style="background: #eab308; color: white;">
+                        <div>
+                            <div class="summary-card-text">Waived Members</div>
+                            <div class="summary-card-value">${totalWaived}</div>
+                        </div>
+                        <div class="summary-card-icon"><i class="fas fa-hand-holding-heart"></i></div>
+                    </div>` : ''}
+                    ${totalHonorary > 0 ? `<div class="summary-card" style="background: #7c3aed; color: white;">
+                        <div>
+                            <div class="summary-card-text">Honorary Members</div>
+                            <div class="summary-card-value">${totalHonorary}</div>
+                        </div>
+                        <div class="summary-card-icon"><i class="fas fa-medal"></i></div>
+                    </div>` : ''}
+                </div>`;
+                
+                const typeNames = {
+                    FIOD: { name: 'Fellow, Institute of Directors', icon: 'fa-award' },
+                    MIOD: { name: 'Member, Institute of Directors', icon: 'fa-user-tie' },
+                    AIOD: { name: 'Associate, Institute of Directors', icon: 'fa-user-friends' }
+                };
+                
+                // Render individual member types (FIOD, MIOD, AIOD)
+                for(const type of ['FIOD','MIOD','AIOD']) {
+                    if(groups[type].length) {
+                        html += `<div class='member-card'>
+                            <div class="card-title">
+                                <i class="fas ${typeNames[type].icon}"></i>
+                                ${typeNames[type].name}
+                                <span class="member-count">${groups[type].length} members</span>
+                            </div>
+                            <div class="table-scroll-wrap"><table>
+                                ${renderGoodStandingTableHeader()}
+                                <tbody>`;
+                        groups[type]
+                            .sort((a,b)=>a.membership_number.localeCompare(b.membership_number))
+                            .forEach(m => {
+                                html += renderGoodStandingTableRow(m);
+                            });
+                        html += `</tbody></table></div></div>`;
+                    }
+                }
+                
+                // Render Corporate members grouped by category
+                const corpCategoryNames = {
+                    Platinum: { label: 'Corporate - Platinum', color: '#6366f1' },
+                    Gold: { label: 'Corporate - Gold', color: '#d97706' },
+                    Silver: { label: 'Corporate - Silver', color: '#6b7280' },
+                    Bronze: { label: 'Corporate - Bronze', color: '#b45309' }
+                };
+                
+                const hasAnyCorporate = Object.values(corpGroups).some(arr => arr.length > 0);
+                if (hasAnyCorporate) {
+                    html += `<div class='member-card'>
+                        <div class="card-title">
+                            <i class="fas fa-building"></i>
+                            Corporate Members
+                            <span class="member-count">${totalCorporate} members</span>
+                        </div>`;
+                    
+                    for (const cat of ['Platinum', 'Gold', 'Silver', 'Bronze']) {
+                        if (corpGroups[cat].length > 0) {
+                            html += `
+                                <div style="margin: 1rem 0 0.5rem 0; padding: 0.5rem 1rem; background: ${corpCategoryNames[cat].color}15; border-left: 4px solid ${corpCategoryNames[cat].color}; border-radius: 0 8px 8px 0;">
+                                    <strong style="color: ${corpCategoryNames[cat].color}; font-size: 0.95rem;">
+                                        <i class="fas fa-gem" style="margin-right: 0.4rem;"></i>${corpCategoryNames[cat].label}
+                                    </strong>
+                                    <span style="color: var(--text-light); font-size: 0.85rem; margin-left: 0.75rem;">${corpGroups[cat].length} member${corpGroups[cat].length !== 1 ? 's' : ''}</span>
+                                </div>
+                                <div class="table-scroll-wrap" style="margin-bottom: 1rem;"><table>
+                                    ${renderGoodStandingTableHeader()}
+                                    <tbody>`;
+                            corpGroups[cat]
+                                .sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||''))
+                                .forEach(m => {
+                                    html += renderGoodStandingTableRow(m);
+                                });
+                            html += `</tbody></table></div>`;
+                        }
+                    }
+                    
+                    html += `</div>`;
+                }
+                
+                // Render Waived Members section (non-Honorary only)
+                if (waivedMembers.length > 0) {
+                    html += `<div class='member-card' style='border-left: 4px solid #eab308;'>
+                        <div class="card-title" style="color: #854d0e;">
+                            <i class="fas fa-hand-holding-heart"></i>
+                            Waived Members
+                            <span class="member-count" style="background: #fef9c3; color: #854d0e;">${waivedMembers.length} member${waivedMembers.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <p style="padding: 0 1rem; margin: 0 0 1rem; font-size: 0.88rem; color: #92400e;">Members whose subscription payment has been waived for ${year}.</p>
+                        <div class="table-scroll-wrap"><table>
+                            ${renderGoodStandingTableHeader()}
+                            <tbody>`;
+                    waivedMembers
+                        .sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||''))
+                        .forEach(m => {
+                            html += renderGoodStandingTableRow(m);
+                        });
+                    html += `</tbody></table></div></div>`;
+                }
+
+                // Render Honorary Members section
+                if (honoraryMembers.length > 0) {
+                    html += `<div class='member-card' style='border-left: 4px solid #7c3aed;'>
+                        <div class="card-title" style="color: #5b21b6;">
+                            <i class="fas fa-medal"></i>
+                            Honorary Members
+                            <span class="member-count" style="background: #ede9fe; color: #5b21b6;">${honoraryMembers.length} member${honoraryMembers.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <p style="padding: 0 1rem; margin: 0 0 1rem; font-size: 0.88rem; color: #6d28d9;">Honorary members are automatically in good standing.</p>
+                        <div class="table-scroll-wrap"><table>
+                            ${renderGoodStandingTableHeader()}
+                            <tbody>`;
+                    honoraryMembers
+                        .sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||''))
+                        .forEach(m => {
+                            html += renderGoodStandingTableRow(m);
+                        });
+                    html += `</tbody></table></div></div>`;
+                }
+                
+                if(totalMembers === 0) {
+                    html = `<h2><i class="fas fa-clipboard-check"></i> Good Standing Report for ${year}</h2>`;
+                    html += `<div class="member-card">
+                        <div class="no-data">
+                            <i class="fas fa-info-circle"></i>
+                            <p>No members in good standing for ${year}.</p>
+                            <p style="font-size: 0.9rem; color: var(--text-light); margin-top: 0.5rem;">
+                                Members appear here when they have subscription payments recorded for this year. 
+                                Add subscriptions through the member detail page.
+                            </p>
+                        </div>
+                    </div>`;
+                }
+                
+                contentEl.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading data:', error);
+                contentEl.innerHTML = `
+                    <div class="member-card">
+                        <div class="no-data">
+                            <i class="fas fa-exclamation-triangle" style="color: var(--danger);"></i>
+                            <p>Error loading members data. Please check the server connection and try again.</p>
+                        </div>
+                    </div>`;
+            }
+        }
+
+        function exportGoodStandingCSV() {
+            if (currentGoodStandingData.length === 0) {
+                alert('No data to export. Please load a report first.');
+                return;
+            }
+
+            const headers = ['Membership No.', 'Full Name', 'Expected (₵) Amount', 'Paid (₵)', 'Credit Applied (₵)', 'Payment Date'];
+            let csv = headers.join(',') + '\n';
+
+            currentGoodStandingData.forEach(member => {
+                const fullName = formatGoodStandingFullName(member);
+                const row = [
+                    `"${member.membership_number || ''}"`,
+                    `"${fullName}"`,
+                    `"${formatGoodStandingAmount(member.expected_amount)}"`,
+                    `"${formatGoodStandingAmount(member.amount_paid)}"`,
+                    `"${formatGoodStandingAmount(member.credit_applied)}"`,
+                    `"${member.payment_date || ''}"`
+                ];
+                csv += row.join(',') + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `IOD_Good_Standing_${currentYear}_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            populateYearSelect();
+            populateRatesYearSelect();
+        });
+    </script>
+</body>
+</html>

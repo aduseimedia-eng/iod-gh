@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff View | IOD Ghana - Members Directory</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #12086f;
+            --primary-light: #3d2a8a;
+            --primary-dark: #1a0e4f;
+            --secondary: #2CA58D;
+            --accent: #4f39c4;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f0f2f8;
+            --bg-white: #ffffff;
+            --border: #e5e7eb;
+            --shadow-sm: 0 1px 3px rgba(18, 8, 111, 0.06);
+            --shadow-md: 0 4px 12px rgba(18, 8, 111, 0.08);
+            --shadow-lg: 0 12px 30px rgba(18, 8, 111, 0.10);
+            --gradient-primary: linear-gradient(135deg, #12086f 0%, #2d1b8f 40%, #4f39c4 100%);
+        }
+
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: var(--text-dark);
+            background: linear-gradient(135deg, #eef0f7 0%, #e8e5f5 50%, #f0eef8 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background: radial-gradient(ellipse at 20% 0%, rgba(18,8,111,0.04) 0%, transparent 50%),
+                        radial-gradient(ellipse at 80% 100%, rgba(79,57,196,0.04) 0%, transparent 50%);
+            pointer-events: none; z-index: 0;
+        }
+
+        /* ── Header ── */
+        header {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 1.25rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(18,8,111,0.25);
+        }
+        header::after {
+            content: '';
+            position: absolute; left: 0; right: 0; bottom: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #f59e0b, #ef4444, #4f39c4, #10b981, #3b82f6, #f59e0b);
+            background-size: 200% 100%;
+            animation: shimmerBar 4s linear infinite;
+        }
+        @keyframes shimmerBar {
+            0% { background-position: 0% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo-section {
+            width: 52px;
+            height: 52px;
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(8px);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255,255,255,0.15);
+            transition: transform 0.3s;
+        }
+        .logo-section:hover { transform: scale(1.05) rotate(-2deg); }
+
+        .header-text h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 0.1rem;
+            letter-spacing: -0.3px;
+        }
+
+        .header-text p {
+            font-size: 0.82rem;
+            opacity: 0.75;
+            font-weight: 300;
+        }
+
+        .nav-right {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            padding: 0.55rem 1.1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            backdrop-filter: blur(4px);
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+            border-color: rgba(255,255,255,0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .staff-badge {
+            background: rgba(16, 185, 129, 0.15);
+            color: #6ee7b7;
+            padding: 0.45rem 1rem;
+            border-radius: 10px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            backdrop-filter: blur(4px);
+            letter-spacing: 0.3px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            position: relative; z-index: 1;
+        }
+
+        /* ── KPI Cards ── */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            background: var(--bg-white);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            transition: all 0.35s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card::before {
+            content: '';
+            position: absolute; right: -20px; top: -20px;
+            width: 70px; height: 70px; border-radius: 50%;
+            opacity: 0.08;
+            transition: all 0.4s ease;
+        }
+        .kpi-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-4px);
+        }
+        .kpi-card:hover::before { opacity: 0.14; transform: scale(1.3); }
+
+        .kpi-card::before { background: var(--primary); }
+        .kpi-card.paid::before { background: var(--success); }
+        .kpi-card.unpaid::before { background: var(--danger); }
+
+        .kpi-label {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            font-weight: 600;
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .kpi-value {
+            font-size: 2.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            line-height: 1;
+        }
+
+        .kpi-card.paid .kpi-value { color: var(--success); }
+        .kpi-card.unpaid .kpi-value { color: var(--danger); }
+
+        /* ── Filter Bar ── */
+        .filter-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 280px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: var(--bg-white);
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            padding: 0.5rem 1.25rem;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+        }
+
+        .search-box:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(79, 57, 196, 0.12);
+        }
+
+        .search-box i {
+            color: var(--accent);
+            margin-right: 0.75rem;
+            font-size: 1.05rem;
+            transition: color 0.3s;
+        }
+        .search-box:focus-within i { color: var(--primary); }
+
+        .search-box input {
+            flex: 1;
+            border: none;
+            padding: 0.55rem 0;
+            outline: none;
+            font-size: 0.92rem;
+            color: var(--text-dark);
+            background: transparent;
+        }
+
+        .search-box input::placeholder {
+            color: var(--text-light);
+        }
+
+        select {
+            padding: 0.7rem 1.2rem;
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            background: var(--bg-white);
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+            font-size: 0.9rem;
+            color: var(--text-dark);
+            transition: all 0.3s ease;
+            font-weight: 500;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236b7280' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            padding-right: 2.5rem;
+        }
+
+        select:hover {
+            border-color: var(--accent);
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 57, 196, 0.12);
+        }
+
+        /* ── Content Section ── */
+        .content-section {
+            background: var(--bg-white);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+        .content-section::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0;
+            height: 4px;
+            background: var(--gradient-primary);
+            border-radius: 20px 20px 0 0;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .section-subtitle {
+            color: var(--text-light);
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+
+        /* ── Table ── */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #f8f9ff, #f0f2f8);
+            font-weight: 600;
+        }
+
+        th {
+            padding: 0.8rem 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+            letter-spacing: 0.5px;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+            color: var(--primary);
+        }
+
+        th:hover {
+            background: #e8e5f5;
+        }
+
+        th.asc::after {
+            content: ' \25B2';
+            font-size: 0.7em;
+            color: var(--accent);
+        }
+
+        th.desc::after {
+            content: ' \25BC';
+            font-size: 0.7em;
+            color: var(--accent);
+        }
+
+        td {
+            padding: 0.7rem 0.75rem;
+            border-bottom: 1px solid #f3f4f6;
+            color: var(--text-dark);
+        }
+
+        tbody tr {
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        tbody tr:hover {
+            background: linear-gradient(135deg, #f5f3ff, #eef2ff);
+            box-shadow: 0 2px 8px rgba(18, 8, 111, 0.06);
+        }
+
+        tbody tr:active {
+            transform: scale(0.985);
+            background: linear-gradient(135deg, #e0e7ff, #ddd6fe);
+            box-shadow: inset 0 2px 6px rgba(18, 8, 111, 0.12);
+            transition: all 0.06s ease;
+        }
+
+        tbody tr.row-clicked {
+            animation: rowPulse 0.45s ease;
+        }
+
+        @keyframes rowPulse {
+            0%   { background: linear-gradient(135deg, #c7d2fe, #a5b4fc); box-shadow: 0 0 0 0 rgba(18, 8, 111, 0.25); }
+            40%  { background: linear-gradient(135deg, #dbeafe, #c7d2fe); box-shadow: 0 0 0 6px rgba(18, 8, 111, 0); }
+            100% { background: var(--bg-white, #fff); box-shadow: none; }
+        }
+
+        /* ── Badges ── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.3rem 0.65rem;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            border: 1px solid;
+        }
+
+        .badge-type {
+            background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+            color: #3730a3;
+            border-color: #c7d2fe;
+        }
+
+        .badge-paid {
+            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+            color: #065f46;
+            border-color: #a7f3d0;
+        }
+
+        .badge-unpaid {
+            background: linear-gradient(135deg, #fef2f2, #fee2e2);
+            color: #991b1b;
+            border-color: #fecaca;
+        }
+
+        .badge-partial {
+            background: linear-gradient(135deg, #fffbeb, #fef3c7);
+            color: #92400e;
+            border-color: #fde68a;
+        }
+
+        .badge-waived {
+            background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+            color: #5b21b6;
+            border-color: #ddd6fe;
+        }
+
+        .badge-pending {
+            background: linear-gradient(135deg, #f9fafb, #f3f4f6);
+            color: #6b7280;
+            border-color: #e5e7eb;
+        }
+
+        .badge-gold {
+            background: linear-gradient(135deg, #fffbeb, #fef3c7);
+            color: #b45309;
+            border-color: #fcd34d;
+        }
+
+        /* ── View Button ── */
+        .view-btn {
+            padding: 0.35rem 0.8rem;
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.25s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            box-shadow: 0 2px 8px rgba(18,8,111,0.2);
+        }
+
+        .view-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(18,8,111,0.3);
+            filter: brightness(1.1);
+        }
+        .view-btn:active { transform: translateY(0); }
+
+        /* ── Pagination ── */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1.25rem 0;
+            flex-wrap: wrap;
+        }
+
+        .pagination button {
+            padding: 0.5rem 1rem;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg-white);
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.25s ease;
+        }
+
+        .pagination button:hover {
+            background: #f5f3ff;
+            border-color: var(--accent);
+            color: var(--primary);
+        }
+
+        .pagination button.active {
+            background: var(--gradient-primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(18,8,111,0.25);
+        }
+
+        /* ── View Modal ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(18, 8, 111, 0.15);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeOverlay 0.3s ease;
+        }
+        @keyframes fadeOverlay {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-white);
+            border-radius: 20px;
+            width: 780px;
+            max-width: 95vw;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 25px 60px rgba(18, 8, 111, 0.25), 0 0 0 1px rgba(255,255,255,0.1);
+            animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes modalSlideIn {
+            from { opacity: 0; transform: scale(0.92) translateY(-20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal-content::-webkit-scrollbar { width: 6px; }
+        .modal-content::-webkit-scrollbar-track { background: #f1f5f9; }
+        .modal-content::-webkit-scrollbar-thumb { background: var(--gradient-primary); border-radius: 8px; }
+
+        .modal-header {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 1.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .modal-header::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: radial-gradient(circle at 20% 50%, rgba(255,255,255,0.06) 0%, transparent 55%);
+            pointer-events: none;
+        }
+
+        .modal-header h2 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            position: relative; z-index: 1;
+        }
+
+        .modal-close {
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            position: relative; z-index: 1;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: rotate(90deg);
+        }
+
+        .modal-body {
+            padding: 2rem;
+            overflow-y: auto;
+            max-height: calc(90vh - 80px);
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .detail-item.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .detail-label {
+            font-size: 0.72rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            font-weight: 600;
+        }
+
+        .detail-value {
+            font-size: 0.95rem;
+            color: var(--text-dark);
+            font-weight: 500;
+        }
+
+        .detail-divider {
+            grid-column: 1 / -1;
+            border: none;
+            border-top: 2px solid #f3f4f6;
+            margin: 0.25rem 0;
+            position: relative;
+        }
+        .detail-divider::after {
+            content: '';
+            position: absolute; left: 0; top: -2px;
+            width: 40px; height: 2px;
+            background: var(--gradient-primary);
+            border-radius: 2px;
+        }
+
+        .subscription-history {
+            grid-column: 1 / -1;
+            margin-top: 0.5rem;
+        }
+
+        .subscription-history h4 {
+            font-size: 0.88rem;
+            color: var(--primary);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .modal-footer {
+            padding: 1.25rem 2rem;
+            border-top: 1px solid #e5e7eb;
+            background: #fafafe;
+            display: flex;
+            justify-content: flex-end;
+            border-radius: 0 0 20px 20px;
+        }
+        .modal-footer-btn {
+            display: inline-flex; align-items: center; gap: 0.45rem;
+            padding: 0.65rem 1.5rem; border: none; border-radius: 10px;
+            font-size: 0.88rem; font-weight: 600; cursor: pointer;
+            color: #fff; transition: all 0.25s ease;
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+            box-shadow: 0 4px 12px rgba(107,114,128,0.25);
+        }
+        .modal-footer-btn:hover {
+            transform: translateY(-2px); filter: brightness(1.1);
+        }
+        .modal-footer-btn:active {
+            transform: translateY(0);
+        }
+
+        .year-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .year-badge {
+            padding: 0.3rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        .year-badge:hover { transform: translateY(-1px); }
+
+        .year-badge.paid {
+            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+
+        .year-badge.unpaid {
+            background: linear-gradient(135deg, #fef2f2, #fee2e2);
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
+        /* No data */
+        .no-data {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-light);
+            font-size: 1rem;
+        }
+
+        /* Loading */
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 3rem;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Read-only notice */
+        .readonly-notice {
+            background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+            border: 1.5px solid #c4b5fd;
+            border-radius: 14px;
+            padding: 0.9rem 1.25rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.88rem;
+            color: #4c1d95;
+            box-shadow: 0 2px 8px rgba(79,57,196,0.08);
+        }
+
+        .readonly-notice i {
+            font-size: 1.15rem;
+            color: var(--accent);
+        }
+
+        /* ── Nav active state ── */
+        .nav-btn-active {
+            background: rgba(255, 255, 255, 0.22) !important;
+            border-color: rgba(255,255,255,0.45) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        /* ── Good Standing Section ── */
+        .gs-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .gs-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.25rem;
+            margin: 1.5rem 0;
+        }
+
+        .gs-summary-card {
+            border-radius: 16px;
+            padding: 1.25rem 1.5rem;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow-md);
+            transition: transform 0.3s;
+        }
+        .gs-summary-card:hover { transform: translateY(-4px); }
+        .gs-summary-text { font-size: 0.75rem; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .gs-summary-value { font-size: 1.8rem; font-weight: 700; margin-top: 0.25rem; }
+        .gs-summary-icon { font-size: 2rem; opacity: 0.3; }
+
+        .gs-type-card {
+            background: var(--bg-white);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.25rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .gs-type-header {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .gs-type-header i { color: var(--accent); font-size: 1.1rem; }
+        .gs-type-header h3 { font-size: 1rem; font-weight: 700; color: var(--primary); }
+        .gs-type-count {
+            background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+            color: #3730a3;
+            padding: 0.2rem 0.7rem;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            margin-left: auto;
+        }
+
+        .gs-corp-label {
+            margin: 1rem 0 0.5rem 0;
+            padding: 0.5rem 1rem;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .gs-corp-count {
+            font-weight: 500;
+            font-size: 0.82rem;
+            opacity: 0.7;
+        }
+
+        .gs-table-wrap {
+            max-height: 420px;
+            overflow-y: auto;
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 0.75rem;
+        }
+
+        .gs-table-wrap thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: var(--bg-light);
+            box-shadow: 0 1px 0 var(--border);
+        }
+
+        .gs-no-data {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-light);
+        }
+        .gs-no-data i { font-size: 2.5rem; margin-bottom: 0.75rem; display: block; opacity: 0.4; }
+        .gs-no-data p { font-size: 0.95rem; }
+
+        .gs-export-btn {
+            padding: 0.55rem 1.2rem;
+            background: var(--secondary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.25s;
+            box-shadow: 0 2px 8px rgba(44,165,141,0.25);
+        }
+        .gs-export-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1rem;
+            }
+
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .filter-bar {
+                flex-direction: column;
+            }
+
+            .search-box {
+                min-width: 100%;
+            }
+
+            .detail-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .content-section { padding: 1.25rem; }
+        }
+
+        @media (max-width: 480px) {
+            .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <div class="logo-section">
+                <img src="White IOD_Logo_png.png" width="60px" alt="IoD-Ghana Logo" height="60px" onerror="this.style.display='none'">
+            </div>
+            <div class="header-text">
+                <h1>Members Directory</h1>
+                <p>Institute of Directors - Ghana</p>
+            </div>
+        </div>
+        <div class="nav-right">
+            <span class="staff-badge">
+                <i class="fas fa-eye"></i> View Only
+            </span>
+            <button onclick="scrollToSection('members-section')" class="nav-btn nav-btn-active" id="nav-members-btn" title="Members Directory">
+                <i class="fas fa-users"></i> Members
+            </button>
+            <button onclick="scrollToSection('good-standing-section')" class="nav-btn" id="nav-gs-btn" title="Good Standing Report">
+                <i class="fas fa-clipboard-check"></i> Good Standing
+            </button>
+            <button onclick="refreshData()" class="nav-btn" title="Refresh Data">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button onclick="window.location.href='/login.html'" class="nav-btn" title="Admin Login" style="background: rgba(255,255,255,0.08);">
+                <i class="fas fa-lock"></i> Admin
+            </button>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Read-only notice -->
+        <div class="readonly-notice">
+            <i class="fas fa-info-circle"></i>
+            <span>This is a <strong>view-only</strong> dashboard for staff. To add, edit, or delete records, please log in as an administrator.</span>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-label"><i class="fas fa-users" style="color:var(--accent)"></i> Total Members</div>
+                <div class="kpi-value" id="kpi-total">-</div>
+            </div>
+            <div class="kpi-card paid">
+                <div class="kpi-label"><i class="fas fa-check-circle" style="color:var(--success)"></i> Paid (<span id="kpi-year-label">2026</span>)</div>
+                <div class="kpi-value" id="kpi-paid">-</div>
+            </div>
+            <div class="kpi-card unpaid">
+                <div class="kpi-label"><i class="fas fa-times-circle" style="color:var(--danger)"></i> Unpaid (<span id="kpi-year-label2">2026</span>)</div>
+                <div class="kpi-value" id="kpi-unpaid">-</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label"><i class="fas fa-user-tie" style="color:#6366f1"></i> AIoD</div>
+                <div class="kpi-value" id="kpi-aiod">-</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label"><i class="fas fa-user-check" style="color:#8b5cf6"></i> MIoD</div>
+                <div class="kpi-value" id="kpi-miod">-</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label"><i class="fas fa-award" style="color:#d97706"></i> FIoD</div>
+                <div class="kpi-value" id="kpi-fiod">-</div>
+            </div>
+        </div>
+
+        <!-- Members Table -->
+        <section class="content-section" id="members-section">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">All Members</h2>
+                    <p class="section-subtitle">Browse member records and payment status</p>
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-light);">
+                    Showing <strong id="showing-count">0</strong> members
+                </div>
+            </div>
+
+            <div class="filter-bar">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="search-input" placeholder="Search by name, membership no., organization..." oninput="handleSearch()">
+                </div>
+                <select id="type-filter" onchange="handleFilter()">
+                    <option value="">All Member Types</option>
+                    <option value="AIOD">Associate, Institute of Directors</option>
+                    <option value="FIOD">Fellow, Institute of Directors</option>
+                    <option value="MIOD">Member, Institute of Directors</option>
+                    <option value="Honorary">Honorary Fellows</option>
+                    <option value="Corporate">Corporate Members</option>
+                </select>
+                <select id="payment-filter" onchange="handleFilter()">
+                    <option value="">All Payment Status</option>
+                    <option value="paid">Paid (Current Year)</option>
+                    <option value="unpaid">Unpaid (Current Year)</option>
+                </select>
+                <select id="year-filter" onchange="handleFilter()">
+                    <option value="">Current Year</option>
+                </select>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th onclick="sortBy('index')">#</th>
+                            <th onclick="sortBy('membership_number')">Membership No.</th>
+                            <th onclick="sortBy('member_type')">Type</th>
+                            <th onclick="sortBy('fullName')">Full Name</th>
+                            <th onclick="sortBy('organization')">Organization</th>
+                            <th onclick="sortBy('region')">Region</th>
+                            <th onclick="sortBy('paymentStatus')">Payment Status</th>
+                            <th style="text-align: center;">View</th>
+                        </tr>
+                    </thead>
+                    <tbody id="members-tbody">
+                        <tr><td colspan="8" class="no-data"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>
+                    </tbody>
+                </table>
+                <div class="pagination" id="pagination"></div>
+            </div>
+        </section>
+
+        <!-- Good Standing Section -->
+        <section class="content-section" id="good-standing-section" style="display: none;">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title"><i class="fas fa-clipboard-check" style="margin-right:0.5rem;"></i>Members in Good Standing</h2>
+                    <p class="section-subtitle">View members who are in good standing for the selected year</p>
+                </div>
+                <div class="gs-toolbar">
+                    <select id="gs-year-select" onchange="loadGoodStanding()" style="min-width:120px;"></select>
+                    <button class="gs-export-btn" onclick="exportGoodStandingCSV()">
+                        <i class="fas fa-file-csv"></i> Export CSV
+                    </button>
+                </div>
+            </div>
+            <div id="gs-content">
+                <div class="gs-no-data"><i class="fas fa-clipboard-check"></i><p>Select a year to view the report.</p></div>
+            </div>
+        </section>
+    </div>
+
+    <!-- View Member Modal -->
+    <div class="modal-overlay" id="view-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-member-name">Member Details</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Populated dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button class="modal-footer-btn" onclick="closeModal()">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // STATE
+        // ==========================================
+        let members = [];
+        let filteredMembers = [];
+        let currentPage = 1;
+        const itemsPerPage = 25;
+        let sortState = { column: null, direction: 'asc' };
+        const currentYear = new Date().getFullYear();
+        let gsData = [];  // Good standing data
+
+        // ==========================================
+        // INIT
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('kpi-year-label').textContent = currentYear;
+            document.getElementById('kpi-year-label2').textContent = currentYear;
+            populateYearFilter();
+            populateGSYearSelect();
+            loadMembers();
+        });
+
+        function populateYearFilter() {
+            const select = document.getElementById('year-filter');
+            for (let y = currentYear; y >= currentYear - 10; y--) {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = y;
+                if (y === currentYear) opt.selected = true;
+                select.appendChild(opt);
+            }
+        }
+
+        // ==========================================
+        // DATA LOADING
+        // ==========================================
+        async function loadMembers() {
+            try {
+                const response = await fetch('/api/staff/members');
+                if (!response.ok) {
+                    throw new Error('Failed to load members');
+                }
+                members = await response.json();
+                applyFilters();
+                updateKPIs();
+            } catch (err) {
+                console.error('Error loading members:', err);
+                document.getElementById('members-tbody').innerHTML =
+                    '<tr><td colspan="9" class="no-data"><i class="fas fa-exclamation-triangle" style="color: var(--danger); margin-right: 0.5rem;"></i>Failed to load member data. Please refresh the page.</td></tr>';
+            }
+        }
+
+        function refreshData() {
+            document.getElementById('members-tbody').innerHTML =
+                '<tr><td colspan="9" class="no-data"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>';
+            loadMembers();
+        }
+
+        // ==========================================
+        // KPI CALCULATIONS
+        // ==========================================
+        function updateKPIs() {
+            const year = parseInt(document.getElementById('year-filter').value) || currentYear;
+            const total = members.length;
+            const paid = members.filter(m => m.paid_years && m.paid_years.includes(year)).length;
+            const unpaid = total - paid;
+
+            document.getElementById('kpi-total').textContent = total.toLocaleString();
+            document.getElementById('kpi-paid').textContent = paid.toLocaleString();
+            document.getElementById('kpi-unpaid').textContent = unpaid.toLocaleString();
+            document.getElementById('kpi-aiod').textContent = members.filter(m => m.member_type === 'AIOD').length.toLocaleString();
+            document.getElementById('kpi-miod').textContent = members.filter(m => m.member_type === 'MIOD').length.toLocaleString();
+            document.getElementById('kpi-fiod').textContent = members.filter(m => m.member_type === 'FIOD').length.toLocaleString();
+
+            document.getElementById('kpi-year-label').textContent = year;
+            document.getElementById('kpi-year-label2').textContent = year;
+        }
+
+        // ==========================================
+        // FILTERING & SEARCH
+        // ==========================================
+        function handleSearch() {
+            currentPage = 1;
+            applyFilters();
+        }
+
+        function handleFilter() {
+            currentPage = 1;
+            applyFilters();
+            updateKPIs();
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('search-input').value.toLowerCase().trim();
+            const typeFilter = document.getElementById('type-filter').value;
+            const paymentFilter = document.getElementById('payment-filter').value;
+            const year = parseInt(document.getElementById('year-filter').value) || currentYear;
+
+            filteredMembers = members.filter(m => {
+                // Type filter
+                if (typeFilter && m.member_type !== typeFilter) return false;
+
+                // Payment filter
+                if (paymentFilter === 'paid' && !(m.paid_years && m.paid_years.includes(year))) return false;
+                if (paymentFilter === 'unpaid' && (m.paid_years && m.paid_years.includes(year))) return false;
+
+                // Search filter
+                if (search) {
+                    const fullName = getFullName(m).toLowerCase();
+                    const searchFields = [
+                        fullName,
+                        (m.membership_number || '').toLowerCase(),
+                        (m.organization || '').toLowerCase(),
+                        (m.region || '').toLowerCase(),
+                        (m.member_type || '').toLowerCase()
+                    ].join(' ');
+                    if (!searchFields.includes(search)) return false;
+                }
+
+                return true;
+            });
+
+            // Apply sort
+            if (sortState.column) {
+                sortMembers();
+            }
+
+            document.getElementById('showing-count').textContent = filteredMembers.length;
+            renderTable();
+        }
+
+        // ==========================================
+        // SORTING
+        // ==========================================
+        function sortBy(column) {
+            if (sortState.column === column) {
+                sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.column = column;
+                sortState.direction = 'asc';
+            }
+
+            // Update header indicators
+            document.querySelectorAll('th').forEach(th => th.classList.remove('asc', 'desc'));
+            event.target.classList.add(sortState.direction);
+
+            sortMembers();
+            renderTable();
+        }
+
+        function sortMembers() {
+            const year = parseInt(document.getElementById('year-filter').value) || currentYear;
+
+            filteredMembers.sort((a, b) => {
+                let aVal, bVal;
+
+                if (sortState.column === 'fullName') {
+                    aVal = getFullName(a).toLowerCase();
+                    bVal = getFullName(b).toLowerCase();
+                } else if (sortState.column === 'paymentStatus') {
+                    aVal = (a.paid_years && a.paid_years.includes(year)) ? 0 : 1;
+                    bVal = (b.paid_years && b.paid_years.includes(year)) ? 0 : 1;
+                } else if (sortState.column === 'index') {
+                    return 0; // Natural order
+                } else {
+                    aVal = (a[sortState.column] || '').toString().toLowerCase();
+                    bVal = (b[sortState.column] || '').toString().toLowerCase();
+                }
+
+                let result = 0;
+                if (aVal > bVal) result = 1;
+                else if (aVal < bVal) result = -1;
+                return sortState.direction === 'asc' ? result : -result;
+            });
+        }
+
+        // ==========================================
+        // RENDERING
+        // ==========================================
+        function getFullName(member) {
+            if (member.member_type === 'Corporate') {
+                return member.organization || '-';
+            }
+            const parts = [member.title, member.first_name, member.surname || member.last_name].filter(Boolean);
+            return parts.join(' ') || '-';
+        }
+
+        function getPaymentBadge(member, year) {
+            if (member.member_type === 'Honorary') {
+                return '<span class="badge badge-waived">Waived</span>';
+            }
+            if (member.paid_years && member.paid_years.includes(year)) {
+                return '<span class="badge badge-paid"><i class="fas fa-check-circle"></i> Paid</span>';
+            }
+            // Check if partially paid
+            if (member.payment_status === 'Partial') {
+                return '<span class="badge badge-partial"><i class="fas fa-clock"></i> Partial</span>';
+            }
+            return '<span class="badge badge-unpaid"><i class="fas fa-times-circle"></i> Unpaid</span>';
+        }
+
+        function renderTable() {
+            const start = (currentPage - 1) * itemsPerPage;
+            const pageData = filteredMembers.slice(start, start + itemsPerPage);
+            const year = parseInt(document.getElementById('year-filter').value) || currentYear;
+            const tbody = document.getElementById('members-tbody');
+
+            if (pageData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="no-data">No members found matching your criteria</td></tr>';
+                document.getElementById('pagination').innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            pageData.forEach((member, i) => {
+                const fullName = getFullName(member);
+                html += `
+                    <tr>
+                        <td>${start + i + 1}</td>
+                        <td><span class="badge badge-gold">${member.membership_number || '-'}</span></td>
+                        <td><span class="badge badge-type" style="text-transform: none;">${member.member_type === 'AIOD' ? 'Associate, IoD' : member.member_type === 'MIOD' ? 'Member, IoD' : member.member_type === 'FIOD' ? 'Fellow, IoD' : member.member_type === 'Honorary' ? 'Honorary Fellows' : member.member_type === 'Corporate' ? 'Corporate Members' : member.member_type}</span></td>
+                        <td>${fullName}</td>
+                        <td>${member.organization || '-'}</td>
+                        <td>${member.region || '-'}</td>
+                        <td>${getPaymentBadge(member, year)}</td>
+                        <td style="text-align: center;">
+                            <button class="view-btn" onclick="handleRowClick(this.closest('tr'), ${member.id})" title="View Details">
+                                <i class="fas fa-eye"></i> View
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+            renderPagination(filteredMembers.length);
+        }
+
+        function renderPagination(total) {
+            const totalPages = Math.ceil(total / itemsPerPage);
+            const pag = document.getElementById('pagination');
+
+            if (totalPages <= 1) {
+                pag.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            if (currentPage > 1) {
+                html += `<button onclick="currentPage--; renderTable();">&laquo; Previous</button>`;
+            }
+
+            // Show page numbers with ellipsis
+            const maxVisible = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            if (endPage - startPage < maxVisible - 1) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+
+            if (startPage > 1) {
+                html += `<button onclick="currentPage=1; renderTable();">1</button>`;
+                if (startPage > 2) html += `<button disabled>...</button>`;
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button class="${i === currentPage ? 'active' : ''}" onclick="currentPage=${i}; renderTable();">${i}</button>`;
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += `<button disabled>...</button>`;
+                html += `<button onclick="currentPage=${totalPages}; renderTable();">${totalPages}</button>`;
+            }
+
+            if (currentPage < totalPages) {
+                html += `<button onclick="currentPage++; renderTable();">Next &raquo;</button>`;
+            }
+
+            pag.innerHTML = html;
+        }
+
+        // ==========================================
+        // VIEW MEMBER DETAIL
+        // ==========================================
+        function handleRowClick(rowEl, memberId) {
+            rowEl.classList.add('row-clicked');
+            rowEl.addEventListener('animationend', () => {
+                rowEl.classList.remove('row-clicked');
+            }, { once: true });
+            viewMember(memberId);
+        }
+
+        async function viewMember(id) {
+            try {
+                const response = await fetch(`/api/staff/members/${id}`);
+                if (!response.ok) throw new Error('Failed to load member');
+                const member = await response.json();
+
+                const year = parseInt(document.getElementById('year-filter').value) || currentYear;
+                const fullName = getFullName(member);
+
+                document.getElementById('modal-member-name').textContent = fullName;
+
+                // Build subscription year badges
+                let yearBadgesHtml = '';
+                if (member.subscription_years && member.subscription_years.length > 0) {
+                    member.subscription_years.forEach(y => {
+                        const isPaid = member.paid_years && member.paid_years.includes(y);
+                        yearBadgesHtml += `<span class="year-badge ${isPaid ? 'paid' : 'unpaid'}">${y} - ${isPaid ? 'Paid' : 'Unpaid'}</span>`;
+                    });
+                } else {
+                    yearBadgesHtml = '<span style="color: var(--text-light); font-size: 0.85rem;">No subscription records</span>';
+                }
+
+                document.getElementById('modal-body').innerHTML = `
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">Membership Number</span>
+                            <span class="detail-value">${member.membership_number || '-'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Member Type</span>
+                            <span class="detail-value"><span class="badge badge-type" style="text-transform: none;">${member.member_type === 'AIOD' ? 'Associate, Institute of Directors' : member.member_type === 'MIOD' ? 'Member, Institute of Directors' : member.member_type === 'FIOD' ? 'Fellow, Institute of Directors' : member.member_type === 'Honorary' ? 'Honorary Fellows' : member.member_type === 'Corporate' ? 'Corporate Members' : member.member_type}</span></span>
+                        </div>
+                        ${member.member_type !== 'Corporate' ? `
+                        <div class="detail-item">
+                            <span class="detail-label">Title</span>
+                            <span class="detail-value">${member.title || '-'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Gender</span>
+                            <span class="detail-value">${member.gender || '-'}</span>
+                        </div>
+                        ` : ''}
+                        <div class="detail-item">
+                            <span class="detail-label">Organization</span>
+                            <span class="detail-value">${member.organization || '-'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">${member.member_type === 'Corporate' ? 'Contact Person' : 'Designation'}</span>
+                            <span class="detail-value">${member.designation || member.contact_person || '-'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Region</span>
+                            <span class="detail-value">${member.region || '-'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Sector</span>
+                            <span class="detail-value">${member.sector || '-'}</span>
+                        </div>
+                        ${member.expertise ? `
+                        <div class="detail-item full-width">
+                            <span class="detail-label">Expertise</span>
+                            <span class="detail-value">${member.expertise}</span>
+                        </div>` : ''}
+
+                        <div class="detail-divider"></div>
+
+                        <div class="detail-item full-width">
+                            <span class="detail-label">Postal Address</span>
+                            <span class="detail-value">${member.postal_address || '-'}</span>
+                        </div>
+
+                        <div class="detail-divider"></div>
+
+                        <div class="detail-item">
+                            <span class="detail-label">Date of Admission</span>
+                            <span class="detail-value">${member.date_of_admission || '-'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Current Year Status</span>
+                            <span class="detail-value">${getPaymentBadge(member, year)}</span>
+                        </div>
+
+                        <div class="detail-divider"></div>
+
+                        <div class="subscription-history">
+                            <h4><i class="fas fa-calendar-alt"></i> Subscription History</h4>
+                            <div class="year-badges">
+                                ${yearBadgesHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('view-modal').classList.add('show');
+            } catch (err) {
+                console.error('Error viewing member:', err);
+                alert('Failed to load member details.');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('view-modal').classList.remove('show');
+        }
+
+        // Close modal on outside click
+        document.getElementById('view-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        // ==========================================
+        // SECTION NAVIGATION
+        // ==========================================
+        function scrollToSection(sectionId) {
+            const membersSection = document.getElementById('members-section');
+            const gsSection = document.getElementById('good-standing-section');
+            const navMembers = document.getElementById('nav-members-btn');
+            const navGS = document.getElementById('nav-gs-btn');
+
+            if (sectionId === 'members-section') {
+                membersSection.style.display = '';
+                gsSection.style.display = 'none';
+                navMembers.classList.add('nav-btn-active');
+                navGS.classList.remove('nav-btn-active');
+            } else {
+                membersSection.style.display = 'none';
+                gsSection.style.display = '';
+                navGS.classList.add('nav-btn-active');
+                navMembers.classList.remove('nav-btn-active');
+                if (gsData.length === 0) loadGoodStanding();
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // ==========================================
+        // GOOD STANDING
+        // ==========================================
+        function populateGSYearSelect() {
+            const select = document.getElementById('gs-year-select');
+            const defaultYears = [];
+            for (let y = currentYear + 5; y >= currentYear - 10; y--) defaultYears.push(y);
+            select.innerHTML = defaultYears.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('');
+        }
+
+        function formatGoodStandingFullName(member) {
+            const personalName = `${member.first_name || ''} ${member.surname || member.last_name || ''}`.trim();
+            if (member.member_type === 'Corporate') {
+                return member.organization || personalName || 'N/A';
+            }
+            return personalName || member.organization || 'N/A';
+        }
+
+        function formatGoodStandingAmount(value) {
+            const amount = parseFloat(value);
+            return Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
+        }
+
+        function renderGoodStandingTableHeader() {
+            return `<thead><tr>
+                <th>Membership No.</th>
+                <th>Full Name</th>
+                <th>Expected (₵) Amount</th>
+                <th>Paid (₵)</th>
+                <th>Credit Applied (₵)</th>
+                <th>Payment Date</th>
+            </tr></thead>`;
+        }
+
+        function renderGoodStandingTableRow(member) {
+            return `<tr>
+                <td><strong>${member.membership_number || 'N/A'}</strong></td>
+                <td>${formatGoodStandingFullName(member)}</td>
+                <td>${formatGoodStandingAmount(member.expected_amount)}</td>
+                <td>${formatGoodStandingAmount(member.amount_paid)}</td>
+                <td>${formatGoodStandingAmount(member.credit_applied)}</td>
+                <td>${member.payment_date || '-'}</td>
+            </tr>`;
+        }
+
+        async function loadGoodStanding() {
+            const year = document.getElementById('gs-year-select').value;
+            if (!year) return;
+            const contentEl = document.getElementById('gs-content');
+            contentEl.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+
+            try {
+                const res = await fetch(`/api/staff/good-standing/${year}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const members = await res.json();
+                gsData = members;
+
+                const groups = { FIOD: [], MIOD: [], AIOD: [] };
+                const corpGroups = { Platinum: [], Gold: [], Silver: [], Bronze: [] };
+                const waivedMembers = [];
+                const honoraryMembers = [];
+                members.forEach(m => {
+                    // Honorary → separate section
+                    if (m.member_type === 'Honorary') {
+                        honoraryMembers.push(m);
+                        return;
+                    }
+                    // Waived non-Honorary → only waived section
+                    if (m.status === 'Waived') {
+                        waivedMembers.push(m);
+                        return;
+                    }
+                    // Paid members → their type groups
+                    if (m.member_type === 'Corporate') {
+                        const cat = m.membership_category || 'Bronze';
+                        (corpGroups[cat] || corpGroups['Bronze']).push(m);
+                    } else if (groups[m.member_type]) {
+                        groups[m.member_type].push(m);
+                    }
+                });
+
+                const totalMembers = members.length;
+                const totalCorporate = members.filter(m => m.member_type === 'Corporate' && m.status !== 'Waived').length;
+                const totalWaived = waivedMembers.length;
+                const totalHonorary = honoraryMembers.length;
+
+                if (totalMembers === 0) {
+                    contentEl.innerHTML = `<div class="gs-no-data">
+                        <i class="fas fa-info-circle"></i>
+                        <p>No members in good standing for ${year}.</p>
+                        <p style="font-size:0.85rem;color:var(--text-light);margin-top:0.5rem;">Members appear here when their subscription payments (including credits) cover the expected amount for this year.</p>
+                    </div>`;
+                    return;
+                }
+
+                let html = '';
+
+                // Summary cards
+                html += `<div class="gs-summary-grid">
+                    <div class="gs-summary-card" style="background:var(--primary);">
+                        <div><div class="gs-summary-text">Year</div><div class="gs-summary-value">${year}</div></div>
+                        <div class="gs-summary-icon"><i class="fas fa-calendar-check"></i></div>
+                    </div>
+                    <div class="gs-summary-card" style="background:var(--secondary);">
+                        <div><div class="gs-summary-text">Total Members</div><div class="gs-summary-value">${totalMembers}</div></div>
+                        <div class="gs-summary-icon"><i class="fas fa-users"></i></div>
+                    </div>
+                    <div class="gs-summary-card" style="background:#6366f1;">
+                        <div><div class="gs-summary-text">Corporate Partners</div><div class="gs-summary-value">${totalCorporate}</div></div>
+                        <div class="gs-summary-icon"><i class="fas fa-building"></i></div>
+                    </div>
+                    ${totalWaived > 0 ? `<div class="gs-summary-card" style="background:#eab308;">
+                        <div><div class="gs-summary-text">Waived Members</div><div class="gs-summary-value">${totalWaived}</div></div>
+                        <div class="gs-summary-icon"><i class="fas fa-hand-holding-heart"></i></div>
+                    </div>` : ''}
+                    ${totalHonorary > 0 ? `<div class="gs-summary-card" style="background:#7c3aed;">
+                        <div><div class="gs-summary-text">Honorary Members</div><div class="gs-summary-value">${totalHonorary}</div></div>
+                        <div class="gs-summary-icon"><i class="fas fa-medal"></i></div>
+                    </div>` : ''}
+                </div>`;
+
+                const typeNames = {
+                    FIOD: { name: 'Fellow, Institute of Directors', icon: 'fa-award' },
+                    MIOD: { name: 'Member, Institute of Directors', icon: 'fa-user-tie' },
+                    AIOD: { name: 'Associate, Institute of Directors', icon: 'fa-user-friends' }
+                };
+
+                for (const type of ['FIOD','MIOD','AIOD']) {
+                    if (!groups[type].length) continue;
+                    html += `<div class="gs-type-card">
+                        <div class="gs-type-header">
+                            <i class="fas ${typeNames[type].icon}"></i>
+                            <h3>${typeNames[type].name}</h3>
+                            <span class="gs-type-count">${groups[type].length} member${groups[type].length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="gs-table-wrap"><table>
+                            ${renderGoodStandingTableHeader()}<tbody>`;
+                    groups[type].sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||'')).forEach((m) => {
+                        html += renderGoodStandingTableRow(m);
+                    });
+                    html += '</tbody></table></div></div>';
+                }
+
+                // Corporate grouped by category
+                const corpCatInfo = {
+                    Platinum: { label: 'Corporate \u2013 Platinum', color: '#6366f1' },
+                    Gold:     { label: 'Corporate \u2013 Gold',     color: '#d97706' },
+                    Silver:   { label: 'Corporate \u2013 Silver',   color: '#6b7280' },
+                    Bronze:   { label: 'Corporate \u2013 Bronze',   color: '#b45309' }
+                };
+                const hasAnyCorp = Object.values(corpGroups).some(a => a.length > 0);
+                if (hasAnyCorp) {
+                    html += `<div class="gs-type-card">
+                        <div class="gs-type-header">
+                            <i class="fas fa-building"></i>
+                            <h3>Corporate Members</h3>
+                            <span class="gs-type-count">${totalCorporate} member${totalCorporate !== 1 ? 's' : ''}</span>
+                        </div>`;
+                    for (const cat of ['Platinum','Gold','Silver','Bronze']) {
+                        if (!corpGroups[cat].length) continue;
+                        const info = corpCatInfo[cat];
+                        html += `<div class="gs-corp-label" style="background:${info.color}12;border-left:4px solid ${info.color};color:${info.color};">
+                            <i class="fas fa-gem"></i> ${info.label}
+                            <span class="gs-corp-count">${corpGroups[cat].length} member${corpGroups[cat].length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="gs-table-wrap"><table>
+                            ${renderGoodStandingTableHeader()}<tbody>`;
+                        corpGroups[cat].sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||'')).forEach((m) => {
+                            html += renderGoodStandingTableRow(m);
+                        });
+                        html += '</tbody></table></div>';
+                    }
+                    html += '</div>';
+                }
+
+                // Waived Members section (non-Honorary only)
+                if (waivedMembers.length > 0) {
+                    html += `<div class="gs-type-card" style="border-left: 4px solid #eab308;">
+                        <div class="gs-type-header" style="background: linear-gradient(135deg, #fefce8, #fef9c3);">
+                            <i class="fas fa-hand-holding-heart" style="color: #854d0e;"></i>
+                            <h3 style="color: #854d0e;">Waived Members</h3>
+                            <span class="gs-type-count" style="background: #fef9c3; color: #854d0e;">${waivedMembers.length} member${waivedMembers.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <p style="padding: 0 1rem; margin: 0 0 0.75rem; font-size: 0.85rem; color: #92400e;">Members whose subscription payment has been waived for ${year}.</p>
+                        <div class="gs-table-wrap"><table>
+                            ${renderGoodStandingTableHeader()}<tbody>`;
+                    waivedMembers.sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||'')).forEach((m) => {
+                        html += renderGoodStandingTableRow(m);
+                    });
+                    html += '</tbody></table></div></div>';
+                }
+
+                // Honorary Members section
+                if (honoraryMembers.length > 0) {
+                    html += `<div class="gs-type-card" style="border-left: 4px solid #7c3aed;">
+                        <div class="gs-type-header" style="background: linear-gradient(135deg, #f5f3ff, #ede9fe);">
+                            <i class="fas fa-medal" style="color: #5b21b6;"></i>
+                            <h3 style="color: #5b21b6;">Honorary Members</h3>
+                            <span class="gs-type-count" style="background: #ede9fe; color: #5b21b6;">${honoraryMembers.length} member${honoraryMembers.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <p style="padding: 0 1rem; margin: 0 0 0.75rem; font-size: 0.85rem; color: #6d28d9;">Honorary members are automatically in good standing.</p>
+                        <div class="gs-table-wrap"><table>
+                            ${renderGoodStandingTableHeader()}<tbody>`;
+                    honoraryMembers.sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||'')).forEach((m) => {
+                        html += renderGoodStandingTableRow(m);
+                    });
+                    html += '</tbody></table></div></div>';
+                }
+
+                contentEl.innerHTML = html;
+            } catch (err) {
+                console.error('Error loading good standing:', err);
+                contentEl.innerHTML = `<div class="gs-no-data">
+                    <i class="fas fa-exclamation-triangle" style="color:var(--danger);"></i>
+                    <p>Error loading good standing data. Please check the server connection and try again.</p>
+                </div>`;
+            }
+        }
+
+        function exportGoodStandingCSV() {
+            if (!gsData.length) { alert('No data to export. Load a report first.'); return; }
+            const year = document.getElementById('gs-year-select').value;
+            const headers = ['Membership No.','Full Name','Expected (₵) Amount','Paid (₵)','Credit Applied (₵)','Payment Date'];
+            let csv = headers.join(',') + '\n';
+            gsData.forEach(m => {
+                const fullName = formatGoodStandingFullName(m);
+                csv += [
+                    `"${m.membership_number||''}"`,
+                    `"${fullName}"`,
+                    `"${formatGoodStandingAmount(m.expected_amount)}"`,
+                    `"${formatGoodStandingAmount(m.amount_paid)}"`,
+                    `"${formatGoodStandingAmount(m.credit_applied)}"`,
+                    `"${m.payment_date || ''}"`
+                ].join(',') + '\n';
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `IOD_Good_Standing_${year}_${new Date().toISOString().split('T')[0]}.csv`;
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
