@@ -2267,6 +2267,10 @@
                                 <label for="new-payment-date">Payment Date *</label>
                                 <input type="date" id="new-payment-date" required>
                             </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="new-payment-year">Apply From Year *</label>
+                                <input type="number" id="new-payment-year" min="2024" max="2035" step="1" required>
+                            </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group" style="flex: 1;">
@@ -2299,6 +2303,7 @@
                             <thead style="background: var(--bg-light);">
                                 <tr>
                                     <th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--border);">Date</th>
+                                    <th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--border);">Year</th>
                                     <th style="padding: 10px; text-align: right; border-bottom: 1px solid var(--border);">Amount</th>
                                     <th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--border);">Method</th>
                                     <th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--border);">Receipt</th>
@@ -2306,7 +2311,7 @@
                             </thead>
                             <tbody id="payment-history-table">
                                 <tr>
-                                    <td colspan="4" style="padding: 20px; text-align: center; color: var(--text-light);">No payments recorded yet</td>
+                                    <td colspan="5" style="padding: 20px; text-align: center; color: var(--text-light);">No payments recorded yet</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -2314,7 +2319,7 @@
 
                     <!-- Year-by-Year Subscription Status -->
                     <h4 style="margin-top: 20px; margin-bottom: 10px; font-size: 14px;">Subscription Status by Year</h4>
-                    <div id="subscription-status-list" style="border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
+                    <div id="subscription-status-list" style="border: 1px solid var(--border); border-radius: 8px; overflow-x: auto;">
                         <div style="padding: 20px; text-align: center; color: var(--text-light);">Loading subscription data...</div>
                     </div>
                 </div>
@@ -4316,21 +4321,25 @@
                 const balanceData = balanceRes.ok ? await balanceRes.json() : {};
 
                 // Update balance display
-                const currentBalance = balanceData.current_balance || 0;
+                const currentBalance = parseFloat(balanceData.current_balance || 0);
                 document.getElementById('member-balance').textContent = `₵ ${currentBalance.toFixed(2)}`;
 
                 // Calculate total paid
-                const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.payment_amount || 0), 0);
+                const apiTotalPaid = parseFloat(balanceData.total_paid);
+                const totalPaid = Number.isFinite(apiTotalPaid)
+                    ? apiTotalPaid
+                    : payments.reduce((sum, p) => sum + parseFloat(p.payment_amount || 0), 0);
                 document.getElementById('member-total-paid').textContent = `₵ ${totalPaid.toFixed(2)}`;
 
                 // Populate payment history table
                 const paymentTableBody = document.getElementById('payment-history-table');
                 if (payments.length === 0) {
-                    paymentTableBody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: var(--text-light);">No payments recorded yet</td></tr>';
+                    paymentTableBody.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: var(--text-light);">No payments recorded yet</td></tr>';
                 } else {
                     paymentTableBody.innerHTML = payments.map(p => `
                         <tr style="border-bottom: 1px solid var(--border);">
                             <td style="padding: 10px;">${new Date(p.payment_date).toLocaleDateString()}</td>
+                            <td style="padding: 10px;">${p.subscription_year || '-'}</td>
                             <td style="padding: 10px; text-align: right; font-weight: 600;">₵ ${parseFloat(p.payment_amount).toFixed(2)}</td>
                             <td style="padding: 10px;">${p.payment_method || '-'}</td>
                             <td style="padding: 10px;">${p.receipt_number || '-'}</td>
@@ -4341,37 +4350,60 @@
                 // Set current date in payment date field
                 const today = new Date().toISOString().split('T')[0];
                 document.getElementById('new-payment-date').value = today;
+                const currentYear = new Date().getFullYear();
+                const paymentYearInput = document.getElementById('new-payment-year');
+                if (paymentYearInput && !paymentYearInput.value) {
+                    paymentYearInput.value = currentYear;
+                }
 
                 // Populate subscription status by year
                 if (balanceData.subscriptions && balanceData.subscriptions.length > 0) {
                     const subscriptionList = balanceData.subscriptions.map(sub => {
-                        const totalWithCredit = parseFloat(sub.amount_paid || 0) + parseFloat(sub.credit_applied || 0);
-                        const isGoodStanding = totalWithCredit >= parseFloat(sub.expected_amount) || sub.status === 'Waived';
-                        const statusColor = isGoodStanding ? 'var(--success)' : (sub.status === 'Partial' ? 'var(--warning)' : 'var(--danger)');
-                        const statusText = isGoodStanding ? 'Good Standing' : 'Pending';
+                        const expectedAmount = parseFloat(sub.expected_amount || sub.rate_expected_amount || 0);
+                        const amountPaid = parseFloat(sub.amount_paid || 0);
+                        const creditApplied = parseFloat(sub.credit_applied || 0);
+                        const creditBalance = parseFloat(sub.credit_balance || 0);
+                        const totalApplied = Math.max(0, amountPaid + creditApplied - creditBalance);
+                        const apiBalanceDue = parseFloat(sub.balance_due);
+                        const balanceDue = Number.isFinite(apiBalanceDue) ? apiBalanceDue : Math.max(0, expectedAmount - totalApplied);
+                        const effectiveStatus = sub.computed_status || sub.status || 'Pending';
+                        const isGoodStanding = effectiveStatus === 'Paid' || effectiveStatus === 'Waived';
+                        const statusColor = isGoodStanding ? 'var(--success)' : (effectiveStatus === 'Partial' ? 'var(--warning)' : 'var(--danger)');
+                        const statusText = effectiveStatus === 'Paid' ? 'Good Standing' : (effectiveStatus === 'Partial' ? 'Top Up Needed' : effectiveStatus);
                         
                         return `
-                            <div style="padding: 12px 15px; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: auto 1fr auto auto auto; gap: 15px; align-items: center;">
+                            <div style="min-width: 820px; padding: 12px 15px; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: 70px repeat(5, minmax(100px, 1fr)) 120px; gap: 12px; align-items: center;">
                                 <div style="font-weight: 600; color: var(--primary); min-width: 70px;">${sub.subscription_year}</div>
                                 <div>
                                     <div style="font-size: 12px; color: var(--text-light); text-transform: uppercase;">Expected Amount</div>
-                                    <div style="font-weight: 600;">₵ ${parseFloat(sub.expected_amount).toFixed(2)}</div>
+                                    <div style="font-weight: 600;">₵ ${expectedAmount.toFixed(2)}</div>
                                 </div>
                                 <div>
-                                    <div style="font-size: 12px; color: var(--text-light); text-transform: uppercase;">Paid + Balance</div>
-                                    <div style="font-weight: 600;">₵ ${totalWithCredit.toFixed(2)}</div>
+                                    <div style="font-size: 12px; color: var(--text-light); text-transform: uppercase;">Cash Paid</div>
+                                    <div style="font-weight: 600;">₵ ${amountPaid.toFixed(2)}</div>
                                 </div>
                                 <div>
-                                    <div style="font-size: 12px; color: var(--text-light); text-transform: uppercase;">Balance</div>
-                                    <div style="font-weight: 600;">₵ ${(parseFloat(sub.credit_balance) || 0).toFixed(2)}</div>
+                                    <div style="font-size: 12px; color: var(--text-light); text-transform: uppercase;">Credit Used</div>
+                                    <div style="font-weight: 600;">₵ ${creditApplied.toFixed(2)}</div>
+                                </div>
+                                <div>
+                                    <div style="font-size: 12px; color: var(--text-light); text-transform: uppercase;">Applied</div>
+                                    <div style="font-weight: 600;">₵ ${totalApplied.toFixed(2)}</div>
+                                </div>
+                                <div>
+                                    <div style="font-size: 12px; color: var(--text-light); text-transform: uppercase;">Balance Left</div>
+                                    <div style="font-weight: 600;">₵ ${creditBalance.toFixed(2)}</div>
                                 </div>
                                 <div style="text-align: right; min-width: 110px;">
                                     <span style="display: inline-block; padding: 4px 10px; background: ${statusColor}22; color: ${statusColor}; border-radius: 4px; font-size: 12px; font-weight: 600;">${statusText}</span>
+                                    ${balanceDue > 0 ? `<div style="font-size: 12px; color: var(--danger); margin-top: 4px;">₵ ${balanceDue.toFixed(2)} due</div>` : ''}
                                 </div>
                             </div>
                         `;
                     }).join('');
                     document.getElementById('subscription-status-list').innerHTML = subscriptionList;
+                } else {
+                    document.getElementById('subscription-status-list').innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-light);">No subscription data available</div>';
                 }
             } catch (error) {
                 console.error('Error loading payment history:', error);
@@ -4383,12 +4415,13 @@
             const memberId = document.getElementById('member-id').value;
             const amount = document.getElementById('new-payment-amount').value;
             const paymentDate = document.getElementById('new-payment-date').value;
+            const paymentYear = document.getElementById('new-payment-year').value;
             const method = document.getElementById('new-payment-method').value;
             const receipt = document.getElementById('new-receipt-number').value;
             const notes = document.getElementById('new-payment-notes').value;
 
-            if (!amount || !paymentDate) {
-                alert('Please fill in amount and date');
+            if (!amount || !paymentDate || !paymentYear) {
+                alert('Please fill in amount, date, and apply-from year');
                 return;
             }
 
@@ -4400,6 +4433,7 @@
                         member_id: parseInt(memberId),
                         payment_amount: parseFloat(amount),
                         payment_date: paymentDate,
+                        subscription_year: parseInt(paymentYear),
                         payment_method: method || null,
                         receipt_number: receipt || null,
                         notes: notes || null
@@ -4407,13 +4441,22 @@
                 });
 
                 if (response.ok) {
-                    alert('Payment recorded successfully!');
+                    const result = await response.json();
+                    let message = 'Payment recorded successfully!';
+                    if (result.summary) {
+                        const status = result.summary.status || 'Pending';
+                        const creditBalance = parseFloat(result.summary.current_credit_balance || 0);
+                        message += `\n\nApplied from ${result.applied_year}. Status: ${status}.`;
+                        message += `\nCurrent balance after this year: ₵ ${creditBalance.toFixed(2)}.`;
+                    }
+                    alert(message);
                     // Clear form
                     document.getElementById('new-payment-amount').value = '';
                     document.getElementById('new-receipt-number').value = '';
                     document.getElementById('new-payment-notes').value = '';
                     // Reload payment history
                     loadMemberPaymentHistory(memberId);
+                    loadAllData();
                 } else {
                     alert('Failed to record payment');
                 }

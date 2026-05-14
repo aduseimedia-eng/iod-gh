@@ -748,6 +748,7 @@ async function initializeSubscriptionRates() {
             CREATE TABLE IF NOT EXISTS payments (
                 id SERIAL PRIMARY KEY,
                 member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                subscription_year INTEGER,
                 payment_amount DECIMAL(10, 2) NOT NULL,
                 payment_date DATE NOT NULL,
                 payment_method VARCHAR(50) CHECK (payment_method IN ('Cash', 'Bank Transfer', 'Mobile Money', 'Cheque', 'Card', 'Not Specified', NULL)),
@@ -756,6 +757,18 @@ async function initializeSubscriptionRates() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        `);
+
+        await pool.query(`
+            DO $$ 
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'payments' AND column_name = 'subscription_year'
+                ) THEN
+                    ALTER TABLE payments ADD COLUMN subscription_year INTEGER;
+                END IF;
+            END $$
         `);
 
         // Create index for payments table
@@ -838,6 +851,33 @@ async function initializeSubscriptionRates() {
                 }
             }
             console.log('Default subscription rates initialized for years 2025-2035');
+        }
+
+        // Backfill any missing non-corporate future rates without changing customized rates.
+        // Older databases may already have 2025-2028 rows, leaving overpayment credits
+        // unable to roll into later years.
+        const defaultIndividualRates = [
+            { type: 'AIOD', amount: 350.00, desc: 'Associate annual subscription' },
+            { type: 'FIOD', amount: 500.00, desc: 'Fellow annual subscription' },
+            { type: 'MIOD', amount: 400.00, desc: 'Member annual subscription' },
+            { type: 'Honorary', amount: 0.00, desc: 'Honorary - waived' }
+        ];
+
+        for (let year = 2025; year <= 2035; year++) {
+            for (const rate of defaultIndividualRates) {
+                let expectedAmount = rate.amount;
+                if (year === 2025 && rate.type === 'AIOD') {
+                    expectedAmount = 400.00;
+                } else if (year === 2025 && rate.type === 'MIOD') {
+                    expectedAmount = 800.00;
+                }
+
+                await pool.query(`
+                    INSERT INTO subscription_rates (member_type, subscription_year, expected_amount, membership_category, description)
+                    VALUES ($1, $2, $3, NULL, $4)
+                    ON CONFLICT (member_type, subscription_year, COALESCE(membership_category, '')) DO NOTHING
+                `, [rate.type, year, expectedAmount, rate.desc]);
+            }
         }
 
         // Correct 2025 rates even when rows were seeded earlier with outdated values.
@@ -1855,6 +1895,254 @@ function calculateCreditOutcome({
         isLegacyPaid: false,
         isWaived: false,
         isInductionYear: false
+    };
+}
+
+function moneyValue(value) {
+    const amount = parseFloat(value);
+    return Number.isFinite(amount) ? amount : 0;
+}
+
+function resolvePaymentYear(paymentDate, fallbackYear = new Date().getFullYear()) {
+    return getYearFromDateValue(paymentDate) || fallbackYear;
+}
+
+async function getMemberLedgerContext(client, memberId) {
+    const result = await client.query(`
+        SELECT id, member_type, membership_number, membership_category,
+               date_of_admission, registration_date, created_at,
+               EXTRACT(YEAR FROM COALESCE(date_of_admission, registration_date, created_at))::int as induction_year
+        FROM members
+        WHERE id = $1
+    `, [memberId]);
+
+    if (result.rows.length === 0) {
+        const error = new Error('Member not found');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    return result.rows[0];
+}
+
+async function getMemberRates(client, memberType, membershipCategory) {
+    const result = await client.query(`
+        SELECT subscription_year, expected_amount
+        FROM subscription_rates
+        WHERE member_type = $1
+        AND (
+            ($1 != 'Corporate' AND membership_category IS NULL)
+            OR ($1 = 'Corporate' AND membership_category = $2)
+        )
+        ORDER BY subscription_year ASC
+    `, [memberType, membershipCategory]);
+
+    const ratesByYear = {};
+    let maxRateYear = null;
+    for (const row of result.rows) {
+        const year = parseInt(row.subscription_year, 10);
+        ratesByYear[year] = Math.max(0, moneyValue(row.expected_amount));
+        if (Number.isFinite(year)) {
+            maxRateYear = maxRateYear === null ? year : Math.max(maxRateYear, year);
+        }
+    }
+
+    return { ratesByYear, maxRateYear };
+}
+
+async function getApplicableExpectedAmount(client, memberType, membershipCategory, subscriptionYear, paymentDate) {
+    const paymentDateStr = paymentDate || new Date().toISOString().split('T')[0];
+    const result = await client.query(`
+        SELECT
+            CASE
+                WHEN early_bird_deadline IS NOT NULL
+                    AND early_bird_amount IS NOT NULL
+                    AND $3::date <= early_bird_deadline
+                THEN early_bird_amount
+                ELSE expected_amount
+            END as applicable_amount
+        FROM subscription_rates
+        WHERE member_type = $1 AND subscription_year = $2
+        AND (
+            ($1 != 'Corporate' AND membership_category IS NULL)
+            OR ($1 = 'Corporate' AND membership_category = $4)
+        )
+    `, [memberType, subscriptionYear, paymentDateStr, membershipCategory]);
+
+    return result.rows.length > 0 ? Math.max(0, moneyValue(result.rows[0].applicable_amount)) : 0;
+}
+
+function resolveExpectedAmount(sub, ratesByYear, year) {
+    const storedExpected = moneyValue(sub && sub.expected_amount);
+    if (storedExpected > 0) {
+        return storedExpected;
+    }
+
+    return Math.max(0, moneyValue(ratesByYear[year]));
+}
+
+async function recalculateMemberCreditLedger(client, memberId, options = {}) {
+    const {
+        persistAutoYears = false,
+        includeCurrentYear = true,
+        includeFutureCreditYears = true
+    } = options;
+
+    const currentYear = new Date().getFullYear();
+    const member = await getMemberLedgerContext(client, memberId);
+    const { ratesByYear, maxRateYear } = await getMemberRates(client, member.member_type, member.membership_category);
+    const lockClause = persistAutoYears ? ' FOR UPDATE' : '';
+
+    const subscriptionsResult = await client.query(`
+        SELECT *
+        FROM subscriptions
+        WHERE member_id = $1
+        ORDER BY subscription_year ASC, id ASC${lockClause}
+    `, [memberId]);
+
+    const subscriptionsByYear = new Map();
+    for (const sub of subscriptionsResult.rows) {
+        subscriptionsByYear.set(parseInt(sub.subscription_year, 10), sub);
+    }
+
+    const existingYears = subscriptionsResult.rows
+        .map(sub => parseInt(sub.subscription_year, 10))
+        .filter(Number.isFinite);
+    const startYear = existingYears.length > 0 ? Math.min(...existingYears) : currentYear;
+    const maxExistingYear = existingYears.length > 0 ? Math.max(...existingYears) : currentYear;
+    const endYear = includeCurrentYear ? Math.max(maxExistingYear, currentYear) : maxExistingYear;
+    const timeline = [];
+    let carryForwardCredit = 0;
+    let currentYearCreditBalance = 0;
+
+    const persistTimelineRow = async (row, existingSub) => {
+        if (!persistAutoYears) return row;
+
+        if (existingSub) {
+            await client.query(`
+                UPDATE subscriptions
+                SET status = $1,
+                    expected_amount = $2,
+                    credit_applied = $3,
+                    credit_balance = $4
+                WHERE id = $5
+            `, [
+                row.status,
+                row.expected_amount,
+                row.credit_applied,
+                row.credit_balance,
+                existingSub.id
+            ]);
+            return row;
+        }
+
+        if (row.credit_applied <= 0 && row.amount_paid <= 0 && row.status !== 'Waived') {
+            return row;
+        }
+
+        const inserted = await client.query(`
+            INSERT INTO subscriptions (
+                member_id, subscription_year, status, amount_paid,
+                expected_amount, credit_applied, credit_balance
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT (member_id, subscription_year)
+            DO UPDATE SET
+                status = EXCLUDED.status,
+                amount_paid = subscriptions.amount_paid,
+                expected_amount = EXCLUDED.expected_amount,
+                credit_applied = EXCLUDED.credit_applied,
+                credit_balance = EXCLUDED.credit_balance
+            RETURNING *
+        `, [
+            memberId,
+            row.subscription_year,
+            row.status,
+            row.amount_paid,
+            row.expected_amount,
+            row.credit_applied,
+            row.credit_balance
+        ]);
+
+        return {
+            ...row,
+            ...inserted.rows[0],
+            rate_expected_amount: row.expected_amount,
+            computed_status: row.status,
+            is_virtual: false,
+            is_auto_generated: true
+        };
+    };
+
+    const addYearToTimeline = async (year, existingSub = null) => {
+        const expectedAmount = resolveExpectedAmount(existingSub, ratesByYear, year);
+        const amountPaid = Math.max(0, moneyValue(existingSub && existingSub.amount_paid));
+        const explicitStatus = existingSub ? existingSub.status : 'Pending';
+        const outcome = calculateCreditOutcome({
+            subscriptionYear: year,
+            memberType: member.member_type,
+            explicitStatus,
+            amountPaid,
+            expectedAmount,
+            availableCredit: carryForwardCredit,
+            isInductionYear: existingSub
+                ? isInductionYearSubscription(member, year, explicitStatus, amountPaid)
+                : false
+        });
+
+        let row = {
+            ...(existingSub || {}),
+            member_id: parseInt(memberId, 10),
+            subscription_year: year,
+            amount_paid: amountPaid,
+            expected_amount: expectedAmount,
+            rate_expected_amount: expectedAmount,
+            credit_applied: outcome.creditApplied,
+            credit_balance: outcome.creditBalance,
+            status: outcome.status,
+            computed_status: outcome.status,
+            legacy_paid_override: outcome.isLegacyPaid && explicitStatus !== 'Paid',
+            is_induction_year: outcome.isInductionYear,
+            induction_note: outcome.isInductionYear ? 'Inducted this year' : null,
+            balance_due: outcome.isInductionYear ? null : Math.max(0, expectedAmount - outcome.totalApplied),
+            is_virtual: !existingSub
+        };
+
+        row = await persistTimelineRow(row, existingSub);
+        timeline.push(row);
+        carryForwardCredit = outcome.creditBalance;
+
+        if (year <= currentYear) {
+            currentYearCreditBalance = carryForwardCredit;
+        }
+    };
+
+    for (let year = startYear; year <= endYear; year++) {
+        await addYearToTimeline(year, subscriptionsByYear.get(year) || null);
+    }
+
+    let nextYear = endYear + 1;
+    while (
+        includeFutureCreditYears &&
+        carryForwardCredit > 0 &&
+        maxRateYear !== null &&
+        nextYear <= maxRateYear
+    ) {
+        const expectedAmount = Math.max(0, moneyValue(ratesByYear[nextYear]));
+        if (expectedAmount <= 0) {
+            break;
+        }
+
+        await addYearToTimeline(nextYear, null);
+        nextYear += 1;
+    }
+
+    return {
+        member,
+        subscriptions: timeline,
+        current_credit_balance: currentYearCreditBalance,
+        projected_credit_balance: carryForwardCredit,
+        max_rate_year: maxRateYear
     };
 }
 
@@ -3158,6 +3446,12 @@ app.post('/api/members/:id/process-payment', async (req, res) => {
                     WHERE member_id = $1 AND subscription_year = $2
                 `, [memberId, subscription_year - 1, remainingPreviousCredit]);
             }
+
+            const updatedTimeline = await recalculateMemberCreditLedger(client, memberId, {
+                persistAutoYears: true,
+                includeCurrentYear: true,
+                includeFutureCreditYears: true
+            });
             
             await client.query('COMMIT');
             
@@ -3169,6 +3463,8 @@ app.post('/api/members/:id/process-payment', async (req, res) => {
                     credit_from_previous: creditOutcome.creditApplied,
                     total_applied: creditOutcome.totalApplied,
                     credit_balance_for_next_year: creditOutcome.creditBalance,
+                    current_credit_balance: updatedTimeline.current_credit_balance,
+                    projected_credit_balance: updatedTimeline.projected_credit_balance,
                     status: creditOutcome.status
                 }
             });
@@ -3188,6 +3484,23 @@ app.post('/api/members/:id/process-payment', async (req, res) => {
 app.get('/api/members/:id/payment-summary', async (req, res) => {
     try {
         const memberId = req.params.id;
+        const creditTimeline = await recalculateMemberCreditLedger(pool, memberId, {
+            persistAutoYears: false,
+            includeCurrentYear: true,
+            includeFutureCreditYears: true
+        });
+        const summarySubscriptions = creditTimeline.subscriptions.sort((a, b) => b.subscription_year - a.subscription_year);
+        const latestTimelineYear = summarySubscriptions.length > 0 ? summarySubscriptions[0].subscription_year : null;
+
+        return res.json({
+            member: creditTimeline.member,
+            subscriptions: summarySubscriptions,
+            current_credit_balance: creditTimeline.current_credit_balance,
+            projected_credit_balance: creditTimeline.projected_credit_balance,
+            credit_year: creditTimeline.current_credit_balance > 0 ? latestTimelineYear : null,
+            max_rate_year: creditTimeline.max_rate_year
+        });
+
         const currentYear = new Date().getFullYear();
         
         // Get member info (include membership_category for Corporate rate lookup)
@@ -3348,7 +3661,7 @@ app.get('/api/members/:id/payment-summary', async (req, res) => {
         });
     } catch (err) {
         console.error('Error fetching payment summary:', err);
-        res.status(500).json({ error: 'Database error' });
+        res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : 'Database error' });
     }
 });
 
@@ -4258,6 +4571,7 @@ app.post('/api/migrate/update-subscription-amounts', async (req, res) => {
 
 // Record a new payment (adds to payments table and triggers subscription update)
 app.post('/api/payments', async (req, res) => {
+    const client = await pool.connect();
     try {
         const { member_id, payment_amount, payment_date, payment_method, receipt_number, notes, subscription_year } = req.body;
         
@@ -4265,43 +4579,100 @@ app.post('/api/payments', async (req, res) => {
             return res.status(400).json({ error: 'member_id, payment_amount, and payment_date are required' });
         }
 
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-            
-            // Record payment in payments table
-            const paymentResult = await client.query(`
-                INSERT INTO payments (member_id, payment_amount, payment_date, payment_method, receipt_number, notes)
-                VALUES ($1, $2, $3, $4, $5, $6)
-                RETURNING *
-            `, [member_id, payment_amount, payment_date, payment_method || null, receipt_number || null, notes || null]);
-
-            // If subscription_year is provided, also process as subscription payment
-            if (subscription_year) {
-                // Call process-payment logic via the existing endpoint logic
-                const processPaymentRes = await client.query(`
-                    SELECT 1
-                `); // Placeholder, actual processing done separately
-
-                // We'll update the subscription with this payment
-                await client.query(`
-                    UPDATE subscriptions 
-                    SET amount_paid = amount_paid + $1
-                    WHERE member_id = $2 AND subscription_year = $3
-                `, [payment_amount, member_id, subscription_year]);
-            }
-
-            await client.query('COMMIT');
-            res.status(201).json({ message: 'Payment recorded successfully', payment: paymentResult.rows[0] });
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
+        const paymentAmount = moneyValue(payment_amount);
+        if (paymentAmount <= 0) {
+            return res.status(400).json({ error: 'payment_amount must be greater than zero' });
         }
+
+        const memberId = parseInt(member_id, 10);
+        const appliedYear = parseInt(subscription_year, 10) || resolvePaymentYear(payment_date);
+
+        await client.query('BEGIN');
+
+        const member = await getMemberLedgerContext(client, memberId);
+        const expectedAmount = await getApplicableExpectedAmount(
+            client,
+            member.member_type,
+            member.membership_category,
+            appliedYear,
+            payment_date
+        );
+        
+        // Record the cash receipt, then apply it to the selected subscription year.
+        const paymentResult = await client.query(`
+            INSERT INTO payments (member_id, subscription_year, payment_amount, payment_date, payment_method, receipt_number, notes)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *
+        `, [
+            memberId,
+            appliedYear,
+            paymentAmount,
+            payment_date,
+            payment_method || null,
+            receipt_number || null,
+            notes || null
+        ]);
+
+        await client.query(`
+            INSERT INTO subscriptions (
+                member_id, subscription_year, status, amount_paid,
+                expected_amount, credit_applied, credit_balance,
+                payment_method, receipt_number, payment_date
+            )
+            VALUES ($1, $2, 'Pending', $3, $4, 0, 0, $5, $6, $7)
+            ON CONFLICT (member_id, subscription_year)
+            DO UPDATE SET
+                amount_paid = COALESCE(subscriptions.amount_paid, 0) + EXCLUDED.amount_paid,
+                expected_amount = CASE
+                    WHEN COALESCE(subscriptions.expected_amount, 0) > 0 THEN subscriptions.expected_amount
+                    ELSE EXCLUDED.expected_amount
+                END,
+                payment_method = COALESCE(EXCLUDED.payment_method, subscriptions.payment_method),
+                receipt_number = COALESCE(EXCLUDED.receipt_number, subscriptions.receipt_number),
+                payment_date = COALESCE(EXCLUDED.payment_date, subscriptions.payment_date)
+        `, [
+            memberId,
+            appliedYear,
+            paymentAmount,
+            expectedAmount,
+            payment_method || null,
+            receipt_number || null,
+            payment_date
+        ]);
+
+        const updatedTimeline = await recalculateMemberCreditLedger(client, memberId, {
+            persistAutoYears: true,
+            includeCurrentYear: true,
+            includeFutureCreditYears: true
+        });
+
+        const appliedSubscription = updatedTimeline.subscriptions.find(sub => sub.subscription_year === appliedYear);
+
+        await client.query('COMMIT');
+        res.status(201).json({
+            message: 'Payment recorded successfully',
+            payment: paymentResult.rows[0],
+            applied_year: appliedYear,
+            subscription: appliedSubscription || null,
+            summary: {
+                expected_amount: appliedSubscription ? appliedSubscription.expected_amount : expectedAmount,
+                amount_paid: appliedSubscription ? appliedSubscription.amount_paid : paymentAmount,
+                credit_applied: appliedSubscription ? appliedSubscription.credit_applied : 0,
+                total_applied: appliedSubscription
+                    ? Math.max(0, moneyValue(appliedSubscription.amount_paid) + moneyValue(appliedSubscription.credit_applied) - moneyValue(appliedSubscription.credit_balance))
+                    : paymentAmount,
+                credit_balance_for_next_year: appliedSubscription ? appliedSubscription.credit_balance : 0,
+                current_credit_balance: updatedTimeline.current_credit_balance,
+                projected_credit_balance: updatedTimeline.projected_credit_balance,
+                status: appliedSubscription ? appliedSubscription.status : 'Pending'
+            }
+        });
     } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
         console.error('Error recording payment:', err);
-        res.status(500).json({ error: 'Failed to record payment' });
+        res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : 'Failed to record payment' });
+    } finally {
+        client.release();
     }
 });
 
@@ -4327,6 +4698,25 @@ app.get('/api/payments/:memberId', async (req, res) => {
 app.get('/api/member-balance/:memberId', async (req, res) => {
     try {
         const memberId = req.params.memberId;
+        const balanceTimeline = await recalculateMemberCreditLedger(pool, memberId, {
+            persistAutoYears: false,
+            includeCurrentYear: true,
+            includeFutureCreditYears: true
+        });
+        const paymentsResult = await pool.query(`
+            SELECT COALESCE(SUM(payment_amount), 0) as total_paid
+            FROM payments
+            WHERE member_id = $1
+        `, [memberId]);
+
+        return res.json({
+            member_id: memberId,
+            current_balance: balanceTimeline.current_credit_balance,
+            projected_balance: balanceTimeline.projected_credit_balance,
+            max_rate_year: balanceTimeline.max_rate_year,
+            total_paid: moneyValue(paymentsResult.rows[0] && paymentsResult.rows[0].total_paid),
+            subscriptions: balanceTimeline.subscriptions.sort((a, b) => b.subscription_year - a.subscription_year)
+        });
         
         // Get member info
         const memberResult = await pool.query(
@@ -4373,7 +4763,7 @@ app.get('/api/member-balance/:memberId', async (req, res) => {
         });
     } catch (err) {
         console.error('Error fetching member balance:', err);
-        res.status(500).json({ error: 'Failed to fetch member balance' });
+        res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : 'Failed to fetch member balance' });
     }
 });
 
@@ -4381,6 +4771,46 @@ app.get('/api/member-balance/:memberId', async (req, res) => {
 app.get('/api/subscription-with-balance/:memberId/:year', async (req, res) => {
     try {
         const { memberId, year } = req.params;
+        const yearInt = parseInt(year, 10);
+        const detailTimeline = await recalculateMemberCreditLedger(pool, memberId, {
+            persistAutoYears: false,
+            includeCurrentYear: true,
+            includeFutureCreditYears: true
+        });
+        const timelineSubscription = detailTimeline.subscriptions.find(sub => sub.subscription_year === yearInt);
+
+        if (!timelineSubscription) {
+            return res.json({
+                member_id: memberId,
+                subscription_year: yearInt,
+                message: 'No subscription found for this year',
+                amount_paid: 0,
+                expected_amount: 0,
+                credit_applied: 0,
+                credit_balance: 0,
+                total_paid: 0,
+                total_with_credit: 0,
+                balance_needed: 0,
+                status: 'Pending',
+                is_good_standing: false
+            });
+        }
+
+        const timelinePaid = moneyValue(timelineSubscription.amount_paid);
+        const timelineCredit = moneyValue(timelineSubscription.credit_applied);
+        const timelineExpected = moneyValue(timelineSubscription.expected_amount || timelineSubscription.rate_expected_amount);
+
+        return res.json({
+            ...timelineSubscription,
+            total_paid_from_subscription_table: timelinePaid,
+            total_paid_from_payments_table: null,
+            total_paid: timelinePaid,
+            expected_amount: timelineExpected,
+            credit_applied: timelineCredit,
+            total_with_credit: timelinePaid + timelineCredit,
+            balance_needed: moneyValue(timelineSubscription.balance_due),
+            is_good_standing: timelineSubscription.status === 'Paid' || timelineSubscription.status === 'Waived'
+        });
         
         const memberResult = await pool.query(
             'SELECT member_type, membership_category FROM members WHERE id = $1',
@@ -4448,7 +4878,7 @@ app.get('/api/subscription-with-balance/:memberId/:year', async (req, res) => {
         });
     } catch (err) {
         console.error('Error fetching subscription with balance:', err);
-        res.status(500).json({ error: 'Failed to fetch subscription details' });
+        res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : 'Failed to fetch subscription details' });
     }
 });
 
