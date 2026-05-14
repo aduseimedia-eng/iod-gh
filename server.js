@@ -743,6 +743,32 @@ async function initializeSubscriptionRates() {
             END $$
         `);
         
+        // Create payments table for payment history tracking
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS payments (
+                id SERIAL PRIMARY KEY,
+                member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                payment_amount DECIMAL(10, 2) NOT NULL,
+                payment_date DATE NOT NULL,
+                payment_method VARCHAR(50) CHECK (payment_method IN ('Cash', 'Bank Transfer', 'Mobile Money', 'Cheque', 'Card', 'Not Specified', NULL)),
+                receipt_number VARCHAR(50),
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Create index for payments table
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_payments_member_id 
+            ON payments(member_id)
+        `);
+
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_payments_payment_date 
+            ON payments(payment_date)
+        `);
+        
         // Create index if not exists
         await pool.query(`
             CREATE INDEX IF NOT EXISTS idx_subscription_rates_type_year 
@@ -4223,6 +4249,206 @@ app.post('/api/migrate/update-subscription-amounts', async (req, res) => {
     } catch (err) {
         console.error('Migration error:', err);
         res.status(500).json({ error: 'Migration failed' });
+    }
+});
+
+// ============================================================
+// PAYMENT HISTORY ENDPOINTS
+// ============================================================
+
+// Record a new payment (adds to payments table and triggers subscription update)
+app.post('/api/payments', async (req, res) => {
+    try {
+        const { member_id, payment_amount, payment_date, payment_method, receipt_number, notes, subscription_year } = req.body;
+        
+        if (!member_id || !payment_amount || !payment_date) {
+            return res.status(400).json({ error: 'member_id, payment_amount, and payment_date are required' });
+        }
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            // Record payment in payments table
+            const paymentResult = await client.query(`
+                INSERT INTO payments (member_id, payment_amount, payment_date, payment_method, receipt_number, notes)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING *
+            `, [member_id, payment_amount, payment_date, payment_method || null, receipt_number || null, notes || null]);
+
+            // If subscription_year is provided, also process as subscription payment
+            if (subscription_year) {
+                // Call process-payment logic via the existing endpoint logic
+                const processPaymentRes = await client.query(`
+                    SELECT 1
+                `); // Placeholder, actual processing done separately
+
+                // We'll update the subscription with this payment
+                await client.query(`
+                    UPDATE subscriptions 
+                    SET amount_paid = amount_paid + $1
+                    WHERE member_id = $2 AND subscription_year = $3
+                `, [payment_amount, member_id, subscription_year]);
+            }
+
+            await client.query('COMMIT');
+            res.status(201).json({ message: 'Payment recorded successfully', payment: paymentResult.rows[0] });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error('Error recording payment:', err);
+        res.status(500).json({ error: 'Failed to record payment' });
+    }
+});
+
+// Get payment history for a member
+app.get('/api/payments/:memberId', async (req, res) => {
+    try {
+        const memberId = req.params.memberId;
+        
+        const payments = await pool.query(`
+            SELECT * FROM payments 
+            WHERE member_id = $1
+            ORDER BY payment_date DESC, created_at DESC
+        `, [memberId]);
+
+        res.json(payments.rows);
+    } catch (err) {
+        console.error('Error fetching payments:', err);
+        res.status(500).json({ error: 'Failed to fetch payment history' });
+    }
+});
+
+// Get member's current balance across all years
+app.get('/api/member-balance/:memberId', async (req, res) => {
+    try {
+        const memberId = req.params.memberId;
+        
+        // Get member info
+        const memberResult = await pool.query(
+            'SELECT member_type, membership_category FROM members WHERE id = $1',
+            [memberId]
+        );
+        
+        if (memberResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Member not found' });
+        }
+
+        const member = memberResult.rows[0];
+
+        // Get all subscriptions with calculated balances
+        const subs = await pool.query(`
+            SELECT 
+                s.subscription_year,
+                s.amount_paid,
+                COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) as expected_amount,
+                s.credit_applied,
+                s.credit_balance,
+                s.status
+            FROM subscriptions s
+            LEFT JOIN subscription_rates sr ON sr.member_type = $2 
+                AND sr.subscription_year = s.subscription_year
+                AND (
+                    ($2 != 'Corporate' AND sr.membership_category IS NULL)
+                    OR ($2 = 'Corporate' AND sr.membership_category = $3)
+                )
+            WHERE s.member_id = $1
+            ORDER BY s.subscription_year DESC
+        `, [memberId, member.member_type, member.membership_category]);
+
+        // Calculate total balance available for future years
+        let totalBalance = 0;
+        subs.rows.forEach(sub => {
+            totalBalance += (parseFloat(sub.credit_balance) || 0);
+        });
+
+        res.json({
+            member_id: memberId,
+            current_balance: totalBalance,
+            subscriptions: subs.rows
+        });
+    } catch (err) {
+        console.error('Error fetching member balance:', err);
+        res.status(500).json({ error: 'Failed to fetch member balance' });
+    }
+});
+
+// Get subscription details with balance information for a specific year
+app.get('/api/subscription-with-balance/:memberId/:year', async (req, res) => {
+    try {
+        const { memberId, year } = req.params;
+        
+        const memberResult = await pool.query(
+            'SELECT member_type, membership_category FROM members WHERE id = $1',
+            [memberId]
+        );
+        
+        if (memberResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Member not found' });
+        }
+
+        const member = memberResult.rows[0];
+
+        // Get subscription details with expected amount from rates
+        const sub = await pool.query(`
+            SELECT 
+                s.*,
+                COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) as rate_expected_amount
+            FROM subscriptions s
+            LEFT JOIN subscription_rates sr ON sr.member_type = $2 
+                AND sr.subscription_year = s.subscription_year
+                AND (
+                    ($2 != 'Corporate' AND sr.membership_category IS NULL)
+                    OR ($2 = 'Corporate' AND sr.membership_category = $3)
+                )
+            WHERE s.member_id = $1 AND s.subscription_year = $4
+        `, [memberId, member.member_type, member.membership_category, year]);
+
+        if (sub.rows.length === 0) {
+            return res.json({
+                member_id: memberId,
+                subscription_year: year,
+                message: 'No subscription found for this year',
+                amount_paid: 0,
+                expected_amount: 0,
+                credit_applied: 0,
+                credit_balance: 0,
+                status: 'Pending'
+            });
+        }
+
+        const subscription = sub.rows[0];
+        
+        // Get total paid including any payments recorded in payments table for this year
+        const paymentsForYear = await pool.query(`
+            SELECT COALESCE(SUM(payment_amount), 0) as total_payments
+            FROM payments
+            WHERE member_id = $1 AND EXTRACT(YEAR FROM payment_date) = $2
+        `, [memberId, year]);
+
+        const totalPaid = parseFloat(subscription.amount_paid || 0) + parseFloat(paymentsForYear.rows[0].total_payments || 0);
+        const expectedAmount = parseFloat(subscription.rate_expected_amount || subscription.expected_amount || 0);
+        const creditApplied = parseFloat(subscription.credit_applied || 0);
+        const totalWithCredit = totalPaid + creditApplied;
+
+        res.json({
+            ...subscription,
+            total_paid_from_subscription_table: parseFloat(subscription.amount_paid || 0),
+            total_paid_from_payments_table: parseFloat(paymentsForYear.rows[0].total_payments || 0),
+            total_paid: totalPaid,
+            expected_amount: expectedAmount,
+            credit_applied: creditApplied,
+            total_with_credit: totalWithCredit,
+            balance_needed: Math.max(0, expectedAmount - totalWithCredit),
+            is_good_standing: totalWithCredit >= expectedAmount || subscription.status === 'Waived'
+        });
+    } catch (err) {
+        console.error('Error fetching subscription with balance:', err);
+        res.status(500).json({ error: 'Failed to fetch subscription details' });
     }
 });
 

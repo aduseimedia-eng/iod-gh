@@ -2239,7 +2239,87 @@
                     <textarea id="feedback-on-calls"></textarea>
                 </div>
 
-                <div class="form-actions">
+                <!-- Payment History Section -->
+                <div style="margin-top: 30px; border-top: 2px solid var(--border); padding-top: 20px;">
+                    <h3 style="margin-bottom: 15px;">Payment History & Balance</h3>
+                    
+                    <!-- Current Balance Display -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div style="padding: 15px; background: #f8f9fa; border-left: 4px solid var(--success);">
+                            <div style="font-size: 12px; color: var(--text-light); font-weight: 600; text-transform: uppercase;">Current Balance</div>
+                            <div id="member-balance" style="font-size: 24px; font-weight: bold; color: var(--success); margin-top: 8px;">₵ 0.00</div>
+                        </div>
+                        <div style="padding: 15px; background: #f8f9fa; border-left: 4px solid var(--primary);">
+                            <div style="font-size: 12px; color: var(--text-light); font-weight: 600; text-transform: uppercase;">Total Paid</div>
+                            <div id="member-total-paid" style="font-size: 24px; font-weight: bold; color: var(--primary); margin-top: 8px;">₵ 0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- Add Payment Form -->
+                    <div style="margin-bottom: 20px; padding: 15px; background: #f0f7ff; border-radius: 8px;">
+                        <h4 style="margin-bottom: 10px; font-size: 14px;">Record New Payment</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label for="new-payment-amount">Amount (₵) *</label>
+                                <input type="number" id="new-payment-amount" min="0" step="0.01" placeholder="0.00" required>
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="new-payment-date">Payment Date *</label>
+                                <input type="date" id="new-payment-date" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label for="new-payment-method">Method</label>
+                                <select id="new-payment-method">
+                                    <option value="">Select Method</option>
+                                    <option value="Cash">Cash</option>
+                                    <option value="Bank Transfer">Bank Transfer</option>
+                                    <option value="Mobile Money">Mobile Money</option>
+                                    <option value="Cheque">Cheque</option>
+                                    <option value="Card">Card</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="new-receipt-number">Receipt #</label>
+                                <input type="text" id="new-receipt-number" placeholder="e.g., RCP-001">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="new-payment-notes">Notes</label>
+                            <textarea id="new-payment-notes" style="height: 60px; resize: vertical;" placeholder="e.g., Payment covers 2025 subscription, excess for 2026"></textarea>
+                        </div>
+                        <button type="button" class="btn-primary" onclick="recordMemberPayment()" style="width: 100%; margin-top: 10px;">Record Payment</button>
+                    </div>
+
+                    <!-- Payment History Table -->
+                    <h4 style="margin-bottom: 10px; font-size: 14px;">Payment Transactions</h4>
+                    <div style="overflow-x: auto; border: 1px solid var(--border);">
+                        <table style="width: 100%; font-size: 13px;">
+                            <thead style="background: var(--bg-light);">
+                                <tr>
+                                    <th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--border);">Date</th>
+                                    <th style="padding: 10px; text-align: right; border-bottom: 1px solid var(--border);">Amount</th>
+                                    <th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--border);">Method</th>
+                                    <th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--border);">Receipt</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payment-history-table">
+                                <tr>
+                                    <td colspan="4" style="padding: 20px; text-align: center; color: var(--text-light);">No payments recorded yet</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Year-by-Year Subscription Status -->
+                    <h4 style="margin-top: 20px; margin-bottom: 10px; font-size: 14px;">Subscription Status by Year</h4>
+                    <div id="subscription-status-list" style="border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
+                        <div style="padding: 20px; text-align: center; color: var(--text-light);">Loading subscription data...</div>
+                    </div>
+                </div>
+
+                <div class="form-actions" style="margin-top: 20px;">
                     <button type="button" class="btn-secondary" onclick="closeMemberModal()">Cancel</button>
                     <button type="submit" class="btn-primary">Save Member</button>
                 </div>
@@ -4218,6 +4298,128 @@
                 updateFormFields();
                 document.getElementById('modal-title').textContent = 'Edit Member';
                 document.getElementById('member-modal').classList.add('show');
+                
+                // Load payment history and balance
+                loadMemberPaymentHistory(member.id);
+            }
+        }
+
+        // Load member payment history and update balance display
+        async function loadMemberPaymentHistory(memberId) {
+            try {
+                // Fetch payment history
+                const paymentsRes = await fetch(`/api/payments/${memberId}`);
+                const payments = paymentsRes.ok ? await paymentsRes.json() : [];
+
+                // Fetch member balance
+                const balanceRes = await fetch(`/api/member-balance/${memberId}`);
+                const balanceData = balanceRes.ok ? await balanceRes.json() : {};
+
+                // Update balance display
+                const currentBalance = balanceData.current_balance || 0;
+                document.getElementById('member-balance').textContent = `₵ ${currentBalance.toFixed(2)}`;
+
+                // Calculate total paid
+                const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.payment_amount || 0), 0);
+                document.getElementById('member-total-paid').textContent = `₵ ${totalPaid.toFixed(2)}`;
+
+                // Populate payment history table
+                const paymentTableBody = document.getElementById('payment-history-table');
+                if (payments.length === 0) {
+                    paymentTableBody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: var(--text-light);">No payments recorded yet</td></tr>';
+                } else {
+                    paymentTableBody.innerHTML = payments.map(p => `
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 10px;">${new Date(p.payment_date).toLocaleDateString()}</td>
+                            <td style="padding: 10px; text-align: right; font-weight: 600;">₵ ${parseFloat(p.payment_amount).toFixed(2)}</td>
+                            <td style="padding: 10px;">${p.payment_method || '-'}</td>
+                            <td style="padding: 10px;">${p.receipt_number || '-'}</td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Set current date in payment date field
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('new-payment-date').value = today;
+
+                // Populate subscription status by year
+                if (balanceData.subscriptions && balanceData.subscriptions.length > 0) {
+                    const subscriptionList = balanceData.subscriptions.map(sub => {
+                        const totalWithCredit = parseFloat(sub.amount_paid || 0) + parseFloat(sub.credit_applied || 0);
+                        const isGoodStanding = totalWithCredit >= parseFloat(sub.expected_amount) || sub.status === 'Waived';
+                        const statusColor = isGoodStanding ? 'var(--success)' : (sub.status === 'Partial' ? 'var(--warning)' : 'var(--danger)');
+                        const statusText = isGoodStanding ? 'Good Standing' : 'Pending';
+                        
+                        return `
+                            <div style="padding: 12px 15px; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: auto 1fr auto auto auto; gap: 15px; align-items: center;">
+                                <div style="font-weight: 600; color: var(--primary); min-width: 70px;">${sub.subscription_year}</div>
+                                <div>
+                                    <div style="font-size: 12px; color: var(--text-light); text-transform: uppercase;">Expected Amount</div>
+                                    <div style="font-weight: 600;">₵ ${parseFloat(sub.expected_amount).toFixed(2)}</div>
+                                </div>
+                                <div>
+                                    <div style="font-size: 12px; color: var(--text-light); text-transform: uppercase;">Paid + Balance</div>
+                                    <div style="font-weight: 600;">₵ ${totalWithCredit.toFixed(2)}</div>
+                                </div>
+                                <div>
+                                    <div style="font-size: 12px; color: var(--text-light); text-transform: uppercase;">Balance</div>
+                                    <div style="font-weight: 600;">₵ ${(parseFloat(sub.credit_balance) || 0).toFixed(2)}</div>
+                                </div>
+                                <div style="text-align: right; min-width: 110px;">
+                                    <span style="display: inline-block; padding: 4px 10px; background: ${statusColor}22; color: ${statusColor}; border-radius: 4px; font-size: 12px; font-weight: 600;">${statusText}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    document.getElementById('subscription-status-list').innerHTML = subscriptionList;
+                }
+            } catch (error) {
+                console.error('Error loading payment history:', error);
+            }
+        }
+
+        // Record a new payment for member
+        async function recordMemberPayment() {
+            const memberId = document.getElementById('member-id').value;
+            const amount = document.getElementById('new-payment-amount').value;
+            const paymentDate = document.getElementById('new-payment-date').value;
+            const method = document.getElementById('new-payment-method').value;
+            const receipt = document.getElementById('new-receipt-number').value;
+            const notes = document.getElementById('new-payment-notes').value;
+
+            if (!amount || !paymentDate) {
+                alert('Please fill in amount and date');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/payments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        member_id: parseInt(memberId),
+                        payment_amount: parseFloat(amount),
+                        payment_date: paymentDate,
+                        payment_method: method || null,
+                        receipt_number: receipt || null,
+                        notes: notes || null
+                    })
+                });
+
+                if (response.ok) {
+                    alert('Payment recorded successfully!');
+                    // Clear form
+                    document.getElementById('new-payment-amount').value = '';
+                    document.getElementById('new-receipt-number').value = '';
+                    document.getElementById('new-payment-notes').value = '';
+                    // Reload payment history
+                    loadMemberPaymentHistory(memberId);
+                } else {
+                    alert('Failed to record payment');
+                }
+            } catch (error) {
+                console.error('Error recording payment:', error);
+                alert('Error recording payment');
             }
         }
 
