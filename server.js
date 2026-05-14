@@ -440,7 +440,8 @@ app.get('/api/staff/good-standing/:year', async (req, res) => {
                     explicitStatus: sub.status,
                     amountPaid: sub.amount_paid,
                     expectedAmount: rateExpected,
-                    availableCredit: carryForwardCredit
+                    availableCredit: carryForwardCredit,
+                    isInductionYear: isInductionYearSubscription(member, sub.subscription_year, sub.status, sub.amount_paid)
                 });
                 
                 if (sub.subscription_year === year) {
@@ -454,6 +455,7 @@ app.get('/api/staff/good-standing/:year', async (req, res) => {
                         payment_date: sub.payment_date_fmt,
                         isWaived: outcome.isWaived,
                         isLegacyPaid: outcome.isLegacyPaid,
+                        isInductionYear: outcome.isInductionYear,
                         status: outcome.status
                     };
                 }
@@ -509,6 +511,8 @@ app.get('/api/staff/good-standing/:year', async (req, res) => {
                     amount_paid: targetYearData.amountPaid,
                     credit_applied: targetYearData.creditApplied,
                     expected_amount: targetYearData.rateExpected,
+                    is_induction_year: targetYearData.isInductionYear === true,
+                    induction_note: targetYearData.isInductionYear ? 'Inducted this year' : null,
                     recorded_by: targetYearData.recorded_by,
                     payment_date: targetYearData.payment_date
                 });
@@ -1019,7 +1023,8 @@ async function computeCreditAwarePaidYears(members, pool) {
                 explicitStatus: sub.status,
                 amountPaid: sub.amount_paid,
                 expectedAmount: rateExpected,
-                availableCredit: carryForwardCredit
+                availableCredit: carryForwardCredit,
+                isInductionYear: isInductionYearSubscription(member, sub.subscription_year, sub.status, sub.amount_paid)
             });
 
             if (outcome.status === 'Paid' || outcome.status === 'Waived') {
@@ -1246,21 +1251,29 @@ app.post('/api/members', async (req, res) => {
 
         const memberId = memberResult.rows[0].id;
         const admissionOrRegDate = date_of_admission || registration_date;
+        const inductionYear = getYearFromDateValue(admissionOrRegDate);
 
         // Add subscription years - default to admission/registration year if not provided
         let yearsToAdd = subscription_years && subscription_years.length > 0 ? subscription_years : [];
-        if (yearsToAdd.length === 0 && admissionOrRegDate) {
-            const admissionYear = new Date(admissionOrRegDate).getFullYear();
-            yearsToAdd = [admissionYear];
+        yearsToAdd = yearsToAdd
+            .map(year => parseInt(year, 10))
+            .filter(year => Number.isFinite(year));
+
+        if (Number.isFinite(inductionYear) && !yearsToAdd.includes(inductionYear)) {
+            yearsToAdd.push(inductionYear);
         }
 
         if (yearsToAdd.length > 0) {
             for (const year of yearsToAdd) {
+                const isInductionYear = year === inductionYear;
+                const subscriptionStatus = isInductionYear ? 'Paid' : (payment_status || 'Paid');
+                const subscriptionAmount = isInductionYear ? 0 : (amount_paid || 0);
+
                 await client.query(`
                     INSERT INTO subscriptions (member_id, subscription_year, status, amount_paid, payment_date, receipt_number, payment_method)
                     VALUES ($1, $2, $3, $4, CURRENT_DATE, $5, $6)
                     ON CONFLICT (member_id, subscription_year) DO UPDATE SET status = $3, amount_paid = $4, payment_date = CURRENT_DATE, receipt_number = $5, payment_method = $6
-                `, [memberId, year, payment_status || 'Paid', amount_paid || 0, recorded_by || null, payment_method || null]);
+                `, [memberId, year, subscriptionStatus, subscriptionAmount, recorded_by || null, payment_method || null]);
             }
         }
 
@@ -1653,6 +1666,51 @@ function isLegacy2025Satisfied(subscriptionYear, amountPaid, status) {
     );
 }
 
+function getYearFromDateValue(value) {
+    if (!value) return null;
+
+    if (value instanceof Date && !isNaN(value.getTime())) {
+        return value.getFullYear();
+    }
+
+    const raw = String(value).trim();
+    if (!raw) return null;
+
+    if (/^\d{4}-\d{1,2}-\d{1,2}/.test(raw)) {
+        const year = parseInt(raw.slice(0, 4), 10);
+        return Number.isFinite(year) ? year : null;
+    }
+
+    const slashParts = raw.split('/');
+    if (slashParts.length === 3) {
+        const year = parseInt(slashParts[2], 10);
+        return Number.isFinite(year) ? year : null;
+    }
+
+    const parsed = new Date(raw);
+    return isNaN(parsed.getTime()) ? null : parsed.getFullYear();
+}
+
+function getMemberInductionYear(member) {
+    if (!member) return null;
+    const explicitYear = parseInt(member.induction_year, 10);
+    if (Number.isFinite(explicitYear)) return explicitYear;
+
+    return getYearFromDateValue(member.date_of_admission) ||
+        getYearFromDateValue(member.registration_date) ||
+        getYearFromDateValue(member.created_at);
+}
+
+function isInductionYearSubscription(member, subscriptionYear, explicitStatus) {
+    const inductionYear = getMemberInductionYear(member);
+    const year = parseInt(subscriptionYear, 10);
+
+    return Number.isFinite(inductionYear) &&
+        Number.isFinite(year) &&
+        year === inductionYear &&
+        explicitStatus === 'Paid';
+}
+
 function determineSubscriptionStatus({ subscriptionYear, memberType, explicitStatus, amountPaid, totalAvailable, expectedAmount }) {
     if (explicitStatus === 'Waived' || memberType === 'Honorary') {
         return 'Waived';
@@ -1687,7 +1745,8 @@ function calculateCreditOutcome({
     explicitStatus,
     amountPaid,
     expectedAmount,
-    availableCredit
+    availableCredit,
+    isInductionYear = false
 }) {
     const paid = normalizeMoney(amountPaid);
     const expected = Math.max(0, parseFloat(expectedAmount || 0) || 0);
@@ -1702,7 +1761,21 @@ function calculateCreditOutcome({
             totalApplied: paid,
             creditBalance: previousCredit + paid,
             isLegacyPaid: false,
-            isWaived: true
+            isWaived: true,
+            isInductionYear: false
+        };
+    }
+
+    if (isInductionYear) {
+        return {
+            status: 'Paid',
+            amountPaid: paid,
+            creditApplied: 0,
+            totalApplied: paid,
+            creditBalance: previousCredit + paid,
+            isLegacyPaid: false,
+            isWaived: false,
+            isInductionYear: true
         };
     }
 
@@ -1716,7 +1789,8 @@ function calculateCreditOutcome({
             totalApplied: paid,
             creditBalance: previousCredit + cashOverpayment,
             isLegacyPaid: true,
-            isWaived: false
+            isWaived: false,
+            isInductionYear: false
         };
     }
 
@@ -1753,7 +1827,8 @@ function calculateCreditOutcome({
         totalApplied,
         creditBalance,
         isLegacyPaid: false,
-        isWaived: false
+        isWaived: false,
+        isInductionYear: false
     };
 }
 
@@ -2432,13 +2507,14 @@ app.post('/api/members/:id/subscriptions', async (req, res) => {
         const memberId = req.params.id;
         
         // Get member info
-        const memberResult = await client.query('SELECT member_type, membership_category FROM members WHERE id = $1', [memberId]);
+        const memberResult = await client.query('SELECT member_type, membership_category, date_of_admission, registration_date, created_at FROM members WHERE id = $1', [memberId]);
         if (memberResult.rows.length === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Member not found' });
         }
-        const memberType = memberResult.rows[0].member_type;
-        const membershipCategory = memberResult.rows[0].membership_category;
+        const memberInfo = memberResult.rows[0];
+        const memberType = memberInfo.member_type;
+        const membershipCategory = memberInfo.membership_category;
         
         // Always look up expected amount from subscription rates table
         const rateResult = await client.query(`
@@ -2492,7 +2568,8 @@ app.post('/api/members/:id/subscriptions', async (req, res) => {
             explicitStatus: status || null,
             amountPaid: paidAmount,
             expectedAmount: finalExpectedAmount,
-            availableCredit: previousCredit
+            availableCredit: previousCredit,
+            isInductionYear: isInductionYearSubscription(memberInfo, subscription_year, status || null, paidAmount)
         });
 
         const result = await client.query(`
@@ -2562,13 +2639,14 @@ app.put('/api/subscriptions/:id', async (req, res) => {
         const subYear = subscription_year || subRecord.subscription_year;
         
         // Get member type
-        const memberResult = await client.query('SELECT member_type, membership_category FROM members WHERE id = $1', [memberId]);
+        const memberResult = await client.query('SELECT member_type, membership_category, date_of_admission, registration_date, created_at FROM members WHERE id = $1', [memberId]);
         if (memberResult.rows.length === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Member not found' });
         }
-        const memberType = memberResult.rows[0].member_type;
-        const membershipCategory = memberResult.rows[0].membership_category;
+        const memberInfo = memberResult.rows[0];
+        const memberType = memberInfo.member_type;
+        const membershipCategory = memberInfo.membership_category;
         
         // Get expected amount for this year
         const paymentDateStr = payment_date || subRecord.payment_date || new Date().toISOString().split('T')[0];
@@ -2651,7 +2729,8 @@ app.put('/api/subscriptions/:id', async (req, res) => {
             explicitStatus: status || subRecord.status || null,
             amountPaid: newAmountPaid,
             expectedAmount,
-            availableCredit: availableCreditPool
+            availableCredit: availableCreditPool,
+            isInductionYear: isInductionYearSubscription(memberInfo, subYear, status || subRecord.status || null, newAmountPaid)
         });
         
         // Update the subscription record
@@ -2956,13 +3035,14 @@ app.post('/api/members/:id/process-payment', async (req, res) => {
             await client.query('BEGIN');
             
             // Get member type/category for rate lookup
-            const memberResult = await client.query('SELECT member_type, membership_category FROM members WHERE id = $1', [memberId]);
+            const memberResult = await client.query('SELECT member_type, membership_category, date_of_admission, registration_date, created_at FROM members WHERE id = $1', [memberId]);
             if (memberResult.rows.length === 0) {
                 await client.query('ROLLBACK');
                 return res.status(404).json({ error: 'Member not found' });
             }
-            const memberType = memberResult.rows[0].member_type;
-            const membershipCategory = memberResult.rows[0].membership_category;
+            const memberInfo = memberResult.rows[0];
+            const memberType = memberInfo.member_type;
+            const membershipCategory = memberInfo.membership_category;
             
             // Get expected amount for this year (check early bird)
             const paymentDateStr = payment_date || new Date().toISOString().split('T')[0];
@@ -3007,7 +3087,8 @@ app.post('/api/members/:id/process-payment', async (req, res) => {
                 explicitStatus: existingStatus,
                 amountPaid: totalPaid,
                 expectedAmount,
-                availableCredit: availableCreditPool
+                availableCredit: availableCreditPool,
+                isInductionYear: isInductionYearSubscription(memberInfo, subscription_year, existingStatus, totalPaid)
             });
             
             // Insert or update subscription record
@@ -3084,7 +3165,13 @@ app.get('/api/members/:id/payment-summary', async (req, res) => {
         const currentYear = new Date().getFullYear();
         
         // Get member info (include membership_category for Corporate rate lookup)
-        const memberResult = await pool.query('SELECT id, member_type, membership_number, membership_category FROM members WHERE id = $1', [memberId]);
+        const memberResult = await pool.query(`
+            SELECT id, member_type, membership_number, membership_category,
+                   date_of_admission, registration_date, created_at,
+                   EXTRACT(YEAR FROM COALESCE(date_of_admission, registration_date, created_at))::int as induction_year
+            FROM members
+            WHERE id = $1
+        `, [memberId]);
         if (memberResult.rows.length === 0) {
             return res.status(404).json({ error: 'Member not found' });
         }
@@ -3145,7 +3232,9 @@ app.get('/api/members/:id/payment-summary', async (req, res) => {
                         status: 'Pending',
                         rate_expected_amount: gapRate,
                         computed_status: gapOutcome.status,
-                        is_virtual: true
+                        is_virtual: true,
+                        is_induction_year: false,
+                        balance_due: Math.max(0, gapRate - gapOutcome.totalApplied)
                     });
                     carryForwardCredit = gapOutcome.creditBalance;
                 }
@@ -3158,13 +3247,17 @@ app.get('/api/members/:id/payment-summary', async (req, res) => {
                 explicitStatus: sub.status,
                 amountPaid: sub.amount_paid,
                 expectedAmount: rateExpected,
-                availableCredit: carryForwardCredit
+                availableCredit: carryForwardCredit,
+                isInductionYear: isInductionYearSubscription(member, sub.subscription_year, sub.status, sub.amount_paid)
             });
 
             sub.credit_applied = outcome.creditApplied;
             sub.credit_balance = outcome.creditBalance;
             sub.computed_status = outcome.status;
             sub.legacy_paid_override = outcome.isLegacyPaid && sub.status !== 'Paid';
+            sub.is_induction_year = outcome.isInductionYear;
+            sub.induction_note = outcome.isInductionYear ? 'Inducted this year' : null;
+            sub.balance_due = outcome.isInductionYear ? null : Math.max(0, rateExpected - outcome.totalApplied);
             carryForwardCredit = outcome.creditBalance;
             
             expandedSubs.push(sub);
@@ -3205,7 +3298,9 @@ app.get('/api/members/:id/payment-summary', async (req, res) => {
                     status: 'Pending',
                     rate_expected_amount: expectedAmount,
                     computed_status: gapOutcome.status,
-                    is_virtual: true
+                    is_virtual: true,
+                    is_induction_year: false,
+                    balance_due: Math.max(0, expectedAmount - gapOutcome.totalApplied)
                 });
 
                 carryForwardCredit = gapOutcome.creditBalance;
@@ -3240,10 +3335,19 @@ app.get('/api/dashboard/current-year-overview', async (req, res) => {
     try {
         const memberType = req.query.memberType || null;
         const params = [];
+        const inductionPaidCondition = `
+            COALESCE((
+                s.status = 'Paid'
+                AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date, m.created_at))::int
+            ), false)
+        `;
         const fullyPaidCondition = `
-            COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) > 0
-            AND (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0))
-                >= COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0)
+            (${inductionPaidCondition})
+            OR (
+                COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) > 0
+                AND (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0))
+                    >= COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0)
+            )
         `;
         let query = `
             SELECT 
@@ -3284,10 +3388,19 @@ app.get('/api/dashboard/paid-by-type', async (req, res) => {
     try {
         const memberType = req.query.memberType || null;
         const params = [];
+        const inductionPaidCondition = `
+            COALESCE((
+                s.status = 'Paid'
+                AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date, m.created_at))::int
+            ), false)
+        `;
         const fullyPaidCondition = `
-            COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) > 0
-            AND (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0))
-                >= COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0)
+            (${inductionPaidCondition})
+            OR (
+                COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) > 0
+                AND (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0))
+                    >= COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0)
+            )
         `;
         let query = `
             SELECT 
@@ -3342,9 +3455,14 @@ app.get('/api/dashboard/yearly-trends', async (req, res) => {
                 SELECT 
                     s.subscription_year,
                     COUNT(DISTINCT CASE 
-                        WHEN COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) > 0
-                        AND (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0))
-                            >= COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0)
+                        WHEN COALESCE((
+                            s.status = 'Paid'
+                            AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date, m.created_at))::int
+                        ), false) OR (
+                            COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) > 0
+                            AND (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0))
+                                >= COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0)
+                        )
                         THEN m.id
                     END) as paid_members,
                     SUM(CASE WHEN COALESCE(s.amount_paid, 0) > 0 THEN COALESCE(s.amount_paid, 0) ELSE 0 END) as total_revenue
@@ -3425,6 +3543,11 @@ app.get('/api/dashboard/unpaid-subscriptions', async (req, res) => {
             AND (
                 s.id IS NULL 
                 OR (
+                    NOT (
+                        s.status = 'Paid'
+                        AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date, m.created_at))::int
+                    )
+                    AND
                     COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) > 0
                     AND (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0)) < COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0)
                 )
@@ -3538,10 +3661,19 @@ app.get('/api/dashboard/regional-performance', async (req, res) => {
     try {
         const memberType = req.query.memberType || null;
         const params = [];
+        const inductionPaidCondition = `
+            COALESCE((
+                s.status = 'Paid'
+                AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date, m.created_at))::int
+            ), false)
+        `;
         const fullyPaidCondition = `
-            COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) > 0
-            AND (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0))
-                >= COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0)
+            (${inductionPaidCondition})
+            OR (
+                COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) > 0
+                AND (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0))
+                    >= COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0)
+            )
         `;
         let query = `
             SELECT 
@@ -3929,7 +4061,8 @@ app.get('/api/good-standing/:year', async (req, res) => {
                     explicitStatus: sub.status,
                     amountPaid: sub.amount_paid,
                     expectedAmount: rateExpected,
-                    availableCredit: carryForwardCredit
+                    availableCredit: carryForwardCredit,
+                    isInductionYear: isInductionYearSubscription(member, sub.subscription_year, sub.status, sub.amount_paid)
                 });
                 
                 if (sub.subscription_year === year) {
@@ -3943,6 +4076,7 @@ app.get('/api/good-standing/:year', async (req, res) => {
                         payment_date: sub.payment_date_fmt,
                         isWaived: outcome.isWaived,
                         isLegacyPaid: outcome.isLegacyPaid,
+                        isInductionYear: outcome.isInductionYear,
                         status: outcome.status
                     };
                 }
@@ -4000,6 +4134,8 @@ app.get('/api/good-standing/:year', async (req, res) => {
                     amount_paid: targetYearData.amountPaid,
                     credit_applied: targetYearData.creditApplied,
                     expected_amount: targetYearData.rateExpected,
+                    is_induction_year: targetYearData.isInductionYear === true,
+                    induction_note: targetYearData.isInductionYear ? 'Inducted this year' : null,
                     recorded_by: targetYearData.recorded_by,
                     payment_date: targetYearData.payment_date
                 });
