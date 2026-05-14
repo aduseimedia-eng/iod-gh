@@ -24,30 +24,29 @@ const pool = new Pool(createDatabasePoolConfig());
 
 async function updatePassword() {
     try {
-        const password = 'Iodghana@123';
+        const username = process.env.ADMIN_USERNAME || process.env.ADMIN_DEFAULT_USERNAME || 'admin';
+        const password = process.env.ADMIN_NEW_PASSWORD || process.argv[2];
+
+        if (!password || password.length < 8) {
+            throw new Error('Provide a new password with ADMIN_NEW_PASSWORD or as the first command argument.');
+        }
+
         const hash = await bcrypt.hash(password, 10);
-        
         const result = await pool.query(
-            'UPDATE admin_users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE username = $2 RETURNING *',
-            [hash, 'admin']
+            'UPDATE admin_users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE username = $2 RETURNING id, username, email, updated_at',
+            [hash, username]
         );
 
-        if (result.rows.length > 0) {
-            console.log('✅ Password updated successfully');
-            console.log('Admin user:', {
-                id: result.rows[0].id,
-                username: result.rows[0].username,
-                email: result.rows[0].email,
-                updated_at: result.rows[0].updated_at
-            });
-            console.log('\nYou can now login with:');
-            console.log('Username: admin');
-            console.log('Password: Iodghana@123');
-        } else {
-            console.log('❌ Admin user not found');
+        if (result.rows.length === 0) {
+            console.log('Admin user not found');
+            return;
         }
+
+        console.log('Password updated successfully');
+        console.log('Admin user:', result.rows[0]);
     } catch (err) {
-        console.error('Error updating password:', err);
+        console.error('Error updating password:', err.message || err);
+        process.exitCode = 1;
     } finally {
         await pool.end();
     }
