@@ -332,7 +332,29 @@ app.get('/api/staff/members/:id', async (req, res) => {
     }
 });
 
-// Staff: Good Standing report (read-only, no auth required)
+function toStaffGoodStandingMember(member, year) {
+    return {
+        id: member.id,
+        membership_number: member.membership_number,
+        member_type: member.member_type,
+        membership_category: member.membership_category,
+        title: member.title,
+        first_name: member.first_name,
+        surname: member.surname,
+        last_name: member.last_name,
+        other_names: member.other_names,
+        organization: member.organization,
+        designation: member.designation,
+        position: member.position,
+        region: member.region,
+        email: member.email,
+        phone_number: member.phone_number,
+        date_of_admission: member.date_of_admission,
+        subscription_year: year
+    };
+}
+
+// Staff: Good Standing report (read-only, no auth required, no payment details exposed)
 app.get('/api/staff/good-standing/:year', async (req, res) => {
     try {
         const year = parseInt(req.params.year);
@@ -350,23 +372,12 @@ app.get('/api/staff/good-standing/:year', async (req, res) => {
         
         for (const member of allMembersResult.rows) {
             if (member.member_type === 'Honorary') {
-                goodStandingMembers.push({
-                    ...member,
-                    subscription_year: year,
-                    status: 'Waived',
-                    amount_paid: 0,
-                    credit_applied: 0,
-                    expected_amount: 0,
-                    recorded_by: null,
-                    payment_date: null
-                });
+                goodStandingMembers.push(toStaffGoodStandingMember(member, year));
                 continue;
             }
             
             const subsResult = await pool.query(`
-                SELECT s.*, COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) as rate_expected_amount,
-                       s.receipt_number as recorded_by,
-                       TO_CHAR(s.payment_date, 'DD/MM/YYYY') as payment_date_fmt
+                SELECT s.*, COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) as rate_expected_amount
                 FROM subscriptions s
                 LEFT JOIN subscription_rates sr ON sr.member_type = $2 
                     AND sr.subscription_year = s.subscription_year
@@ -422,8 +433,6 @@ app.get('/api/staff/good-standing/:year', async (req, res) => {
                                 totalAvailable: gapOutcome.totalApplied,
                                 rateExpected: gapRate,
                                 creditBalance: gapOutcome.creditBalance,
-                                recorded_by: null,
-                                payment_date: null,
                                 isWaived: gapOutcome.isWaived,
                                 isLegacyPaid: gapOutcome.isLegacyPaid,
                                 status: gapOutcome.status
@@ -451,8 +460,6 @@ app.get('/api/staff/good-standing/:year', async (req, res) => {
                         totalAvailable: outcome.totalApplied,
                         rateExpected,
                         creditBalance: outcome.creditBalance,
-                        recorded_by: sub.recorded_by,
-                        payment_date: sub.payment_date_fmt,
                         isWaived: outcome.isWaived,
                         isLegacyPaid: outcome.isLegacyPaid,
                         isInductionYear: outcome.isInductionYear,
@@ -487,8 +494,6 @@ app.get('/api/staff/good-standing/:year', async (req, res) => {
                             totalAvailable: gapOutcome.totalApplied,
                             rateExpected: gapRate,
                             creditBalance: gapOutcome.creditBalance,
-                            recorded_by: null,
-                            payment_date: null,
                             isWaived: gapOutcome.isWaived,
                             isLegacyPaid: gapOutcome.isLegacyPaid,
                             status: gapOutcome.status
@@ -504,18 +509,7 @@ app.get('/api/staff/good-standing/:year', async (req, res) => {
             );
             
             if (isGoodStanding) {
-                goodStandingMembers.push({
-                    ...member,
-                    subscription_year: year,
-                    status: targetYearData.status,
-                    amount_paid: targetYearData.amountPaid,
-                    credit_applied: targetYearData.creditApplied,
-                    expected_amount: targetYearData.rateExpected,
-                    is_induction_year: targetYearData.isInductionYear === true,
-                    induction_note: targetYearData.isInductionYear ? 'Inducted this year' : null,
-                    recorded_by: targetYearData.recorded_by,
-                    payment_date: targetYearData.payment_date
-                });
+                goodStandingMembers.push(toStaffGoodStandingMember(member, year));
             }
         }
         

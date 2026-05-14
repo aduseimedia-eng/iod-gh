@@ -1508,19 +1508,27 @@
             return personalName || member.organization || 'N/A';
         }
 
-        function formatGoodStandingAmount(value) {
-            const amount = parseFloat(value);
-            return Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
+        function formatGoodStandingMemberType(member) {
+            return member.member_type === 'AIOD' ? 'Associate, IoD'
+                : member.member_type === 'MIOD' ? 'Member, IoD'
+                : member.member_type === 'FIOD' ? 'Fellow, IoD'
+                : member.member_type === 'Honorary' ? 'Honorary Fellow'
+                : member.member_type === 'Corporate' ? 'Corporate Member'
+                : (member.member_type || 'N/A');
+        }
+
+        function formatGoodStandingCategory(member) {
+            if (member.member_type === 'Corporate') return member.membership_category || 'N/A';
+            return member.designation || member.position || '-';
         }
 
         function renderGoodStandingTableHeader() {
             return `<thead><tr>
                 <th>Membership No.</th>
                 <th>Full Name</th>
-                <th>Expected (₵) Amount</th>
-                <th>Paid (₵)</th>
-                <th>Credit Applied (₵)</th>
-                <th>Payment Date</th>
+                <th>Type</th>
+                <th>Category / Role</th>
+                <th>Region</th>
             </tr></thead>`;
         }
 
@@ -1528,10 +1536,9 @@
             return `<tr>
                 <td><strong>${member.membership_number || 'N/A'}</strong></td>
                 <td>${formatGoodStandingFullName(member)}</td>
-                <td>${formatGoodStandingAmount(member.expected_amount)}</td>
-                <td>${formatGoodStandingAmount(member.amount_paid)}</td>
-                <td>${formatGoodStandingAmount(member.credit_applied)}</td>
-                <td>${member.payment_date || '-'}</td>
+                <td>${formatGoodStandingMemberType(member)}</td>
+                <td>${formatGoodStandingCategory(member)}</td>
+                <td>${member.region || '-'}</td>
             </tr>`;
         }
 
@@ -1549,20 +1556,13 @@
 
                 const groups = { FIOD: [], MIOD: [], AIOD: [] };
                 const corpGroups = { Platinum: [], Gold: [], Silver: [], Bronze: [] };
-                const waivedMembers = [];
                 const honoraryMembers = [];
                 members.forEach(m => {
-                    // Honorary → separate section
+                    // Honorary members remain grouped separately by membership type.
                     if (m.member_type === 'Honorary') {
                         honoraryMembers.push(m);
                         return;
                     }
-                    // Waived non-Honorary → only waived section
-                    if (m.status === 'Waived') {
-                        waivedMembers.push(m);
-                        return;
-                    }
-                    // Paid members → their type groups
                     if (m.member_type === 'Corporate') {
                         const cat = m.membership_category || 'Bronze';
                         (corpGroups[cat] || corpGroups['Bronze']).push(m);
@@ -1572,15 +1572,14 @@
                 });
 
                 const totalMembers = members.length;
-                const totalCorporate = members.filter(m => m.member_type === 'Corporate' && m.status !== 'Waived').length;
-                const totalWaived = waivedMembers.length;
+                const totalCorporate = members.filter(m => m.member_type === 'Corporate').length;
                 const totalHonorary = honoraryMembers.length;
 
                 if (totalMembers === 0) {
                     contentEl.innerHTML = `<div class="gs-no-data">
                         <i class="fas fa-info-circle"></i>
                         <p>No members in good standing for ${year}.</p>
-                        <p style="font-size:0.85rem;color:var(--text-light);margin-top:0.5rem;">Members appear here when their subscription payments (including credits) cover the expected amount for this year.</p>
+                        <p style="font-size:0.85rem;color:var(--text-light);margin-top:0.5rem;">Members appear here when they meet the good-standing criteria for this year.</p>
                     </div>`;
                     return;
                 }
@@ -1601,10 +1600,6 @@
                         <div><div class="gs-summary-text">Corporate Partners</div><div class="gs-summary-value">${totalCorporate}</div></div>
                         <div class="gs-summary-icon"><i class="fas fa-building"></i></div>
                     </div>
-                    ${totalWaived > 0 ? `<div class="gs-summary-card" style="background:#eab308;">
-                        <div><div class="gs-summary-text">Waived Members</div><div class="gs-summary-value">${totalWaived}</div></div>
-                        <div class="gs-summary-icon"><i class="fas fa-hand-holding-heart"></i></div>
-                    </div>` : ''}
                     ${totalHonorary > 0 ? `<div class="gs-summary-card" style="background:#7c3aed;">
                         <div><div class="gs-summary-text">Honorary Members</div><div class="gs-summary-value">${totalHonorary}</div></div>
                         <div class="gs-summary-icon"><i class="fas fa-medal"></i></div>
@@ -1665,23 +1660,6 @@
                     html += '</div>';
                 }
 
-                // Waived Members section (non-Honorary only)
-                if (waivedMembers.length > 0) {
-                    html += `<div class="gs-type-card" style="border-left: 4px solid #eab308;">
-                        <div class="gs-type-header" style="background: linear-gradient(135deg, #fefce8, #fef9c3);">
-                            <i class="fas fa-hand-holding-heart" style="color: #854d0e;"></i>
-                            <h3 style="color: #854d0e;">Waived Members</h3>
-                            <span class="gs-type-count" style="background: #fef9c3; color: #854d0e;">${waivedMembers.length} member${waivedMembers.length !== 1 ? 's' : ''}</span>
-                        </div>
-                        <p style="padding: 0 1rem; margin: 0 0 0.75rem; font-size: 0.85rem; color: #92400e;">Members whose subscription payment has been waived for ${year}.</p>
-                        <div class="gs-table-wrap"><table>
-                            ${renderGoodStandingTableHeader()}<tbody>`;
-                    waivedMembers.sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||'')).forEach((m) => {
-                        html += renderGoodStandingTableRow(m);
-                    });
-                    html += '</tbody></table></div></div>';
-                }
-
                 // Honorary Members section
                 if (honoraryMembers.length > 0) {
                     html += `<div class="gs-type-card" style="border-left: 4px solid #7c3aed;">
@@ -1712,17 +1690,16 @@
         function exportGoodStandingCSV() {
             if (!gsData.length) { alert('No data to export. Load a report first.'); return; }
             const year = document.getElementById('gs-year-select').value;
-            const headers = ['Membership No.','Full Name','Expected (₵) Amount','Paid (₵)','Credit Applied (₵)','Payment Date'];
+            const headers = ['Membership No.','Full Name','Type','Category / Role','Region'];
             let csv = headers.join(',') + '\n';
             gsData.forEach(m => {
                 const fullName = formatGoodStandingFullName(m);
                 csv += [
                     `"${m.membership_number||''}"`,
                     `"${fullName}"`,
-                    `"${formatGoodStandingAmount(m.expected_amount)}"`,
-                    `"${formatGoodStandingAmount(m.amount_paid)}"`,
-                    `"${formatGoodStandingAmount(m.credit_applied)}"`,
-                    `"${m.payment_date || ''}"`
+                    `"${formatGoodStandingMemberType(m)}"`,
+                    `"${formatGoodStandingCategory(m)}"`,
+                    `"${m.region || ''}"`
                 ].join(',') + '\n';
             });
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
