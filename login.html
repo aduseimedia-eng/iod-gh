@@ -731,6 +731,15 @@
                 const data = await response.json();
 
                 if (response.ok) {
+                    try {
+                        sessionStorage.setItem('iodLoginWelcome', JSON.stringify({
+                            user: data.user || document.getElementById('username').value.trim(),
+                            role: data.role || 'admin',
+                            at: Date.now()
+                        }));
+                    } catch (storageErr) {
+                        console.warn('Could not store login welcome message:', storageErr);
+                    }
                     window.location.href = '/';
                 } else {
                     errorText.textContent = data.error || 'Invalid username or password';
