@@ -2779,7 +2779,7 @@
         function updateWelcomeBanner() {
             const heading = document.getElementById('welcome-admin-heading');
             if (!heading) return;
-            heading.textContent = `Welcome, ${currentAuthContext.user || 'Admin'}`;
+            heading.textContent = `Howdy, ${currentAuthContext.user || 'Admin'}`;
         }
 
         async function logout() {
