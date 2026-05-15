@@ -1517,9 +1517,8 @@
                 : (member.member_type || 'N/A');
         }
 
-        function formatGoodStandingCategory(member) {
-            if (member.member_type === 'Corporate') return member.membership_category || 'N/A';
-            return member.designation || member.position || '-';
+        function formatGoodStandingExpertise(member) {
+            return member.expertise || '-';
         }
 
         function renderGoodStandingTableHeader() {
@@ -1527,8 +1526,8 @@
                 <th>Membership No.</th>
                 <th>Full Name</th>
                 <th>Type</th>
-                <th>Category / Role</th>
-                <th>Region</th>
+                <th>Expertise</th>
+                <th>Organization</th>
             </tr></thead>`;
         }
 
@@ -1537,8 +1536,8 @@
                 <td><strong>${member.membership_number || 'N/A'}</strong></td>
                 <td>${formatGoodStandingFullName(member)}</td>
                 <td>${formatGoodStandingMemberType(member)}</td>
-                <td>${formatGoodStandingCategory(member)}</td>
-                <td>${member.region || '-'}</td>
+                <td>${formatGoodStandingExpertise(member)}</td>
+                <td>${member.organization || '-'}</td>
             </tr>`;
         }
 
@@ -1690,7 +1689,7 @@
         function exportGoodStandingCSV() {
             if (!gsData.length) { alert('No data to export. Load a report first.'); return; }
             const year = document.getElementById('gs-year-select').value;
-            const headers = ['Membership No.','Full Name','Type','Category / Role','Region'];
+            const headers = ['Membership No.','Full Name','Type','Expertise','Organization'];
             let csv = headers.join(',') + '\n';
             gsData.forEach(m => {
                 const fullName = formatGoodStandingFullName(m);
@@ -1698,8 +1697,8 @@
                     `"${m.membership_number||''}"`,
                     `"${fullName}"`,
                     `"${formatGoodStandingMemberType(m)}"`,
-                    `"${formatGoodStandingCategory(m)}"`,
-                    `"${m.region || ''}"`
+                    `"${formatGoodStandingExpertise(m)}"`,
+                    `"${m.organization || ''}"`
                 ].join(',') + '\n';
             });
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

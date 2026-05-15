@@ -169,6 +169,7 @@
             background: white;
             padding: 1.5rem;
             border: 1px solid #dee2e6;
+            min-width: 0;
         }
 
         .chart-title {
@@ -775,8 +776,17 @@
 
         .insight-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
             gap: 1.25rem;
+        }
+
+        #paymentMethodsContent {
+            max-width: 100%;
+            overflow-x: auto;
+        }
+
+        #paymentMethodsContent table {
+            min-width: 560px;
         }
 
         .chart-canvas-wrap {

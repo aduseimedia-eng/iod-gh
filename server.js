@@ -344,6 +344,7 @@ function toStaffGoodStandingMember(member, year) {
         last_name: member.last_name,
         other_names: member.other_names,
         organization: member.organization,
+        expertise: member.expertise,
         designation: member.designation,
         position: member.position,
         region: member.region,
@@ -362,7 +363,7 @@ app.get('/api/staff/good-standing/:year', async (req, res) => {
         const allMembersResult = await pool.query(`
             SELECT DISTINCT m.id, m.membership_number, m.member_type, m.membership_category,
                    m.title, m.first_name, m.surname, m.last_name, m.other_names,
-                   m.organization, m.designation, m.position, m.region, m.email, m.phone_number,
+                   m.organization, m.expertise, m.designation, m.position, m.region, m.email, m.phone_number,
                    TO_CHAR(m.date_of_admission, 'DD/MM/YYYY') as date_of_admission
             FROM members m
             WHERE m.member_type IN ('FIOD', 'MIOD', 'AIOD', 'Corporate', 'Honorary')
