@@ -13,6 +13,42 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================
+-- ADMIN USERS AND ACTIVITY LOGS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS admin_users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
+    role VARCHAR(20) NOT NULL DEFAULT 'admin' CHECK (role IN ('superadmin', 'admin')),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by_admin_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+    last_login_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS admin_activity_logs (
+    id SERIAL PRIMARY KEY,
+    admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+    admin_username VARCHAR(100),
+    action VARCHAR(100) NOT NULL,
+    entity_type VARCHAR(100),
+    entity_id VARCHAR(100),
+    description TEXT,
+    method VARCHAR(10),
+    path TEXT,
+    status_code INTEGER,
+    ip_address VARCHAR(100),
+    user_agent TEXT,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_activity_logs_created_at ON admin_activity_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_activity_logs_admin_user_id ON admin_activity_logs(admin_user_id);
+
+-- ============================================================
 -- UNIFIED MEMBERS TABLE
 -- ============================================================
 CREATE TABLE IF NOT EXISTS members (

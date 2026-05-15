@@ -890,6 +890,113 @@
             font-weight: 600;
         }
 
+        .superadmin-grid {
+            display: grid;
+            grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.4fr);
+            gap: 1rem;
+            align-items: start;
+        }
+
+        .superadmin-panel {
+            background: white;
+            border: 1px solid var(--border);
+            padding: 1.4rem;
+        }
+
+        .superadmin-section-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            color: var(--primary);
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .admin-table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: white;
+        }
+
+        .admin-management-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 560px;
+            font-size: 0.78rem;
+        }
+
+        .admin-management-table th,
+        .admin-management-table td {
+            padding: 0.7rem 0.8rem;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .admin-management-table th {
+            background: var(--bg-light);
+            color: var(--text-light);
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .admin-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.25rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            white-space: nowrap;
+            color: var(--text-dark);
+            background: var(--bg-light);
+        }
+
+        .admin-pill.superadmin {
+            color: #5b21b6;
+            background: #ede9fe;
+        }
+
+        .admin-pill.active {
+            color: #047857;
+            background: #d1fae5;
+        }
+
+        .admin-pill.inactive {
+            color: #b91c1c;
+            background: #fee2e2;
+        }
+
+        .admin-status-action {
+            border: 1px solid var(--border);
+            background: white;
+            color: var(--primary);
+            border-radius: 8px;
+            padding: 0.4rem 0.65rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .admin-status-action.danger {
+            color: var(--danger);
+            border-color: #fecaca;
+            background: #fff5f5;
+        }
+
+        .activity-path {
+            color: var(--text-light);
+            font-size: 0.7rem;
+            margin-top: 0.2rem;
+            word-break: break-word;
+        }
+
         .subscription-active {
             color: var(--success);
             font-weight: 700;
@@ -1066,6 +1173,10 @@
 
             .welcome-stat {
                 min-width: 100px;
+            }
+
+            .superadmin-grid {
+                grid-template-columns: 1fr;
             }
         }
 
@@ -1856,6 +1967,9 @@
             <a href="dashboard-analytics.html" class="nav-btn" title="Analytics Dashboard">
                 <i class="fas fa-chart-line"></i> Analytics
             </a>
+            <button id="admin-users-nav-btn" onclick="openSettingsModal('admins')" class="nav-btn" title="Admin Users" style="display: none; cursor: pointer;">
+                <i class="fas fa-user-shield"></i> Admins
+            </button>
             <button onclick="openSettingsModal()" class="nav-btn" title="Account Settings" style="cursor: pointer;">
                 <i class="fas fa-cog"></i> Settings
             </button>
@@ -2427,7 +2541,7 @@
 
     <!-- Settings Modal -->
     <div id="settings-modal" class="modal">
-        <div class="modal-content" style="max-width: 580px; position: relative; padding: 0; overflow-y: auto;">
+        <div class="modal-content" style="max-width: 980px; position: relative; padding: 0; overflow-y: auto;">
             <button class="close-btn" onclick="closeSettingsModal()"><i class="fas fa-times"></i></button>
 
             <!-- Settings Header -->
@@ -2447,6 +2561,7 @@
                 <div id="settings-user-badge" style="margin-top: 1.2rem; display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; padding: 0.4rem 1rem; position: relative; z-index: 1;">
                     <i class="fas fa-user-circle" style="color: var(--secondary); font-size: 1rem;"></i>
                     <span id="settings-current-user-display" style="color: rgba(255,255,255,0.9); font-size: 0.82rem; font-weight: 500;">iodadmin</span>
+                    <span id="settings-current-role-display" style="color: rgba(255,255,255,0.65); font-size: 0.72rem; font-weight: 600; text-transform: uppercase;"></span>
                 </div>
             </div>
 
@@ -2464,6 +2579,9 @@
                     </button>
                     <button onclick="switchSettingsTab('password')" id="tab-password" class="settings-tab" style="flex:1; padding: 0.65rem; border-radius: 10px; border: none; font-family: 'Poppins', sans-serif; font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem; transition: all 0.3s ease;">
                         <i class="fas fa-key"></i> Password
+                    </button>
+                    <button onclick="switchSettingsTab('admins')" id="tab-admins" class="settings-tab" style="flex:1; padding: 0.65rem; border-radius: 10px; border: none; font-family: 'Poppins', sans-serif; font-size: 0.82rem; font-weight: 600; cursor: pointer; display: none; align-items: center; justify-content: center; gap: 0.4rem; transition: all 0.3s ease;">
+                        <i class="fas fa-user-shield"></i> Admins
                     </button>
                 </div>
             </div>
@@ -2558,6 +2676,61 @@
                     </button>
                 </div>
             </div>
+
+            <!-- SuperAdmin Tab -->
+            <div id="settings-panel-admins" style="padding: 1.5rem 2rem 2rem; display: none;">
+                <div class="superadmin-grid">
+                    <div class="superadmin-panel">
+                        <div class="superadmin-section-title">
+                            <span><i class="fas fa-user-plus"></i> New Admin</span>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Username</label>
+                            <input type="text" id="new-admin-username" placeholder="Enter username" autocomplete="off">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Email</label>
+                            <input type="email" id="new-admin-email" placeholder="name@example.com" autocomplete="off">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1.2rem;">
+                            <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Temporary Password</label>
+                            <div style="position: relative;">
+                                <input type="password" id="new-admin-password" placeholder="Minimum 8 characters" autocomplete="new-password" style="padding-right: 3rem;">
+                                <button type="button" onclick="toggleSettingsPw('new-admin-password', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-light); cursor: pointer; padding: 4px; font-size: 0.9rem; box-shadow: none;">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <button id="create-admin-btn" class="btn-primary" onclick="createAdminUser()" style="width: 100%; justify-content: center; border-radius: 12px; padding: 0.85rem; font-size: 0.9rem;">
+                            <i class="fas fa-user-plus"></i> Create Admin
+                        </button>
+                    </div>
+
+                    <div class="superadmin-panel">
+                        <div class="superadmin-section-title">
+                            <span><i class="fas fa-users-gear"></i> Admin Users</span>
+                            <button class="admin-status-action" onclick="loadAdminUsers()">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                        <div id="admin-users-list">
+                            <div class="no-data" style="padding: 2rem;">Loading admins...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="superadmin-panel" style="margin-top: 1rem;">
+                    <div class="superadmin-section-title">
+                        <span><i class="fas fa-clock-rotate-left"></i> Recent Admin Activity</span>
+                        <button class="admin-status-action" onclick="loadAdminActivityLogs()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                    <div id="admin-activity-list">
+                        <div class="no-data" style="padding: 2rem;">Loading activity...</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2565,6 +2738,36 @@
         // ==========================================
         // AUTH HELPERS
         // ==========================================
+        let currentAuthContext = { authenticated: false, role: 'admin', isSuperAdmin: false };
+
+        function escapeHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = value == null ? '' : String(value);
+            return div.innerHTML;
+        }
+
+        async function loadAuthContext() {
+            try {
+                const response = await fetch('/api/auth-status');
+                const data = await response.json();
+                currentAuthContext = data || { authenticated: false, role: 'admin', isSuperAdmin: false };
+                updateSuperAdminVisibility();
+                return currentAuthContext;
+            } catch (err) {
+                currentAuthContext = { authenticated: false, role: 'admin', isSuperAdmin: false };
+                updateSuperAdminVisibility();
+                return currentAuthContext;
+            }
+        }
+
+        function updateSuperAdminVisibility() {
+            const canManageAdmins = !!currentAuthContext.isSuperAdmin;
+            const navButton = document.getElementById('admin-users-nav-btn');
+            const adminTab = document.getElementById('tab-admins');
+            if (navButton) navButton.style.display = canManageAdmins ? 'inline-flex' : 'none';
+            if (adminTab) adminTab.style.display = canManageAdmins ? 'flex' : 'none';
+        }
+
         async function logout() {
             await fetch('/api/logout', { method: 'POST' });
             window.location.href = '/login.html';
@@ -2583,20 +2786,25 @@
         // ==========================================
         // SETTINGS MODAL
         // ==========================================
-        function openSettingsModal() {
-            fetch('/api/auth-status').then(r => r.json()).then(data => {
+        async function openSettingsModal(initialTab = 'username') {
+            const data = await loadAuthContext();
+            if (data.authenticated) {
                 document.getElementById('settings-current-user').value = data.user || '';
                 document.getElementById('settings-current-user-display').textContent = data.user || '';
-            });
+                document.getElementById('settings-current-role-display').textContent = data.isSuperAdmin ? 'SuperAdmin' : 'Admin';
+            }
             document.getElementById('settings-new-username').value = '';
             document.getElementById('settings-username-password').value = '';
             document.getElementById('settings-current-password').value = '';
             document.getElementById('settings-new-password').value = '';
             document.getElementById('settings-confirm-password').value = '';
+            document.getElementById('new-admin-username').value = '';
+            document.getElementById('new-admin-email').value = '';
+            document.getElementById('new-admin-password').value = '';
             resetPasswordStrength();
             document.getElementById('pw-match-label').style.display = 'none';
             hideSettingsAlert();
-            switchSettingsTab('username');
+            switchSettingsTab(initialTab === 'admins' && data.isSuperAdmin ? 'admins' : 'username');
             document.getElementById('settings-modal').classList.add('show');
         }
 
@@ -2605,16 +2813,28 @@
         }
 
         function switchSettingsTab(tab) {
-            const tabs = ['username', 'password'];
+            if (tab === 'admins' && !currentAuthContext.isSuperAdmin) {
+                tab = 'username';
+            }
+
+            const tabs = ['username', 'password', 'admins'];
             tabs.forEach(t => {
                 const btn = document.getElementById('tab-' + t);
                 const panel = document.getElementById('settings-panel-' + t);
+                if (!btn || !panel) return;
+                if (t === 'admins' && !currentAuthContext.isSuperAdmin) {
+                    btn.style.display = 'none';
+                    panel.style.display = 'none';
+                    return;
+                }
                 if (t === tab) {
+                    btn.style.display = 'flex';
                     btn.style.background = 'var(--primary)';
                     btn.style.color = 'white';
                     btn.style.boxShadow = 'var(--shadow-sm)';
                     panel.style.display = 'block';
                 } else {
+                    if (t === 'admins') btn.style.display = 'flex';
                     btn.style.background = 'transparent';
                     btn.style.color = 'var(--text-light)';
                     btn.style.boxShadow = 'none';
@@ -2622,6 +2842,9 @@
                 }
             });
             hideSettingsAlert();
+            if (tab === 'admins') {
+                loadAdminManagement();
+            }
         }
 
         function toggleSettingsPw(inputId, btn) {
@@ -2773,6 +2996,215 @@
             }
         }
 
+        function formatAdminDate(value) {
+            if (!value) return 'Never';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return 'Never';
+            return date.toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function formatActivityAction(action) {
+            return String(action || 'Activity')
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, char => char.toUpperCase());
+        }
+
+        async function loadAdminManagement() {
+            if (!currentAuthContext.isSuperAdmin) return;
+            await Promise.all([loadAdminUsers(), loadAdminActivityLogs()]);
+        }
+
+        async function loadAdminUsers() {
+            const container = document.getElementById('admin-users-list');
+            if (!container) return;
+
+            container.innerHTML = '<div class="no-data" style="padding: 2rem;">Loading admins...</div>';
+            try {
+                const response = await fetch('/api/admin/users');
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to load admins');
+                renderAdminUsers(Array.isArray(data) ? data : []);
+            } catch (err) {
+                container.innerHTML = `<div class="no-data" style="padding: 2rem; color: var(--danger);">${escapeHtml(err.message || 'Failed to load admins')}</div>`;
+            }
+        }
+
+        function renderAdminUsers(users) {
+            const container = document.getElementById('admin-users-list');
+            if (!container) return;
+
+            if (!users.length) {
+                container.innerHTML = '<div class="no-data" style="padding: 2rem;">No admins found</div>';
+                return;
+            }
+
+            const rows = users.map(user => {
+                const isSuperAdmin = user.role === 'superadmin';
+                const isCurrentUser = Number(user.id) === Number(currentAuthContext.adminId);
+                const roleHtml = isSuperAdmin
+                    ? '<span class="admin-pill superadmin"><i class="fas fa-crown"></i> SuperAdmin</span>'
+                    : '<span class="admin-pill">Admin</span>';
+                const statusHtml = user.is_active
+                    ? '<span class="admin-pill active">Active</span>'
+                    : '<span class="admin-pill inactive">Inactive</span>';
+                const actionHtml = (!isSuperAdmin && !isCurrentUser)
+                    ? `<button class="admin-status-action ${user.is_active ? 'danger' : ''}" onclick="toggleAdminStatus(${Number(user.id)}, ${!user.is_active})">${user.is_active ? 'Deactivate' : 'Activate'}</button>`
+                    : '<span style="color: var(--text-light); font-size: 0.72rem;">Locked</span>';
+
+                return `
+                    <tr>
+                        <td>
+                            <strong>${escapeHtml(user.username)}</strong>
+                            ${isCurrentUser ? '<div class="activity-path">Current user</div>' : ''}
+                        </td>
+                        <td>${escapeHtml(user.email || '-')}</td>
+                        <td>${roleHtml}</td>
+                        <td>${statusHtml}</td>
+                        <td>${escapeHtml(formatAdminDate(user.last_login_at))}</td>
+                        <td>${escapeHtml(user.created_by_username || '-')}</td>
+                        <td>${actionHtml}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="admin-table-wrap">
+                    <table class="admin-management-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Last Login</th>
+                                <th>Created By</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        async function createAdminUser() {
+            hideSettingsAlert();
+            const username = document.getElementById('new-admin-username').value.trim();
+            const email = document.getElementById('new-admin-email').value.trim();
+            const password = document.getElementById('new-admin-password').value;
+            const button = document.getElementById('create-admin-btn');
+
+            if (username.length < 3) {
+                return showSettingsAlert('Admin username must be at least 3 characters.', 'error');
+            }
+            if (email && !validateEmail(email)) {
+                return showSettingsAlert('Enter a valid email address.', 'error');
+            }
+            if (password.length < 8) {
+                return showSettingsAlert('Temporary password must be at least 8 characters.', 'error');
+            }
+
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+            try {
+                const response = await fetch('/api/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to create admin');
+
+                document.getElementById('new-admin-username').value = '';
+                document.getElementById('new-admin-email').value = '';
+                document.getElementById('new-admin-password').value = '';
+                showSettingsAlert(`Admin "${data.username}" created.`, 'success');
+                await loadAdminManagement();
+            } catch (err) {
+                showSettingsAlert(err.message || 'Failed to create admin.', 'error');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-user-plus"></i> Create Admin';
+            }
+        }
+
+        async function toggleAdminStatus(adminId, isActive) {
+            hideSettingsAlert();
+            try {
+                const response = await fetch(`/api/admin/users/${adminId}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isActive })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to update admin');
+
+                showSettingsAlert(`Admin "${data.username}" ${data.is_active ? 'activated' : 'deactivated'}.`, 'success');
+                await loadAdminManagement();
+            } catch (err) {
+                showSettingsAlert(err.message || 'Failed to update admin.', 'error');
+            }
+        }
+
+        async function loadAdminActivityLogs() {
+            const container = document.getElementById('admin-activity-list');
+            if (!container) return;
+
+            container.innerHTML = '<div class="no-data" style="padding: 2rem;">Loading activity...</div>';
+            try {
+                const response = await fetch('/api/admin/activity-logs?limit=50');
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to load activity');
+                renderAdminActivityLogs(Array.isArray(data) ? data : []);
+            } catch (err) {
+                container.innerHTML = `<div class="no-data" style="padding: 2rem; color: var(--danger);">${escapeHtml(err.message || 'Failed to load activity')}</div>`;
+            }
+        }
+
+        function renderAdminActivityLogs(logs) {
+            const container = document.getElementById('admin-activity-list');
+            if (!container) return;
+
+            if (!logs.length) {
+                container.innerHTML = '<div class="no-data" style="padding: 2rem;">No activity recorded yet</div>';
+                return;
+            }
+
+            const rows = logs.map(log => `
+                <tr>
+                    <td>${escapeHtml(formatAdminDate(log.created_at))}</td>
+                    <td>
+                        <strong>${escapeHtml(log.admin_username || 'Unknown')}</strong>
+                        <div class="activity-path">${escapeHtml(log.admin_role || 'admin')}</div>
+                    </td>
+                    <td>
+                        <strong>${escapeHtml(formatActivityAction(log.action))}</strong>
+                        <div class="activity-path">${escapeHtml(log.description || '')}</div>
+                    </td>
+                    <td>
+                        ${escapeHtml(log.method || '')} ${escapeHtml(log.status_code || '')}
+                        <div class="activity-path">${escapeHtml(log.path || '')}</div>
+                    </td>
+                </tr>
+            `).join('');
+
+            container.innerHTML = `
+                <div class="admin-table-wrap">
+                    <table class="admin-management-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Admin</th>
+                                <th>Activity</th>
+                                <th>Request</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            `;
+        }
+
         // ==========================================
         // GLOBAL STATE
         // ==========================================
@@ -2785,6 +3217,7 @@
         // INITIALIZATION
         // ==========================================
         document.addEventListener('DOMContentLoaded', () => {
+            loadAuthContext();
             loadAllData();
             initializeYearDropdown();
             document.getElementById('member-form').addEventListener('submit', saveMember);

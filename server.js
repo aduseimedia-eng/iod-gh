@@ -64,6 +64,138 @@ app.use(session({
     }
 }));
 
+const ADMIN_ROLE_SUPERADMIN = 'superadmin';
+const ADMIN_ROLE_ADMIN = 'admin';
+const ACTIVITY_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function normalizeAdminRole(role) {
+    return String(role || '').toLowerCase() === ADMIN_ROLE_SUPERADMIN ? ADMIN_ROLE_SUPERADMIN : ADMIN_ROLE_ADMIN;
+}
+
+function isSuperAdminSession(req) {
+    return req.session && req.session.authenticated && normalizeAdminRole(req.session.role) === ADMIN_ROLE_SUPERADMIN;
+}
+
+async function hydrateAdminSession(req) {
+    if (!req.session || !req.session.authenticated || !req.session.adminId) {
+        return false;
+    }
+
+    try {
+        const result = await pool.query(
+            'SELECT id, username, email, role, is_active FROM admin_users WHERE id = $1',
+            [req.session.adminId]
+        );
+
+        if (result.rows.length === 0 || result.rows[0].is_active === false) {
+            return false;
+        }
+
+        const admin = result.rows[0];
+        req.session.user = admin.username;
+        req.session.email = admin.email || '';
+        req.session.role = normalizeAdminRole(admin.role);
+        return true;
+    } catch (err) {
+        console.error('Error refreshing admin session:', err.message || err);
+        return true;
+    }
+}
+
+async function requireSuperAdmin(req, res, next) {
+    if (req.session && req.session.authenticated && req.session.adminId && !req.session.role) {
+        await hydrateAdminSession(req);
+    }
+
+    if (!isSuperAdminSession(req)) {
+        return res.status(403).json({ error: 'SuperAdmin access required' });
+    }
+    next();
+}
+
+function getRequestIp(req) {
+    const forwardedFor = req.headers['x-forwarded-for'];
+    const rawIp = Array.isArray(forwardedFor) ? forwardedFor[0] : (forwardedFor || req.ip || req.socket?.remoteAddress || '');
+    return String(rawIp).split(',')[0].trim().slice(0, 100);
+}
+
+function inferActivityEntityType(apiPath) {
+    const segments = String(apiPath || '').split('/').filter(Boolean);
+    if (segments.length < 2 || segments[0] !== 'api') return 'api';
+    const resource = segments[1];
+    if (resource === 'members') return 'member';
+    if (resource === 'subscriptions') return 'subscription';
+    if (resource === 'subscription-rates') return 'subscription_rate';
+    if (resource === 'payments') return 'payment';
+    if (resource === 'admin') return 'admin';
+    return resource.replace(/-/g, '_');
+}
+
+async function recordAdminActivity(req, details) {
+    if (!details || !details.action) return;
+
+    const metadata = details.metadata && typeof details.metadata === 'object' ? details.metadata : {};
+    try {
+        await pool.query(`
+            INSERT INTO admin_activity_logs (
+                admin_user_id, admin_username, action, entity_type, entity_id,
+                description, method, path, status_code, ip_address, user_agent, metadata
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        `, [
+            details.adminId || req.session?.adminId || null,
+            details.adminUsername || req.session?.user || null,
+            details.action,
+            details.entityType || null,
+            details.entityId ? String(details.entityId) : null,
+            details.description || null,
+            details.method || req.method || null,
+            details.path || req.originalUrl || req.path || null,
+            details.statusCode || null,
+            getRequestIp(req),
+            req.headers['user-agent'] || null,
+            JSON.stringify(metadata)
+        ]);
+    } catch (err) {
+        console.error('Error recording admin activity:', err.message || err);
+    }
+}
+
+function adminActivityLogger(req, res, next) {
+    const shouldLog = req.session
+        && req.session.authenticated
+        && req.path.startsWith('/api/')
+        && ACTIVITY_METHODS.has(req.method)
+        && req.path !== '/api/admin/activity-logs';
+
+    if (!shouldLog) return next();
+
+    const startedAt = Date.now();
+    res.on('finish', () => {
+        if (!req.session?.adminId) return;
+
+        const routePath = req.route?.path || req.path;
+        const action = res.locals.activityAction || `${req.method.toLowerCase()}_${String(routePath).replace(/^\/api\/?/, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '')}`;
+        const metadata = {
+            method: req.method,
+            path: req.originalUrl || req.path,
+            statusCode: res.statusCode,
+            durationMs: Date.now() - startedAt,
+            ...(res.locals.activityMetadata || {})
+        };
+
+        recordAdminActivity(req, {
+            action,
+            entityType: res.locals.activityEntityType || inferActivityEntityType(req.path),
+            entityId: res.locals.activityEntityId || req.params?.id || null,
+            description: res.locals.activityDescription || `${req.session.user} performed ${req.method} ${req.originalUrl || req.path}`,
+            statusCode: res.statusCode,
+            metadata
+        });
+    });
+
+    next();
+}
+
 // Login endpoint (no auth required)
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
@@ -71,19 +203,51 @@ app.post('/api/login', async (req, res) => {
         return res.status(400).json({ error: 'Username and password required' });
     }
     try {
-        const result = await pool.query('SELECT * FROM admin_users WHERE username = $1', [username]);
+        const result = await pool.query('SELECT * FROM admin_users WHERE username = $1', [username.trim()]);
         if (result.rows.length === 0) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         const admin = result.rows[0];
+        if (admin.is_active === false) {
+            await recordAdminActivity(req, {
+                adminId: admin.id,
+                adminUsername: admin.username,
+                action: 'login_blocked_inactive_admin',
+                entityType: 'admin_user',
+                entityId: admin.id,
+                description: `${admin.username} attempted to log in while inactive`,
+                statusCode: 403
+            });
+            return res.status(403).json({ error: 'This admin account is inactive. Contact the SuperAdmin.' });
+        }
         const valid = await bcrypt.compare(password, admin.password_hash);
         if (!valid) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
+        const role = normalizeAdminRole(admin.role);
         req.session.authenticated = true;
         req.session.user = admin.username;
         req.session.adminId = admin.id;
-        res.json({ message: 'Login successful', user: admin.username });
+        req.session.role = role;
+        req.session.email = admin.email || '';
+
+        try {
+            await pool.query('UPDATE admin_users SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1', [admin.id]);
+        } catch (lastLoginErr) {
+            console.error('Error updating last login timestamp:', lastLoginErr.message || lastLoginErr);
+        }
+        await recordAdminActivity(req, {
+            adminId: admin.id,
+            adminUsername: admin.username,
+            action: 'login',
+            entityType: 'admin_user',
+            entityId: admin.id,
+            description: `${admin.username} logged in`,
+            statusCode: 200,
+            metadata: { role }
+        });
+
+        res.json({ message: 'Login successful', user: admin.username, role, adminId: admin.id });
     } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({ error: 'Server error' });
@@ -92,14 +256,51 @@ app.post('/api/login', async (req, res) => {
 
 // Logout endpoint
 app.post('/api/logout', (req, res) => {
-    req.session.destroy();
-    res.json({ message: 'Logged out' });
+    const adminId = req.session?.adminId || null;
+    const adminUsername = req.session?.user || null;
+    const role = req.session?.role || null;
+
+    req.session.destroy(async (err) => {
+        if (err) {
+            console.error('Logout error:', err);
+            return res.status(500).json({ error: 'Failed to log out' });
+        }
+
+        if (adminId) {
+            await recordAdminActivity(req, {
+                adminId,
+                adminUsername,
+                action: 'logout',
+                entityType: 'admin_user',
+                entityId: adminId,
+                description: `${adminUsername} logged out`,
+                statusCode: 200,
+                metadata: { role }
+            });
+        }
+
+        res.json({ message: 'Logged out' });
+    });
 });
 
 // Check auth status endpoint
-app.get('/api/auth-status', (req, res) => {
+app.get('/api/auth-status', async (req, res) => {
     if (req.session && req.session.authenticated) {
-        return res.json({ authenticated: true, user: req.session.user });
+        const sessionStillValid = await hydrateAdminSession(req);
+        if (!sessionStillValid) {
+            req.session.destroy(() => {});
+            return res.json({ authenticated: false });
+        }
+
+        const role = normalizeAdminRole(req.session.role);
+        return res.json({
+            authenticated: true,
+            user: req.session.user,
+            adminId: req.session.adminId,
+            email: req.session.email || '',
+            role,
+            isSuperAdmin: role === ADMIN_ROLE_SUPERADMIN
+        });
     }
     res.json({ authenticated: false });
 });
@@ -185,6 +386,15 @@ app.post('/api/reset-password', async (req, res) => {
         resetCodes.delete(trimmedUsername);
         
         console.log(`PASSWORD RESET SUCCESSFUL for ${trimmedUsername}`);
+        await recordAdminActivity(req, {
+            adminId: result.rows[0].id,
+            adminUsername: trimmedUsername,
+            action: 'password_reset',
+            entityType: 'admin_user',
+            entityId: result.rows[0].id,
+            description: `${trimmedUsername} reset their password`,
+            statusCode: 200
+        });
         
         res.json({ message: 'Password reset successfully! Please log in with your new password.' });
     } catch (err) {
@@ -214,6 +424,17 @@ app.post('/api/change-username', async (req, res) => {
         if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
         await pool.query('UPDATE admin_users SET username = $1, updated_at = NOW() WHERE id = $2', [newUsername.trim(), admin.id]);
         req.session.user = newUsername.trim();
+        await recordAdminActivity(req, {
+            action: 'change_username',
+            entityType: 'admin_user',
+            entityId: admin.id,
+            description: `${admin.username} changed username to ${newUsername.trim()}`,
+            statusCode: 200,
+            metadata: {
+                previousUsername: admin.username,
+                newUsername: newUsername.trim()
+            }
+        });
         res.json({ message: 'Username updated successfully', user: newUsername.trim() });
     } catch (err) {
         console.error('Change username error:', err);
@@ -242,6 +463,13 @@ app.post('/api/change-password', async (req, res) => {
         if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
         const newHash = await bcrypt.hash(newPassword, 10);
         await pool.query('UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [newHash, admin.id]);
+        await recordAdminActivity(req, {
+            action: 'change_password',
+            entityType: 'admin_user',
+            entityId: admin.id,
+            description: `${admin.username} changed their password`,
+            statusCode: 200
+        });
         res.json({ message: 'Password updated successfully' });
     } catch (err) {
         console.error('Change password error:', err);
@@ -527,7 +755,7 @@ app.get('/api/staff/good-standing/:year', async (req, res) => {
 });
 
 // Auth middleware - protect everything else
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
     // Allow static assets (CSS, JS, fonts, images) without auth
     const ext = path.extname(req.path).toLowerCase();
     const publicExts = ['.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot'];
@@ -536,7 +764,16 @@ function requireAuth(req, res, next) {
     }
     
     if (req.session && req.session.authenticated) {
-        return next();
+        const sessionStillValid = await hydrateAdminSession(req);
+        if (sessionStillValid) {
+            return next();
+        }
+
+        req.session.destroy(() => {});
+        if (req.path.startsWith('/api/')) {
+            return res.status(401).json({ error: 'Admin account is inactive or no longer available' });
+        }
+        return res.redirect('/login.html');
     }
     
     // Allow staff read-only API without auth
@@ -579,6 +816,7 @@ app.post('/api/admin/migrate-expertise', async (req, res) => {
 });
 
 app.use(requireAuth);
+app.use(adminActivityLogger);
 
 // Disable caching for HTML files
 app.use((req, res, next) => {
@@ -590,6 +828,160 @@ app.use((req, res, next) => {
 });
 
 app.use(express.static('.')); // Serve static files (HTML, CSS, JS)
+
+// ============================================================
+// SUPERADMIN ADMINISTRATION ENDPOINTS
+// ============================================================
+
+app.get('/api/admin/users', requireSuperAdmin, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                au.id,
+                au.username,
+                au.email,
+                au.role,
+                au.is_active,
+                au.last_login_at,
+                au.created_at,
+                au.updated_at,
+                au.created_by_admin_id,
+                creator.username AS created_by_username
+            FROM admin_users au
+            LEFT JOIN admin_users creator ON creator.id = au.created_by_admin_id
+            ORDER BY
+                CASE WHEN au.role = $1 THEN 0 ELSE 1 END,
+                au.created_at DESC
+        `, [ADMIN_ROLE_SUPERADMIN]);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error fetching admin users:', err);
+        res.status(500).json({ error: 'Failed to fetch admin users' });
+    }
+});
+
+app.post('/api/admin/users', requireSuperAdmin, async (req, res) => {
+    const username = String(req.body.username || '').trim();
+    const email = String(req.body.email || '').trim();
+    const password = String(req.body.password || '');
+
+    if (username.length < 3) {
+        return res.status(400).json({ error: 'Username must be at least 3 characters' });
+    }
+
+    if (!password || password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    if (email && !validateEmail(email)) {
+        return res.status(400).json({ error: 'Enter a valid email address' });
+    }
+
+    try {
+        const existing = await pool.query('SELECT id FROM admin_users WHERE LOWER(username) = LOWER($1)', [username]);
+        if (existing.rows.length > 0) {
+            return res.status(400).json({ error: 'Username already taken' });
+        }
+
+        const passwordHash = await bcrypt.hash(password, 10);
+        const result = await pool.query(`
+            INSERT INTO admin_users (username, email, password_hash, role, is_active, created_by_admin_id)
+            VALUES ($1, $2, $3, $4, TRUE, $5)
+            RETURNING id, username, email, role, is_active, last_login_at, created_at, updated_at, created_by_admin_id
+        `, [username, email || null, passwordHash, ADMIN_ROLE_ADMIN, req.session.adminId]);
+
+        const createdAdmin = result.rows[0];
+        res.locals.activityAction = 'create_admin_user';
+        res.locals.activityEntityType = 'admin_user';
+        res.locals.activityEntityId = createdAdmin.id;
+        res.locals.activityDescription = `${req.session.user} created admin user ${createdAdmin.username}`;
+        res.locals.activityMetadata = { createdUsername: createdAdmin.username, createdRole: createdAdmin.role };
+
+        res.status(201).json(createdAdmin);
+    } catch (err) {
+        console.error('Error creating admin user:', err);
+        if (err.code === '23505') return res.status(400).json({ error: 'Username already taken' });
+        res.status(500).json({ error: 'Failed to create admin user' });
+    }
+});
+
+app.patch('/api/admin/users/:id/status', requireSuperAdmin, async (req, res) => {
+    const adminId = parseInt(req.params.id, 10);
+    const isActive = req.body.isActive === true;
+
+    if (!Number.isFinite(adminId)) {
+        return res.status(400).json({ error: 'Invalid admin id' });
+    }
+
+    if (adminId === req.session.adminId) {
+        return res.status(400).json({ error: 'You cannot change your own account status' });
+    }
+
+    try {
+        const existing = await pool.query('SELECT id, username, role FROM admin_users WHERE id = $1', [adminId]);
+        if (existing.rows.length === 0) {
+            return res.status(404).json({ error: 'Admin user not found' });
+        }
+
+        const admin = existing.rows[0];
+        if (normalizeAdminRole(admin.role) === ADMIN_ROLE_SUPERADMIN) {
+            return res.status(400).json({ error: 'SuperAdmin status cannot be changed here' });
+        }
+
+        const result = await pool.query(`
+            UPDATE admin_users
+            SET is_active = $1, updated_at = NOW()
+            WHERE id = $2
+            RETURNING id, username, email, role, is_active, last_login_at, created_at, updated_at, created_by_admin_id
+        `, [isActive, adminId]);
+
+        res.locals.activityAction = isActive ? 'activate_admin_user' : 'deactivate_admin_user';
+        res.locals.activityEntityType = 'admin_user';
+        res.locals.activityEntityId = adminId;
+        res.locals.activityDescription = `${req.session.user} ${isActive ? 'activated' : 'deactivated'} admin user ${admin.username}`;
+        res.locals.activityMetadata = { targetUsername: admin.username, isActive };
+
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error updating admin status:', err);
+        res.status(500).json({ error: 'Failed to update admin status' });
+    }
+});
+
+app.get('/api/admin/activity-logs', requireSuperAdmin, async (req, res) => {
+    const requestedLimit = parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 200) : 50;
+
+    try {
+        const result = await pool.query(`
+            SELECT
+                aal.id,
+                aal.admin_user_id,
+                COALESCE(au.username, aal.admin_username) AS admin_username,
+                COALESCE(au.role, 'admin') AS admin_role,
+                aal.action,
+                aal.entity_type,
+                aal.entity_id,
+                aal.description,
+                aal.method,
+                aal.path,
+                aal.status_code,
+                aal.ip_address,
+                aal.metadata,
+                aal.created_at
+            FROM admin_activity_logs aal
+            LEFT JOIN admin_users au ON au.id = aal.admin_user_id
+            ORDER BY aal.created_at DESC
+            LIMIT $1
+        `, [limit]);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error fetching admin activity logs:', err);
+        res.status(500).json({ error: 'Failed to fetch admin activity logs' });
+    }
+});
 
 // ============================================================
 // ============================================================
@@ -637,9 +1029,76 @@ async function initializeAdminUsers() {
                 username VARCHAR(100) UNIQUE NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
                 email VARCHAR(255),
+                role VARCHAR(20) NOT NULL DEFAULT 'admin',
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_by_admin_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+                last_login_at TIMESTAMP,
                 created_at TIMESTAMP DEFAULT NOW(),
-                updated_at TIMESTAMP DEFAULT NOW()
+                updated_at TIMESTAMP DEFAULT NOW(),
+                CONSTRAINT admin_users_role_check CHECK (role IN ('superadmin', 'admin'))
             )
+        `);
+
+        await pool.query(`
+            ALTER TABLE admin_users
+                ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'admin',
+                ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
+                ADD COLUMN IF NOT EXISTS created_by_admin_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+                ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP
+        `);
+
+        await pool.query(`
+            UPDATE admin_users
+            SET role = 'admin'
+            WHERE role IS NULL OR role NOT IN ('superadmin', 'admin')
+        `);
+
+        await pool.query(`
+            UPDATE admin_users
+            SET is_active = TRUE
+            WHERE is_active IS NULL
+        `);
+
+        await pool.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'admin_users_role_check'
+                ) THEN
+                    ALTER TABLE admin_users
+                    ADD CONSTRAINT admin_users_role_check CHECK (role IN ('superadmin', 'admin'));
+                END IF;
+            END $$
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS admin_activity_logs (
+                id SERIAL PRIMARY KEY,
+                admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+                admin_username VARCHAR(100),
+                action VARCHAR(100) NOT NULL,
+                entity_type VARCHAR(100),
+                entity_id VARCHAR(100),
+                description TEXT,
+                method VARCHAR(10),
+                path TEXT,
+                status_code INTEGER,
+                ip_address VARCHAR(100),
+                user_agent TEXT,
+                metadata JSONB DEFAULT '{}'::jsonb,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        `);
+
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_admin_activity_logs_created_at
+            ON admin_activity_logs(created_at DESC)
+        `);
+
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_admin_activity_logs_admin_user_id
+            ON admin_activity_logs(admin_user_id)
         `);
 
         const adminCount = await pool.query('SELECT COUNT(*) FROM admin_users');
@@ -649,11 +1108,20 @@ async function initializeAdminUsers() {
             const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
             await pool.query(
-                'INSERT INTO admin_users (username, password_hash, email) VALUES ($1, $2, $3)',
-                [defaultUsername, passwordHash, process.env.ADMIN_DEFAULT_EMAIL || 'admin@iodghana.org']
+                'INSERT INTO admin_users (username, password_hash, email, role, is_active) VALUES ($1, $2, $3, $4, TRUE)',
+                [defaultUsername, passwordHash, process.env.ADMIN_DEFAULT_EMAIL || 'admin@iodghana.org', ADMIN_ROLE_SUPERADMIN]
             );
 
-            console.log(`Default admin user "${defaultUsername}" created`);
+            console.log(`Default SuperAdmin user "${defaultUsername}" created`);
+        }
+
+        const superAdminCount = await pool.query('SELECT COUNT(*) FROM admin_users WHERE role = $1', [ADMIN_ROLE_SUPERADMIN]);
+        if (parseInt(superAdminCount.rows[0].count, 10) === 0) {
+            const firstAdmin = await pool.query('SELECT id, username FROM admin_users ORDER BY id ASC LIMIT 1');
+            if (firstAdmin.rows.length > 0) {
+                await pool.query('UPDATE admin_users SET role = $1, is_active = TRUE, updated_at = NOW() WHERE id = $2', [ADMIN_ROLE_SUPERADMIN, firstAdmin.rows[0].id]);
+                console.log(`Existing admin user "${firstAdmin.rows[0].username}" promoted to SuperAdmin`);
+            }
         }
 
         console.log('Admin users table initialized successfully');
