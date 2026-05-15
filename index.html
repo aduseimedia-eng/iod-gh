@@ -224,74 +224,6 @@
             font-weight: 500;
         }
 
-        .login-welcome-toast {
-            position: fixed;
-            top: 5.5rem;
-            right: 1.5rem;
-            z-index: 2500;
-            max-width: min(420px, calc(100vw - 2rem));
-            display: flex;
-            align-items: center;
-            gap: 0.85rem;
-            padding: 1rem 1.1rem;
-            background: white;
-            color: var(--text-dark);
-            border: 1px solid rgba(16, 185, 129, 0.25);
-            border-radius: 8px;
-            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
-            opacity: 0;
-            transform: translateY(-10px);
-            pointer-events: none;
-            transition: opacity 0.25s ease, transform 0.25s ease;
-        }
-
-        .login-welcome-toast.show {
-            opacity: 1;
-            transform: translateY(0);
-            pointer-events: auto;
-        }
-
-        .login-welcome-icon {
-            width: 42px;
-            height: 42px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            flex: 0 0 auto;
-            color: #047857;
-            background: #d1fae5;
-            border-radius: 8px;
-        }
-
-        .login-welcome-copy strong {
-            display: block;
-            font-size: 0.95rem;
-            margin-bottom: 0.15rem;
-        }
-
-        .login-welcome-copy span {
-            display: block;
-            color: var(--text-light);
-            font-size: 0.8rem;
-            line-height: 1.35;
-        }
-
-        .login-welcome-close {
-            margin-left: 0.2rem;
-            width: 30px;
-            height: 30px;
-            padding: 0;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid var(--border);
-            background: var(--bg-light);
-            color: var(--text-light);
-            cursor: pointer;
-            flex: 0 0 auto;
-            border-radius: 6px;
-        }
-
         /* Button Styles */
         button {
             padding: 0.75rem 1.5rem;
@@ -2053,24 +1985,10 @@
         </div>
     </header>
 
-    <div id="login-welcome-toast" class="login-welcome-toast" role="status" aria-live="polite">
-        <div class="login-welcome-icon">
-            <i class="fas fa-circle-check"></i>
-        </div>
-        <div class="login-welcome-copy">
-            <strong id="login-welcome-title">Welcome back</strong>
-            <span id="login-welcome-subtitle">You are signed in.</span>
-        </div>
-        <button type="button" class="login-welcome-close" onclick="dismissLoginWelcome()" aria-label="Dismiss welcome message">
-            <i class="fas fa-times"></i>
-        </button>
-    </div>
-
     <div class="welcome-banner">
         <div class="welcome-content">
             <div class="welcome-text">
-                <h2><i class="fas fa-chart-pie" style="opacity: 0.8; margin-right: 0.3rem;"></i> Dashboard Overview</h2>
-                <p>Welcome back! Here's your membership summary for today.</p>
+                <h2><i class="fas fa-user-shield" style="opacity: 0.8; margin-right: 0.3rem;"></i> <span id="welcome-admin-heading">Welcome, Admin</span></h2>
             </div>
             <div class="welcome-stats">
                 <div class="welcome-stat">
@@ -2827,7 +2745,6 @@
         // AUTH HELPERS
         // ==========================================
         let currentAuthContext = { authenticated: false, role: 'admin', isSuperAdmin: false };
-        let loginWelcomeTimer = null;
 
         function escapeHtml(value) {
             const div = document.createElement('div');
@@ -2841,54 +2758,14 @@
                 const data = await response.json();
                 currentAuthContext = data || { authenticated: false, role: 'admin', isSuperAdmin: false };
                 updateSuperAdminVisibility();
+                updateWelcomeBanner();
                 return currentAuthContext;
             } catch (err) {
                 currentAuthContext = { authenticated: false, role: 'admin', isSuperAdmin: false };
                 updateSuperAdminVisibility();
+                updateWelcomeBanner();
                 return currentAuthContext;
             }
-        }
-
-        function dismissLoginWelcome() {
-            const toast = document.getElementById('login-welcome-toast');
-            if (loginWelcomeTimer) {
-                clearTimeout(loginWelcomeTimer);
-                loginWelcomeTimer = null;
-            }
-            if (toast) toast.classList.remove('show');
-        }
-
-        function showLoginWelcomeFromSession(authContext = currentAuthContext) {
-            let welcomeData = null;
-
-            try {
-                const rawWelcome = sessionStorage.getItem('iodLoginWelcome');
-                if (!rawWelcome) return;
-                sessionStorage.removeItem('iodLoginWelcome');
-                welcomeData = JSON.parse(rawWelcome);
-            } catch (err) {
-                sessionStorage.removeItem('iodLoginWelcome');
-                return;
-            }
-
-            const messageAge = Date.now() - Number(welcomeData.at || 0);
-            if (messageAge > 5 * 60 * 1000) return;
-
-            const toast = document.getElementById('login-welcome-toast');
-            const title = document.getElementById('login-welcome-title');
-            const subtitle = document.getElementById('login-welcome-subtitle');
-            if (!toast || !title || !subtitle) return;
-
-            const user = welcomeData.user || authContext.user || 'Admin';
-            const role = String(welcomeData.role || authContext.role || 'admin').toLowerCase() === 'superadmin'
-                ? 'SuperAdmin'
-                : 'Admin';
-
-            title.textContent = `Welcome back, ${user}`;
-            subtitle.textContent = `You are signed in as ${role}.`;
-            toast.classList.add('show');
-
-            loginWelcomeTimer = setTimeout(dismissLoginWelcome, 5500);
         }
 
         function updateSuperAdminVisibility() {
@@ -2897,6 +2774,12 @@
             const adminTab = document.getElementById('tab-admins');
             if (navButton) navButton.style.display = canManageAdmins ? 'inline-flex' : 'none';
             if (adminTab) adminTab.style.display = canManageAdmins ? 'flex' : 'none';
+        }
+
+        function updateWelcomeBanner() {
+            const heading = document.getElementById('welcome-admin-heading');
+            if (!heading) return;
+            heading.textContent = `Welcome, ${currentAuthContext.user || 'Admin'}`;
         }
 
         async function logout() {
@@ -3371,7 +3254,7 @@
         // INITIALIZATION
         // ==========================================
         document.addEventListener('DOMContentLoaded', () => {
-            loadAuthContext().then(showLoginWelcomeFromSession);
+            loadAuthContext();
             loadAllData();
             initializeYearDropdown();
             document.getElementById('member-form').addEventListener('submit', saveMember);
