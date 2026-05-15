@@ -76,6 +76,13 @@ function isSuperAdminSession(req) {
     return req.session && req.session.authenticated && normalizeAdminRole(req.session.role) === ADMIN_ROLE_SUPERADMIN;
 }
 
+function getSessionAdminRecorder(req) {
+    return {
+        adminUserId: req.session?.adminId || null,
+        adminUsername: req.session?.user || null
+    };
+}
+
 async function hydrateAdminSession(req) {
     if (!req.session || !req.session.authenticated || !req.session.adminId) {
         return false;
@@ -949,6 +956,47 @@ app.patch('/api/admin/users/:id/status', requireSuperAdmin, async (req, res) => 
     }
 });
 
+app.delete('/api/admin/users/:id', requireSuperAdmin, async (req, res) => {
+    const adminId = parseInt(req.params.id, 10);
+
+    if (!Number.isFinite(adminId)) {
+        return res.status(400).json({ error: 'Invalid admin id' });
+    }
+
+    if (adminId === req.session.adminId) {
+        return res.status(400).json({ error: 'You cannot delete your own account' });
+    }
+
+    try {
+        const existing = await pool.query('SELECT id, username, role FROM admin_users WHERE id = $1', [adminId]);
+        if (existing.rows.length === 0) {
+            return res.status(404).json({ error: 'Admin user not found' });
+        }
+
+        const admin = existing.rows[0];
+        if (normalizeAdminRole(admin.role) === ADMIN_ROLE_SUPERADMIN) {
+            return res.status(400).json({ error: 'SuperAdmin accounts cannot be deleted here' });
+        }
+
+        const result = await pool.query(`
+            DELETE FROM admin_users
+            WHERE id = $1
+            RETURNING id, username, email, role
+        `, [adminId]);
+
+        res.locals.activityAction = 'delete_admin_user';
+        res.locals.activityEntityType = 'admin_user';
+        res.locals.activityEntityId = adminId;
+        res.locals.activityDescription = `${req.session.user} deleted admin user ${admin.username}`;
+        res.locals.activityMetadata = { targetUsername: admin.username, targetRole: admin.role };
+
+        res.json({ message: 'Admin user deleted successfully', admin: result.rows[0] });
+    } catch (err) {
+        console.error('Error deleting admin user:', err);
+        res.status(500).json({ error: 'Failed to delete admin user' });
+    }
+});
+
 app.get('/api/admin/activity-logs', requireSuperAdmin, async (req, res) => {
     const requestedLimit = parseInt(req.query.limit, 10);
     const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 200) : 50;
@@ -1234,6 +1282,29 @@ async function initializeSubscriptionRates() {
             END $$
         `);
 
+        await pool.query(`
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_name = 'subscriptions'
+                ) THEN
+                    ALTER TABLE subscriptions
+                        ADD COLUMN IF NOT EXISTS recorded_by_admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+                        ADD COLUMN IF NOT EXISTS recorded_by_admin_username VARCHAR(100);
+                END IF;
+
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_name = 'payments'
+                ) THEN
+                    ALTER TABLE payments
+                        ADD COLUMN IF NOT EXISTS recorded_by_admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+                        ADD COLUMN IF NOT EXISTS recorded_by_admin_username VARCHAR(100);
+                END IF;
+            END $$
+        `);
+
         // Create index for payments table
         await pool.query(`
             CREATE INDEX IF NOT EXISTS idx_payments_member_id 
@@ -1243,6 +1314,16 @@ async function initializeSubscriptionRates() {
         await pool.query(`
             CREATE INDEX IF NOT EXISTS idx_payments_payment_date 
             ON payments(payment_date)
+        `);
+
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_payments_recorded_by_admin_user_id
+            ON payments(recorded_by_admin_user_id)
+        `);
+
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_subscriptions_recorded_by_admin_user_id
+            ON subscriptions(recorded_by_admin_user_id)
         `);
         
         // Create index if not exists
@@ -1625,7 +1706,12 @@ app.get('/api/members', async (req, res) => {
                    (SELECT ARRAY_AGG(DISTINCT subscription_year ORDER BY subscription_year DESC) FROM subscriptions WHERE member_id = m.id AND (status = 'Paid' OR status = 'Waived')) as paid_years,
                    COALESCE((SELECT s2.amount_paid FROM subscriptions s2 WHERE s2.member_id = m.id AND s2.amount_paid IS NOT NULL ORDER BY s2.subscription_year DESC, s2.payment_date DESC LIMIT 1), 0) as amount_paid,
                    COALESCE((SELECT s2.status FROM subscriptions s2 WHERE s2.member_id = m.id ORDER BY s2.subscription_year DESC, s2.payment_date DESC LIMIT 1), 'Pending') as payment_status,
-                   (SELECT s2.receipt_number FROM subscriptions s2 WHERE s2.member_id = m.id ORDER BY s2.subscription_year DESC, s2.payment_date DESC LIMIT 1) as recorded_by,
+                   (SELECT COALESCE(rau.username, s2.recorded_by_admin_username, s2.receipt_number)
+                    FROM subscriptions s2
+                    LEFT JOIN admin_users rau ON rau.id = s2.recorded_by_admin_user_id
+                    WHERE s2.member_id = m.id
+                    ORDER BY s2.subscription_year DESC, s2.payment_date DESC
+                    LIMIT 1) as recorded_by,
                    (SELECT s2.payment_method FROM subscriptions s2 WHERE s2.member_id = m.id ORDER BY s2.subscription_year DESC, s2.payment_date DESC LIMIT 1) as payment_method
             FROM members m
             LEFT JOIN subscriptions s ON m.id = s.member_id
@@ -1661,7 +1747,12 @@ app.get('/api/members/:id', async (req, res) => {
                    (SELECT ARRAY_AGG(DISTINCT subscription_year ORDER BY subscription_year DESC) FROM subscriptions WHERE member_id = m.id AND (status = 'Paid' OR status = 'Waived')) as paid_years,
                    COALESCE((SELECT s2.amount_paid FROM subscriptions s2 WHERE s2.member_id = m.id AND s2.amount_paid IS NOT NULL ORDER BY s2.subscription_year DESC, s2.payment_date DESC LIMIT 1), 0) as amount_paid,
                    COALESCE((SELECT s2.status FROM subscriptions s2 WHERE s2.member_id = m.id ORDER BY s2.subscription_year DESC, s2.payment_date DESC LIMIT 1), 'Pending') as payment_status,
-                   (SELECT s2.receipt_number FROM subscriptions s2 WHERE s2.member_id = m.id ORDER BY s2.subscription_year DESC, s2.payment_date DESC LIMIT 1) as recorded_by,
+                   (SELECT COALESCE(rau.username, s2.recorded_by_admin_username, s2.receipt_number)
+                    FROM subscriptions s2
+                    LEFT JOIN admin_users rau ON rau.id = s2.recorded_by_admin_user_id
+                    WHERE s2.member_id = m.id
+                    ORDER BY s2.subscription_year DESC, s2.payment_date DESC
+                    LIMIT 1) as recorded_by,
                    (SELECT s2.payment_method FROM subscriptions s2 WHERE s2.member_id = m.id ORDER BY s2.subscription_year DESC, s2.payment_date DESC LIMIT 1) as payment_method
             FROM members m
             LEFT JOIN subscriptions s ON m.id = s.member_id
@@ -1724,9 +1815,9 @@ app.post('/api/members', async (req, res) => {
             subscription_years,
             payment_status,
             amount_paid,
-            recorded_by,
             payment_method
         } = sanitized;
+        const recorder = getSessionAdminRecorder(req);
 
         // Generate membership number based on member type
         const prefixMap = {
@@ -1799,10 +1890,27 @@ app.post('/api/members', async (req, res) => {
                 const subscriptionAmount = isInductionYear ? 0 : (amount_paid || 0);
 
                 await client.query(`
-                    INSERT INTO subscriptions (member_id, subscription_year, status, amount_paid, payment_date, receipt_number, payment_method)
-                    VALUES ($1, $2, $3, $4, CURRENT_DATE, $5, $6)
-                    ON CONFLICT (member_id, subscription_year) DO UPDATE SET status = $3, amount_paid = $4, payment_date = CURRENT_DATE, receipt_number = $5, payment_method = $6
-                `, [memberId, year, subscriptionStatus, subscriptionAmount, recorded_by || null, payment_method || null]);
+                    INSERT INTO subscriptions (
+                        member_id, subscription_year, status, amount_paid, payment_date,
+                        payment_method, recorded_by_admin_user_id, recorded_by_admin_username
+                    )
+                    VALUES ($1, $2, $3, $4, CURRENT_DATE, $5, $6, $7)
+                    ON CONFLICT (member_id, subscription_year) DO UPDATE SET
+                        status = $3,
+                        amount_paid = $4,
+                        payment_date = CURRENT_DATE,
+                        payment_method = $5,
+                        recorded_by_admin_user_id = $6,
+                        recorded_by_admin_username = $7
+                `, [
+                    memberId,
+                    year,
+                    subscriptionStatus,
+                    subscriptionAmount,
+                    payment_method || null,
+                    recorder.adminUserId,
+                    recorder.adminUsername
+                ]);
             }
         }
 
@@ -2448,19 +2556,23 @@ async function recalculateMemberCreditLedger(client, memberId, options = {}) {
     const {
         persistAutoYears = false,
         includeCurrentYear = true,
-        includeFutureCreditYears = true
+        includeFutureCreditYears = true,
+        recorder = null
     } = options;
 
     const currentYear = new Date().getFullYear();
     const member = await getMemberLedgerContext(client, memberId);
     const { ratesByYear, maxRateYear } = await getMemberRates(client, member.member_type, member.membership_category);
-    const lockClause = persistAutoYears ? ' FOR UPDATE' : '';
+    const lockClause = persistAutoYears ? ' FOR UPDATE OF s' : '';
 
     const subscriptionsResult = await client.query(`
-        SELECT *
-        FROM subscriptions
-        WHERE member_id = $1
-        ORDER BY subscription_year ASC, id ASC${lockClause}
+        SELECT
+            s.*,
+            COALESCE(rau.username, s.recorded_by_admin_username, s.receipt_number) AS recorded_by
+        FROM subscriptions s
+        LEFT JOIN admin_users rau ON rau.id = s.recorded_by_admin_user_id
+        WHERE s.member_id = $1
+        ORDER BY s.subscription_year ASC, s.id ASC${lockClause}
     `, [memberId]);
 
     const subscriptionsByYear = new Map();
@@ -2506,16 +2618,19 @@ async function recalculateMemberCreditLedger(client, memberId, options = {}) {
         const inserted = await client.query(`
             INSERT INTO subscriptions (
                 member_id, subscription_year, status, amount_paid,
-                expected_amount, credit_applied, credit_balance
+                expected_amount, credit_applied, credit_balance,
+                recorded_by_admin_user_id, recorded_by_admin_username
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ON CONFLICT (member_id, subscription_year)
             DO UPDATE SET
                 status = EXCLUDED.status,
                 amount_paid = subscriptions.amount_paid,
                 expected_amount = EXCLUDED.expected_amount,
                 credit_applied = EXCLUDED.credit_applied,
-                credit_balance = EXCLUDED.credit_balance
+                credit_balance = EXCLUDED.credit_balance,
+                recorded_by_admin_user_id = COALESCE(subscriptions.recorded_by_admin_user_id, EXCLUDED.recorded_by_admin_user_id),
+                recorded_by_admin_username = COALESCE(subscriptions.recorded_by_admin_username, EXCLUDED.recorded_by_admin_username)
             RETURNING *
         `, [
             memberId,
@@ -2524,7 +2639,9 @@ async function recalculateMemberCreditLedger(client, memberId, options = {}) {
             row.amount_paid,
             row.expected_amount,
             row.credit_applied,
-            row.credit_balance
+            row.credit_balance,
+            recorder?.adminUserId || null,
+            recorder?.adminUsername || null
         ]);
 
         return {
@@ -2726,6 +2843,7 @@ app.post('/api/members/import', upload.single('file'), async (req, res) => {
         // Extract subscription year columns from headers (SUBSCRIPTION_YYYY format)
         const subscriptionCols = extractSubscriptionColumns(headers, records);
         const detectedCorporateImport = detectCorporateImportFromHeaders(headers) || importType === 'Corporate';
+        const recorder = getSessionAdminRecorder(req);
 
         console.log('Detected subscription columns:', subscriptionCols);
 
@@ -2936,8 +3054,11 @@ app.post('/api/members/import', upload.single('file'), async (req, res) => {
                         try {
                             // Insert subscription record
                             await client.query(`
-                                INSERT INTO subscriptions (member_id, subscription_year, status, amount_paid)
-                                VALUES ($1, $2, $3, $4)
+                                INSERT INTO subscriptions (
+                                    member_id, subscription_year, status, amount_paid,
+                                    recorded_by_admin_user_id, recorded_by_admin_username
+                                )
+                                VALUES ($1, $2, $3, $4, $5, $6)
                                 ON CONFLICT (member_id, subscription_year) DO UPDATE SET
                                     status = CASE
                                         WHEN EXCLUDED.status = 'Pending' AND COALESCE(EXCLUDED.amount_paid, 0) = 0
@@ -2948,8 +3069,17 @@ app.post('/api/members/import', upload.single('file'), async (req, res) => {
                                         WHEN COALESCE(EXCLUDED.amount_paid, 0) > 0
                                             THEN EXCLUDED.amount_paid
                                         ELSE COALESCE(subscriptions.amount_paid, 0)
-                                    END
-                            `, [newMemberId, subCol.year, importedSubscription.status, importedSubscription.amountPaid]);
+                                    END,
+                                    recorded_by_admin_user_id = EXCLUDED.recorded_by_admin_user_id,
+                                    recorded_by_admin_username = EXCLUDED.recorded_by_admin_username
+                            `, [
+                                newMemberId,
+                                subCol.year,
+                                importedSubscription.status,
+                                importedSubscription.amountPaid,
+                                recorder.adminUserId,
+                                recorder.adminUsername
+                            ]);
                             subscriptionsCreated = true;
                         } catch (subErr) {
                             console.warn(`Warning: Could not insert subscription for ${membership_number} year ${subCol.year}: ${subErr.message}`);
@@ -2975,10 +3105,19 @@ app.post('/api/members/import', upload.single('file'), async (req, res) => {
                         }
                         
                         await client.query(`
-                            INSERT INTO subscriptions (member_id, subscription_year, status)
-                            VALUES ($1, $2, $3)
+                            INSERT INTO subscriptions (
+                                member_id, subscription_year, status,
+                                recorded_by_admin_user_id, recorded_by_admin_username
+                            )
+                            VALUES ($1, $2, $3, $4, $5)
                             ON CONFLICT (member_id, subscription_year) DO NOTHING
-                        `, [newMemberId, currentYear, defaultStatus]);
+                        `, [
+                            newMemberId,
+                            currentYear,
+                            defaultStatus,
+                            recorder.adminUserId,
+                            recorder.adminUsername
+                        ]);
                     }
                 } catch (err) {
                     console.warn(`Warning: Could not ensure current year subscription for ${membership_number}: ${err.message}`);
@@ -3085,9 +3224,9 @@ app.put('/api/members/:id', async (req, res) => {
             subscription_years,
             payment_status,
             amount_paid,
-            recorded_by,
             payment_method
         } = sanitized;
+        const recorder = getSessionAdminRecorder(req);
 
         // Convert empty strings to null for date fields
         const dateOfAdmission = date_of_admission || null;
@@ -3194,21 +3333,41 @@ app.put('/api/members/:id', async (req, res) => {
                 if (!existingYears.includes(year)) {
                     // Add new year that doesn't exist
                     await client.query(`
-                        INSERT INTO subscriptions (member_id, subscription_year, status, amount_paid, payment_date, receipt_number, payment_method)
-                        VALUES ($1, $2, $3, $4, CURRENT_DATE, $5, $6)
-                    `, [req.params.id, year, payment_status || 'Pending', amount_paid || 0, recorded_by || null, payment_method || null]);
+                        INSERT INTO subscriptions (
+                            member_id, subscription_year, status, amount_paid, payment_date,
+                            payment_method, recorded_by_admin_user_id, recorded_by_admin_username
+                        )
+                        VALUES ($1, $2, $3, $4, CURRENT_DATE, $5, $6, $7)
+                    `, [
+                        req.params.id,
+                        year,
+                        payment_status || 'Pending',
+                        amount_paid || 0,
+                        payment_method || null,
+                        recorder.adminUserId,
+                        recorder.adminUsername
+                    ]);
                 } else {
                     // Update existing year with new payment information (if payment info is provided)
-                    if (payment_status || amount_paid > 0 || payment_method || recorded_by) {
+                    if (payment_status || amount_paid > 0 || payment_method) {
                         await client.query(`
                             UPDATE subscriptions 
                             SET status = COALESCE($3, status),
                                 amount_paid = CASE WHEN $4 > 0 THEN $4 ELSE amount_paid END,
                                 payment_method = COALESCE($5, payment_method),
-                                receipt_number = COALESCE($6, receipt_number),
-                                payment_date = COALESCE(payment_date, CURRENT_DATE)
+                                payment_date = COALESCE(payment_date, CURRENT_DATE),
+                                recorded_by_admin_user_id = $6,
+                                recorded_by_admin_username = $7
                             WHERE member_id = $1 AND subscription_year = $2
-                        `, [req.params.id, year, payment_status || null, amount_paid || 0, payment_method || null, recorded_by || null]);
+                        `, [
+                            req.params.id,
+                            year,
+                            payment_status || null,
+                            amount_paid || 0,
+                            payment_method || null,
+                            recorder.adminUserId,
+                            recorder.adminUsername
+                        ]);
                     }
                 }
             }
@@ -3262,9 +3421,13 @@ app.delete('/api/members/:id', async (req, res) => {
 app.get('/api/members/:id/subscriptions', async (req, res) => {
     try {
         const result = await pool.query(`
-            SELECT * FROM subscriptions
-            WHERE member_id = $1
-            ORDER BY subscription_year DESC
+            SELECT
+                s.*,
+                COALESCE(rau.username, s.recorded_by_admin_username, s.receipt_number) AS recorded_by
+            FROM subscriptions s
+            LEFT JOIN admin_users rau ON rau.id = s.recorded_by_admin_user_id
+            WHERE s.member_id = $1
+            ORDER BY s.subscription_year DESC
         `, [req.params.id]);
 
         res.json(result.rows);
@@ -3282,6 +3445,7 @@ app.post('/api/members/:id/subscriptions', async (req, res) => {
         
         const { subscription_year, status, amount_paid, expected_amount, payment_method, receipt_number, payment_date } = req.body;
         const memberId = req.params.id;
+        const recorder = getSessionAdminRecorder(req);
         
         // Get member info
         const memberResult = await client.query('SELECT member_type, membership_category, date_of_admission, registration_date, created_at FROM members WHERE id = $1', [memberId]);
@@ -3350,8 +3514,13 @@ app.post('/api/members/:id/subscriptions', async (req, res) => {
         });
 
         const result = await client.query(`
-            INSERT INTO subscriptions (member_id, subscription_year, status, amount_paid, expected_amount, credit_applied, credit_balance, payment_method, receipt_number, payment_date)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            INSERT INTO subscriptions (
+                member_id, subscription_year, status, amount_paid,
+                expected_amount, credit_applied, credit_balance,
+                payment_method, receipt_number, payment_date,
+                recorded_by_admin_user_id, recorded_by_admin_username
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING *
         `, [
             memberId,
@@ -3363,7 +3532,9 @@ app.post('/api/members/:id/subscriptions', async (req, res) => {
             creditOutcome.creditBalance,
             payment_method || null,
             receipt_number || null,
-            payment_date || null
+            payment_date || null,
+            recorder.adminUserId,
+            recorder.adminUsername
         ]);
         
         // Reduce only the credit that was actually used.
@@ -3404,6 +3575,7 @@ app.put('/api/subscriptions/:id', async (req, res) => {
         await client.query('BEGIN');
         
         const { subscription_year, status, amount_paid, payment_method, receipt_number, payment_date } = req.body;
+        const recorder = getSessionAdminRecorder(req);
         
         // Get the current subscription details
         const currentSub = await client.query('SELECT * FROM subscriptions WHERE id = $1', [req.params.id]);
@@ -3520,8 +3692,10 @@ app.put('/api/subscriptions/:id', async (req, res) => {
                 credit_balance = $5,
                 payment_method = COALESCE($6, payment_method),
                 receipt_number = COALESCE($7, receipt_number),
-                payment_date = COALESCE($8, payment_date)
-            WHERE id = $9
+                payment_date = COALESCE($8, payment_date),
+                recorded_by_admin_user_id = $9,
+                recorded_by_admin_username = $10
+            WHERE id = $11
             RETURNING *
         `, [
             creditOutcome.status, 
@@ -3532,6 +3706,8 @@ app.put('/api/subscriptions/:id', async (req, res) => {
             payment_method || null, 
             receipt_number || null, 
             payment_date || null, 
+            recorder.adminUserId,
+            recorder.adminUsername,
             req.params.id
         ]);
         
@@ -3802,6 +3978,7 @@ app.post('/api/members/:id/process-payment', async (req, res) => {
     try {
         const memberId = req.params.id;
         const { subscription_year, amount_paid, payment_method, receipt_number, payment_date } = req.body;
+        const recorder = getSessionAdminRecorder(req);
         
         if (!subscription_year || amount_paid === undefined) {
             return res.status(400).json({ error: 'subscription_year and amount_paid are required' });
@@ -3873,9 +4050,10 @@ app.post('/api/members/:id/process-payment', async (req, res) => {
                 INSERT INTO subscriptions (
                     member_id, subscription_year, status, amount_paid, 
                     expected_amount, credit_applied, credit_balance,
-                    payment_method, receipt_number, payment_date
+                    payment_method, receipt_number, payment_date,
+                    recorded_by_admin_user_id, recorded_by_admin_username
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 ON CONFLICT (member_id, subscription_year) 
                 DO UPDATE SET 
                     status = $3,
@@ -3885,7 +4063,9 @@ app.post('/api/members/:id/process-payment', async (req, res) => {
                     credit_balance = $7,
                     payment_method = COALESCE($8, subscriptions.payment_method),
                     receipt_number = COALESCE($9, subscriptions.receipt_number),
-                    payment_date = COALESCE($10, subscriptions.payment_date)
+                    payment_date = COALESCE($10, subscriptions.payment_date),
+                    recorded_by_admin_user_id = $11,
+                    recorded_by_admin_username = $12
                 RETURNING *
             `, [
                 memberId, 
@@ -3897,7 +4077,9 @@ app.post('/api/members/:id/process-payment', async (req, res) => {
                 creditOutcome.creditBalance,
                 payment_method || null,
                 receipt_number || null,
-                payment_date || new Date().toISOString().split('T')[0]
+                payment_date || new Date().toISOString().split('T')[0],
+                recorder.adminUserId,
+                recorder.adminUsername
             ]);
             
             // Keep previous-year credit in sync with what was actually consumed.
@@ -3913,7 +4095,8 @@ app.post('/api/members/:id/process-payment', async (req, res) => {
             const updatedTimeline = await recalculateMemberCreditLedger(client, memberId, {
                 persistAutoYears: true,
                 includeCurrentYear: true,
-                includeFutureCreditYears: true
+                includeFutureCreditYears: true,
+                recorder
             });
             
             await client.query('COMMIT');
@@ -4787,7 +4970,7 @@ app.get('/api/good-standing/:year', async (req, res) => {
             // Get all subscriptions for this member up to the requested year
             const subsResult = await pool.query(`
                 SELECT s.*, COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) as rate_expected_amount,
-                       s.receipt_number as recorded_by,
+                       COALESCE(rau.username, s.recorded_by_admin_username, s.receipt_number) as recorded_by,
                        TO_CHAR(s.payment_date, 'DD/MM/YYYY') as payment_date_fmt
                 FROM subscriptions s
                 LEFT JOIN subscription_rates sr ON sr.member_type = $2 
@@ -4796,6 +4979,7 @@ app.get('/api/good-standing/:year', async (req, res) => {
                         ($2 != 'Corporate' AND sr.membership_category IS NULL)
                         OR ($2 = 'Corporate' AND sr.membership_category = $3)
                     )
+                LEFT JOIN admin_users rau ON rau.id = s.recorded_by_admin_user_id
                 WHERE s.member_id = $1 AND s.subscription_year <= $4
                 ORDER BY s.subscription_year ASC
             `, [member.id, member.member_type, member.membership_category, year]);
@@ -5037,6 +5221,7 @@ app.post('/api/payments', async (req, res) => {
     const client = await pool.connect();
     try {
         const { member_id, payment_amount, payment_date, payment_method, receipt_number, notes, subscription_year } = req.body;
+        const recorder = getSessionAdminRecorder(req);
         
         if (!member_id || !payment_amount || !payment_date) {
             return res.status(400).json({ error: 'member_id, payment_amount, and payment_date are required' });
@@ -5063,8 +5248,12 @@ app.post('/api/payments', async (req, res) => {
         
         // Record the cash receipt, then apply it to the selected subscription year.
         const paymentResult = await client.query(`
-            INSERT INTO payments (member_id, subscription_year, payment_amount, payment_date, payment_method, receipt_number, notes)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO payments (
+                member_id, subscription_year, payment_amount, payment_date,
+                payment_method, receipt_number, notes,
+                recorded_by_admin_user_id, recorded_by_admin_username
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *
         `, [
             memberId,
@@ -5073,16 +5262,19 @@ app.post('/api/payments', async (req, res) => {
             payment_date,
             payment_method || null,
             receipt_number || null,
-            notes || null
+            notes || null,
+            recorder.adminUserId,
+            recorder.adminUsername
         ]);
 
         await client.query(`
             INSERT INTO subscriptions (
                 member_id, subscription_year, status, amount_paid,
                 expected_amount, credit_applied, credit_balance,
-                payment_method, receipt_number, payment_date
+                payment_method, receipt_number, payment_date,
+                recorded_by_admin_user_id, recorded_by_admin_username
             )
-            VALUES ($1, $2, 'Pending', $3, $4, 0, 0, $5, $6, $7)
+            VALUES ($1, $2, 'Pending', $3, $4, 0, 0, $5, $6, $7, $8, $9)
             ON CONFLICT (member_id, subscription_year)
             DO UPDATE SET
                 amount_paid = COALESCE(subscriptions.amount_paid, 0) + EXCLUDED.amount_paid,
@@ -5092,7 +5284,9 @@ app.post('/api/payments', async (req, res) => {
                 END,
                 payment_method = COALESCE(EXCLUDED.payment_method, subscriptions.payment_method),
                 receipt_number = COALESCE(EXCLUDED.receipt_number, subscriptions.receipt_number),
-                payment_date = COALESCE(EXCLUDED.payment_date, subscriptions.payment_date)
+                payment_date = COALESCE(EXCLUDED.payment_date, subscriptions.payment_date),
+                recorded_by_admin_user_id = EXCLUDED.recorded_by_admin_user_id,
+                recorded_by_admin_username = EXCLUDED.recorded_by_admin_username
         `, [
             memberId,
             appliedYear,
@@ -5100,13 +5294,16 @@ app.post('/api/payments', async (req, res) => {
             expectedAmount,
             payment_method || null,
             receipt_number || null,
-            payment_date
+            payment_date,
+            recorder.adminUserId,
+            recorder.adminUsername
         ]);
 
         const updatedTimeline = await recalculateMemberCreditLedger(client, memberId, {
             persistAutoYears: true,
             includeCurrentYear: true,
-            includeFutureCreditYears: true
+            includeFutureCreditYears: true,
+            recorder
         });
 
         const appliedSubscription = updatedTimeline.subscriptions.find(sub => sub.subscription_year === appliedYear);
@@ -5145,9 +5342,13 @@ app.get('/api/payments/:memberId', async (req, res) => {
         const memberId = req.params.memberId;
         
         const payments = await pool.query(`
-            SELECT * FROM payments 
-            WHERE member_id = $1
-            ORDER BY payment_date DESC, created_at DESC
+            SELECT
+                p.*,
+                COALESCE(au.username, p.recorded_by_admin_username) AS recorded_by
+            FROM payments p
+            LEFT JOIN admin_users au ON au.id = p.recorded_by_admin_user_id
+            WHERE p.member_id = $1
+            ORDER BY p.payment_date DESC, p.created_at DESC
         `, [memberId]);
 
         res.json(payments.rows);

@@ -94,8 +94,26 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     amount_paid DECIMAL(10, 2),
     payment_method VARCHAR(50) CHECK (payment_method IN ('Cash', 'Bank Transfer', 'Mobile Money', 'Cheque', 'Card', 'Not Specified', NULL)),
     receipt_number VARCHAR(50),
+    recorded_by_admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+    recorded_by_admin_username VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (member_id, subscription_year)
+);
+
+-- PAYMENT TRANSACTION HISTORY
+CREATE TABLE IF NOT EXISTS payments (
+    id SERIAL PRIMARY KEY,
+    member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+    subscription_year INTEGER,
+    payment_amount DECIMAL(10, 2) NOT NULL,
+    payment_date DATE NOT NULL,
+    payment_method VARCHAR(50) CHECK (payment_method IN ('Cash', 'Bank Transfer', 'Mobile Money', 'Cheque', 'Card', 'Not Specified', NULL)),
+    receipt_number VARCHAR(50),
+    notes TEXT,
+    recorded_by_admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+    recorded_by_admin_username VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================================
@@ -109,6 +127,10 @@ CREATE INDEX idx_members_date_of_admission ON members(date_of_admission);
 CREATE INDEX idx_subscriptions_member_id ON subscriptions(member_id);
 CREATE INDEX idx_subscriptions_year ON subscriptions(subscription_year);
 CREATE INDEX idx_subscriptions_status ON subscriptions(status);
+CREATE INDEX idx_subscriptions_recorded_by_admin_user_id ON subscriptions(recorded_by_admin_user_id);
+CREATE INDEX idx_payments_member_id ON payments(member_id);
+CREATE INDEX idx_payments_payment_date ON payments(payment_date);
+CREATE INDEX idx_payments_recorded_by_admin_user_id ON payments(recorded_by_admin_user_id);
 
 -- ============================================================
 -- TRIGGER: Auto-update timestamp
