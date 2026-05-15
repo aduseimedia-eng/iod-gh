@@ -10,7 +10,10 @@
     "setup-db": "node scripts/setup-database.js",
     "backup:railway": "node scripts/backup-railway-postgres.js",
     "sync:railway-to-local": "node scripts/backup-railway-postgres.js --sync-railway-to-local",
-    "sync:local-to-railway": "node scripts/backup-railway-postgres.js --sync-local-to-railway"
+    "sync:local-to-railway": "node scripts/backup-railway-postgres.js --sync-local-to-railway",
+    "sync:railway-to-local:with-admin": "node scripts/backup-railway-postgres.js --sync-railway-to-local --include-admin",
+    "sync:local-to-railway:with-admin": "node scripts/backup-railway-postgres.js --sync-local-to-railway --include-admin",
+    "sync:two-way:with-admin": "node scripts/backup-railway-postgres.js --sync-two-way --include-admin"
   },
   "keywords": [
     "database",
