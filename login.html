@@ -107,7 +107,7 @@
             position: relative;
         }
 
-        .input-wrapper i {
+        .input-wrapper > i {
             position: absolute;
             left: 15px;
             top: 50%;
@@ -140,6 +140,10 @@
             color: #2b6cb0;
         }
 
+        #password {
+            padding-right: 52px;
+        }
+
         .toggle-password {
             position: absolute;
             right: 15px;
@@ -156,6 +160,12 @@
 
         .toggle-password:hover {
             color: #2b6cb0;
+        }
+
+        .toggle-password i {
+            position: static;
+            transform: none;
+            color: inherit;
         }
 
         .login-btn {
@@ -393,6 +403,36 @@
             color: #1a365d;
             text-decoration: underline;
         }
+
+        .staff-dashboard-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 13px 15px;
+            margin-top: 18px;
+            background: #f7fafc;
+            color: #2C1972;
+            border: 1px solid #cbd5e0;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .staff-dashboard-link:hover {
+            background: #edf2f7;
+            border-color: #2b6cb0;
+            color: #1a365d;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(44, 25, 114, 0.15);
+        }
+
+        .staff-dashboard-link:active {
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -439,10 +479,13 @@
             <a onclick="openResetModal()"><i class="fas fa-key"></i> Forgot your password?</a>
         </div>
 
+        <a href="/staff-dashboard.html" class="staff-dashboard-link">
+            <i class="fas fa-eye"></i>
+            Staff View-Only Dashboard
+        </a>
+
         <div class="footer-text">
             <i class="fas fa-lock"></i> Secure access &bull; Authorized personnel only
-            <br><br>
-            <a href="/staff-dashboard.html" style="color: #63b3ed; text-decoration: none; font-size: 13px;"><i class="fas fa-eye"></i> Staff View-Only Dashboard</a>
         </div>
     </div>
 
