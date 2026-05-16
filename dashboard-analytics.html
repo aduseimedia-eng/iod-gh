@@ -1071,6 +1071,23 @@
             </div>
         </div>
 
+        <!-- Lapsed Good Standing -->
+        <div class="table-card">
+            <div class="chart-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <span><i class="fas fa-user-slash"></i> Members Not in Good Standing for 2-3 Years</span>
+                <button class="export-btn" onclick="exportLapsedGoodStanding()">
+                    <i class="fas fa-file-excel"></i> Export
+                </button>
+            </div>
+            <p class="analytics-subtitle">Consecutive years missed through the current subscription year, using the same credit-aware good standing logic as member profiles.</p>
+            <div id="lapsedGoodStandingContent">
+                <div class="empty-state">
+                    <div class="loading-spinner"></div>
+                    <p>Loading...</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Advanced Member Analytics -->
         <div class="table-card">
             <div class="chart-title">
@@ -1237,6 +1254,12 @@
                 : type === 'Corporate'
                 ? 'Corporate Members'
                 : (type || 'Unknown');
+        }
+
+        function escapeHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = value == null ? '' : String(value);
+            return div.innerHTML;
         }
 
         // Navigate to member dashboard
@@ -1634,6 +1657,8 @@
         let paymentMethodsData = [];
         let cohortAnalysisData = [];
         let churnAnalysisData = [];
+        let lapsedGoodStandingReport = { summary: {}, members: [] };
+        let lapsedGoodStandingLoaded = false;
         let revenueForecastData = [];
 
         function renderInsightCard({ tone = 'info', icon, title, value, detail }) {
@@ -1737,17 +1762,23 @@
                 });
             }
 
-            const highRiskMembers = churnAnalysisData.filter(row => {
+            const lapsedSummary = lapsedGoodStandingReport.summary || {};
+            const fallbackHighRiskMembers = churnAnalysisData.filter(row => {
                 if (row.years_since_paid === null || row.years_since_paid === undefined) return true;
                 return parseInt(row.years_since_paid, 10) >= 2;
             }).length;
+            const highRiskMembers = lapsedGoodStandingLoaded
+                ? parseInt(lapsedSummary.total_count || 0, 10)
+                : fallbackHighRiskMembers;
             const totalOutstanding = unpaidData.reduce((sum, row) => sum + (parseFloat(row.amount_owed) || 0), 0);
             insights.push({
                 tone: highRiskMembers > 0 ? 'risk' : 'success',
                 icon: 'fa-triangle-exclamation',
-                title: 'At-Risk Membership Follow-up',
-                value: `${highRiskMembers.toLocaleString()} high-risk members`,
-                detail: `${unpaidData.length.toLocaleString()} unpaid members; ${formatCurrency(totalOutstanding)} outstanding`
+                title: lapsedGoodStandingLoaded ? 'Good Standing Lapse Follow-up' : 'At-Risk Membership Follow-up',
+                value: `${highRiskMembers.toLocaleString()} ${lapsedGoodStandingLoaded ? 'lapsed members' : 'high-risk members'}`,
+                detail: lapsedGoodStandingLoaded
+                    ? `${parseInt(lapsedSummary.two_year_count || 0, 10).toLocaleString()} at 2 years; ${parseInt(lapsedSummary.three_plus_count || 0, 10).toLocaleString()} at 3+ years; ${formatCurrency(totalOutstanding)} current outstanding`
+                    : `${unpaidData.length.toLocaleString()} unpaid members; ${formatCurrency(totalOutstanding)} outstanding`
             });
 
             container.innerHTML = insights.slice(0, 5).map(renderInsightCard).join('');
@@ -2122,6 +2153,110 @@
             }
         }
 
+        async function loadLapsedGoodStanding() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/lapsed-good-standing', {
+                    minYears: 2,
+                    maxYears: 3,
+                    limit: 100
+                }));
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to load lapsed good standing data');
+
+                lapsedGoodStandingReport = data && typeof data === 'object'
+                    ? data
+                    : { summary: {}, members: [] };
+                lapsedGoodStandingLoaded = true;
+                renderLapsedGoodStanding();
+            } catch (err) {
+                console.error('Error loading lapsed good standing:', err);
+                lapsedGoodStandingReport = { summary: {}, members: [] };
+                lapsedGoodStandingLoaded = false;
+                document.getElementById('lapsedGoodStandingContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i><p>Failed to load lapsed good standing data.</p></div>';
+            }
+        }
+
+        function renderLapsedGoodStanding() {
+            const content = document.getElementById('lapsedGoodStandingContent');
+            if (!content) return;
+
+            const report = lapsedGoodStandingReport || {};
+            const summary = report.summary || {};
+            const members = Array.isArray(report.members) ? report.members : [];
+            const totalCount = parseInt(summary.total_count || members.length || 0, 10);
+            const currentYear = report.current_year || new Date().getFullYear();
+
+            if (!members.length) {
+                content.innerHTML = `<div class="empty-state"><i class="fas fa-check-circle"></i><p>No members have missed good standing for 2 or more consecutive years through ${currentYear}.</p></div>`;
+                return;
+            }
+
+            const rowsToDisplay = members.slice(0, 25);
+            const html = `
+                <div class="insight-stat-grid" style="margin-bottom: 1rem;">
+                    <div class="insight-stat">
+                        <div class="insight-stat-label">Total Lapsed</div>
+                        <div class="insight-stat-value">${totalCount.toLocaleString()}</div>
+                    </div>
+                    <div class="insight-stat">
+                        <div class="insight-stat-label">2 Years</div>
+                        <div class="insight-stat-value">${parseInt(summary.two_year_count || 0, 10).toLocaleString()}</div>
+                    </div>
+                    <div class="insight-stat">
+                        <div class="insight-stat-label">3+ Years</div>
+                        <div class="insight-stat-value">${parseInt(summary.three_plus_count || 0, 10).toLocaleString()}</div>
+                    </div>
+                    <div class="insight-stat">
+                        <div class="insight-stat-label">Estimated Dues</div>
+                        <div class="insight-stat-value">${formatCurrency(summary.estimated_outstanding || 0)}</div>
+                    </div>
+                </div>
+                <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: 600; color: #12086f;">Showing top ${rowsToDisplay.length} members needing reactivation follow-up</span>
+                    <span style="color: #666; font-size: 0.85rem;">Consecutive through ${currentYear}</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Member Type</th>
+                            <th>Member #</th>
+                            <th>Name</th>
+                            <th>Last Good Standing</th>
+                            <th>Missed Years</th>
+                            <th>Duration</th>
+                            <th>Est. Dues</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsToDisplay.map(row => {
+                            const years = parseInt(row.years_not_in_good_standing || 0, 10);
+                            const badgeClass = years >= 3 ? 'badge-overdue' : 'badge-pending';
+                            const missedYears = Array.isArray(row.missed_years) && row.missed_years.length
+                                ? row.missed_years.join(', ')
+                                : '-';
+                            const rowAction = row.member_id ? `onclick="navigateToMember(${row.member_id})" style="cursor:pointer;" title="Click to view member details"` : '';
+                            return `
+                                <tr ${rowAction}>
+                                    <td><span class="status-badge badge-paid">${formatMemberType(row.member_type)}</span></td>
+                                    <td><strong>${escapeHtml(row.membership_number || 'N/A')}</strong></td>
+                                    <td>
+                                        <strong>${escapeHtml(row.member_name || 'Unknown')}</strong>
+                                        ${row.organization ? `<div style="color:#6b7280; font-size:0.78rem; margin-top:2px;">${escapeHtml(row.organization)}</div>` : ''}
+                                    </td>
+                                    <td>${escapeHtml(row.last_good_standing_year || 'Never')}</td>
+                                    <td>${escapeHtml(missedYears)}</td>
+                                    <td><span class="status-badge ${badgeClass}">${escapeHtml(row.lapsed_band || `${years} years`)}</span></td>
+                                    <td><strong style="color: #dc3545;">${formatCurrency(row.estimated_outstanding || 0)}</strong></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            content.innerHTML = html;
+        }
+
         // Refresh all data
         async function refreshAllData() {
             const btn = document.querySelector('.refresh-btn');
@@ -2143,6 +2278,7 @@
                     loadPaymentMethods(),
                     loadCohortAnalysis(),
                     loadRevenueForecast(),
+                    loadLapsedGoodStanding(),
                     loadChurnAnalysis()
                 ]);
                 updateTopInsightsSummary();
@@ -2176,6 +2312,11 @@
             link.href = URL.createObjectURL(blob);
             link.download = filename;
             link.click();
+        }
+
+        function csvCell(value) {
+            const text = value == null ? '' : String(value);
+            return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
         }
 
         function exportKPIData() {
@@ -2349,6 +2490,43 @@
                 showAlert('Revenue forecast exported successfully', 'success');
             } catch (err) {
                 showAlert('Failed to export revenue forecast', 'error');
+            }
+        }
+
+        async function exportLapsedGoodStanding() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/lapsed-good-standing', {
+                    minYears: 2,
+                    maxYears: 3,
+                    limit: 500
+                }));
+                const data = await response.json();
+                const rows = Array.isArray(data.members) ? data.members : [];
+                if (!response.ok) throw new Error(data.error || 'Failed to export lapsed good standing');
+                if (!rows.length) {
+                    showAlert('No lapsed good standing data to export', 'error');
+                    return;
+                }
+
+                let csv = `Members Not in Good Standing for 2-3 Years\nCurrent Year,${data.current_year || new Date().getFullYear()}\n\nMember Type,Membership Number,Member Name,Organization,Phone,Email,Last Good Standing Year,Missed Years,Duration,Estimated Outstanding`;
+                rows.forEach(row => {
+                    csv += `\n${[
+                        formatMemberType(row.member_type),
+                        row.membership_number || '',
+                        row.member_name || '',
+                        row.organization || '',
+                        row.phone_number || '',
+                        row.email || '',
+                        row.last_good_standing_year || 'Never',
+                        Array.isArray(row.missed_years) ? row.missed_years.join('; ') : '',
+                        row.lapsed_band || '',
+                        parseFloat(row.estimated_outstanding || 0).toFixed(2)
+                    ].map(csvCell).join(',')}`;
+                });
+                downloadCSV('Lapsed_Good_Standing.csv', csv);
+                showAlert('Lapsed good standing data exported successfully', 'success');
+            } catch (err) {
+                showAlert(err.message || 'Failed to export lapsed good standing', 'error');
             }
         }
 

@@ -4868,6 +4868,169 @@ app.get('/api/dashboard/churn-analysis', async (req, res) => {
     }
 });
 
+// Advanced: Members not in good standing for consecutive years through the current year
+app.get('/api/dashboard/lapsed-good-standing', async (req, res) => {
+    try {
+        const memberType = req.query.memberType || null;
+        const currentYear = parseInt(req.query.year, 10) || new Date().getFullYear();
+        const minYears = Math.max(2, parseInt(req.query.minYears, 10) || 2);
+        const maxYears = Math.max(minYears, parseInt(req.query.maxYears, 10) || 3);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 500);
+        const params = [];
+
+        let membersQuery = `
+            SELECT
+                m.id,
+                m.membership_number,
+                m.member_type,
+                m.membership_category,
+                COALESCE(
+                    NULLIF(TRIM(CONCAT_WS(' ', NULLIF(m.first_name, ''), COALESCE(NULLIF(m.surname, ''), NULLIF(m.last_name, '')), NULLIF(m.other_names, ''))), ''),
+                    NULLIF(m.organization, ''),
+                    'Unknown'
+                ) AS member_name,
+                m.organization,
+                m.region,
+                m.phone_number,
+                m.email,
+                COALESCE(m.date_of_admission, m.registration_date, m.created_at)::DATE AS membership_start_date,
+                TO_CHAR(m.date_of_admission, 'DD/MM/YYYY') AS date_of_admission,
+                TO_CHAR(m.registration_date, 'DD/MM/YYYY') AS registration_date,
+                m.created_at,
+                EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date, m.created_at))::INT AS induction_year,
+                ARRAY_REMOVE(ARRAY_AGG(DISTINCT s.subscription_year ORDER BY s.subscription_year DESC), NULL) AS subscription_years,
+                (
+                    SELECT ARRAY_AGG(DISTINCT subscription_year ORDER BY subscription_year DESC)
+                    FROM subscriptions
+                    WHERE member_id = m.id AND (status = 'Paid' OR status = 'Waived')
+                ) AS paid_years
+            FROM members m
+            LEFT JOIN subscriptions s ON s.member_id = m.id
+            WHERE m.member_type != 'Honorary'`;
+
+        if (memberType) {
+            params.push(memberType);
+            membersQuery += ` AND m.member_type = $${params.length}`;
+        }
+
+        membersQuery += `
+            GROUP BY
+                m.id,
+                m.membership_number,
+                m.member_type,
+                m.membership_category,
+                m.first_name,
+                m.surname,
+                m.last_name,
+                m.other_names,
+                m.organization,
+                m.region,
+                m.phone_number,
+                m.email,
+                m.date_of_admission,
+                m.registration_date,
+                m.created_at
+            ORDER BY m.member_type, m.membership_number
+        `;
+
+        const membersResult = await pool.query(membersQuery, params);
+        const members = await computeCreditAwarePaidYears(membersResult.rows, pool);
+
+        const ratesResult = await pool.query(`
+            SELECT member_type, membership_category, subscription_year, expected_amount
+            FROM subscription_rates
+        `);
+        const ratesByMemberType = {};
+        for (const rate of ratesResult.rows) {
+            const key = rate.member_type === 'Corporate' && rate.membership_category
+                ? `${rate.member_type}:${rate.membership_category}`
+                : rate.member_type;
+            if (!ratesByMemberType[key]) ratesByMemberType[key] = {};
+            ratesByMemberType[key][parseInt(rate.subscription_year, 10)] = parseFloat(rate.expected_amount || 0);
+        }
+
+        function getMembershipStartYear(value) {
+            if (!value) return null;
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? null : date.getFullYear();
+        }
+
+        const lapsedMembers = [];
+        for (const member of members) {
+            const paidYears = new Set((Array.isArray(member.paid_years) ? member.paid_years : [])
+                .map(year => parseInt(year, 10))
+                .filter(Number.isFinite));
+            const startYear = getMembershipStartYear(member.membership_start_date);
+
+            let yearsNotInGoodStanding = 0;
+            const missedYears = [];
+
+            for (let year = currentYear; year >= currentYear - maxYears + 1; year--) {
+                if (startYear && year < startYear) break;
+                if (paidYears.has(year)) break;
+                yearsNotInGoodStanding += 1;
+                missedYears.unshift(year);
+            }
+
+            if (yearsNotInGoodStanding < minYears) continue;
+
+            const rateKey = member.member_type === 'Corporate' && member.membership_category
+                ? `${member.member_type}:${member.membership_category}`
+                : member.member_type;
+            const memberRates = ratesByMemberType[rateKey] || {};
+            const estimatedOutstanding = missedYears.reduce((sum, year) => sum + (memberRates[year] || 0), 0);
+            const lastGoodStandingYear = Array.from(paidYears)
+                .filter(year => year < currentYear)
+                .sort((a, b) => b - a)[0] || null;
+
+            lapsedMembers.push({
+                member_id: member.id,
+                membership_number: member.membership_number,
+                member_type: member.member_type,
+                membership_category: member.membership_category,
+                member_name: member.member_name,
+                organization: member.organization,
+                region: member.region,
+                phone_number: member.phone_number,
+                email: member.email,
+                date_of_admission: member.date_of_admission,
+                last_good_standing_year: lastGoodStandingYear,
+                years_not_in_good_standing: yearsNotInGoodStanding,
+                missed_years: missedYears,
+                lapsed_band: yearsNotInGoodStanding >= 3 ? '3+ years' : '2 years',
+                estimated_outstanding: estimatedOutstanding
+            });
+        }
+
+        lapsedMembers.sort((a, b) =>
+            b.years_not_in_good_standing - a.years_not_in_good_standing ||
+            parseFloat(b.estimated_outstanding || 0) - parseFloat(a.estimated_outstanding || 0) ||
+            String(a.membership_number || '').localeCompare(String(b.membership_number || ''))
+        );
+
+        const limitedMembers = lapsedMembers.slice(0, limit);
+        const twoYearCount = lapsedMembers.filter(member => member.years_not_in_good_standing === 2).length;
+        const threePlusCount = lapsedMembers.filter(member => member.years_not_in_good_standing >= 3).length;
+        const totalOutstanding = lapsedMembers.reduce((sum, member) => sum + parseFloat(member.estimated_outstanding || 0), 0);
+
+        res.json({
+            current_year: currentYear,
+            min_years: minYears,
+            max_years: maxYears,
+            summary: {
+                total_count: lapsedMembers.length,
+                two_year_count: twoYearCount,
+                three_plus_count: threePlusCount,
+                estimated_outstanding: totalOutstanding
+            },
+            members: limitedMembers
+        });
+    } catch (err) {
+        console.error('Error fetching lapsed good standing report:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // Advanced: Cohort Analysis
 app.get('/api/dashboard/cohort-analysis', async (req, res) => {
     try {
