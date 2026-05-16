@@ -990,6 +990,12 @@
             background: #fff5f5;
         }
 
+        .admin-status-action.warning {
+            color: #92400e;
+            border-color: #fde68a;
+            background: #fffbeb;
+        }
+
         .admin-action-group {
             display: flex;
             gap: 0.4rem;
@@ -2741,11 +2747,58 @@
         </div>
     </div>
 
+    <div id="admin-reset-password-modal" class="modal">
+        <div class="modal-content" style="max-width: 480px; position: relative;">
+            <button class="close-btn" onclick="closeAdminPasswordResetModal()"><i class="fas fa-times"></i></button>
+            <div class="modal-header">
+                <h2 style="font-size: 1.35rem;"><i class="fas fa-key" style="margin-right: 0.5rem;"></i>Reset Admin Password</h2>
+            </div>
+
+            <div id="admin-reset-password-error" style="display:none; padding: 0.85rem 1rem; margin-bottom: 1rem; border-radius: 12px; font-size: 0.82rem; font-weight: 600; color: #c53030; background: #fff5f5; border: 1px solid #feb2b2;"></div>
+
+            <div style="background: var(--bg-light); border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem 1rem; margin-bottom: 1.2rem;">
+                <div style="font-size: 0.72rem; color: var(--text-light); text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em;">Selected Admin</div>
+                <div id="admin-reset-password-target" style="margin-top: 0.25rem; color: var(--primary); font-size: 1rem; font-weight: 700;"></div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Temporary Password</label>
+                <div style="position: relative;">
+                    <input type="password" id="admin-reset-new-password" placeholder="Minimum 8 characters" autocomplete="new-password" style="padding-right: 3rem;">
+                    <button type="button" onclick="toggleSettingsPw('admin-reset-new-password', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-light); cursor: pointer; padding: 4px; font-size: 0.9rem; box-shadow: none;">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Confirm Temporary Password</label>
+                <div style="position: relative;">
+                    <input type="password" id="admin-reset-confirm-password" placeholder="Re-enter temporary password" autocomplete="new-password" style="padding-right: 3rem;">
+                    <button type="button" onclick="toggleSettingsPw('admin-reset-confirm-password', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-light); cursor: pointer; padding: 4px; font-size: 0.9rem; box-shadow: none;">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                <button type="button" class="btn-secondary" onclick="closeAdminPasswordResetModal()" style="border-radius: 12px;">
+                    Cancel
+                </button>
+                <button type="button" id="admin-reset-password-submit" class="btn-primary" onclick="submitAdminPasswordReset()" style="border-radius: 12px;">
+                    <i class="fas fa-key"></i> Reset Password
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ==========================================
         // AUTH HELPERS
         // ==========================================
         let currentAuthContext = { authenticated: false, role: 'admin', isSuperAdmin: false };
+        let cachedAdminUsers = [];
+        let resetAdminPasswordTargetId = null;
 
         function escapeHtml(value) {
             const div = document.createElement('div');
@@ -3047,6 +3100,7 @@
         function renderAdminUsers(users) {
             const container = document.getElementById('admin-users-list');
             if (!container) return;
+            cachedAdminUsers = users;
 
             if (!users.length) {
                 container.innerHTML = '<div class="no-data" style="padding: 2rem;">No admins found</div>';
@@ -3064,6 +3118,7 @@
                     : '<span class="admin-pill inactive">Inactive</span>';
                 const actionHtml = (!isSuperAdmin && !isCurrentUser)
                     ? `<div class="admin-action-group">
+                            <button class="admin-status-action warning" onclick="openAdminPasswordReset(${Number(user.id)})"><i class="fas fa-key"></i> Reset Password</button>
                             <button class="admin-status-action ${user.is_active ? 'danger' : ''}" onclick="toggleAdminStatus(${Number(user.id)}, ${!user.is_active})">${user.is_active ? 'Deactivate' : 'Activate'}</button>
                             <button class="admin-status-action danger" onclick="deleteAdminUser(${Number(user.id)})"><i class="fas fa-trash"></i> Delete</button>
                        </div>`
@@ -3143,6 +3198,96 @@
             } finally {
                 button.disabled = false;
                 button.innerHTML = '<i class="fas fa-user-plus"></i> Create Admin';
+            }
+        }
+
+        function showAdminResetPasswordError(message) {
+            const el = document.getElementById('admin-reset-password-error');
+            if (!el) return;
+            el.textContent = message;
+            el.style.display = 'block';
+        }
+
+        function hideAdminResetPasswordError() {
+            const el = document.getElementById('admin-reset-password-error');
+            if (!el) return;
+            el.textContent = '';
+            el.style.display = 'none';
+        }
+
+        function openAdminPasswordReset(adminId) {
+            hideSettingsAlert();
+            hideAdminResetPasswordError();
+
+            const admin = cachedAdminUsers.find(user => Number(user.id) === Number(adminId));
+            if (!admin) {
+                return showSettingsAlert('Admin user could not be found. Refresh the admin list and try again.', 'error');
+            }
+            if (admin.role === 'superadmin' || Number(admin.id) === Number(currentAuthContext.adminId)) {
+                return showSettingsAlert('This account is locked for password resets here.', 'error');
+            }
+
+            resetAdminPasswordTargetId = Number(admin.id);
+            document.getElementById('admin-reset-password-target').textContent = admin.username || 'Admin';
+            document.getElementById('admin-reset-new-password').value = '';
+            document.getElementById('admin-reset-confirm-password').value = '';
+            document.getElementById('admin-reset-new-password').type = 'password';
+            document.getElementById('admin-reset-confirm-password').type = 'password';
+            document.querySelectorAll('#admin-reset-password-modal .fa-eye-slash').forEach(icon => {
+                icon.className = 'fas fa-eye';
+            });
+            document.getElementById('admin-reset-password-modal').classList.add('show');
+            setTimeout(() => document.getElementById('admin-reset-new-password')?.focus(), 50);
+        }
+
+        function closeAdminPasswordResetModal() {
+            const modal = document.getElementById('admin-reset-password-modal');
+            if (modal) modal.classList.remove('show');
+            resetAdminPasswordTargetId = null;
+            hideAdminResetPasswordError();
+            document.getElementById('admin-reset-new-password').value = '';
+            document.getElementById('admin-reset-confirm-password').value = '';
+        }
+
+        async function submitAdminPasswordReset() {
+            hideAdminResetPasswordError();
+
+            if (!resetAdminPasswordTargetId) {
+                return showAdminResetPasswordError('Select an admin account first.');
+            }
+
+            const admin = cachedAdminUsers.find(user => Number(user.id) === Number(resetAdminPasswordTargetId));
+            const newPassword = document.getElementById('admin-reset-new-password').value;
+            const confirmPassword = document.getElementById('admin-reset-confirm-password').value;
+            const button = document.getElementById('admin-reset-password-submit');
+
+            if (!newPassword || newPassword.length < 8) {
+                return showAdminResetPasswordError('Temporary password must be at least 8 characters.');
+            }
+            if (newPassword !== confirmPassword) {
+                return showAdminResetPasswordError('Temporary passwords do not match.');
+            }
+
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resetting...';
+            try {
+                const response = await fetch(`/api/admin/users/${resetAdminPasswordTargetId}/password`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ newPassword })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to reset admin password');
+
+                const username = data.admin?.username || admin?.username || 'admin';
+                closeAdminPasswordResetModal();
+                showSettingsAlert(`Password reset for "${username}".`, 'success');
+                await loadAdminManagement();
+            } catch (err) {
+                showAdminResetPasswordError(err.message || 'Failed to reset admin password.');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-key"></i> Reset Password';
             }
         }
 
@@ -5353,11 +5498,15 @@
 
         // Close modal when clicking outside
         window.onclick = (event) => {
-            const modals = ['member-modal', 'view-modal', 'import-modal'];
+            const modals = ['member-modal', 'view-modal', 'import-modal', 'admin-reset-password-modal'];
             modals.forEach(id => {
                 const modal = document.getElementById(id);
                 if (event.target === modal) {
-                    modal.classList.remove('show');
+                    if (id === 'admin-reset-password-modal') {
+                        closeAdminPasswordResetModal();
+                    } else {
+                        modal.classList.remove('show');
+                    }
                 }
             });
         };

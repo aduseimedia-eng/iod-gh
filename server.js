@@ -956,6 +956,57 @@ app.patch('/api/admin/users/:id/status', requireSuperAdmin, async (req, res) => 
     }
 });
 
+app.patch('/api/admin/users/:id/password', requireSuperAdmin, async (req, res) => {
+    const adminId = parseInt(req.params.id, 10);
+    const newPassword = String(req.body.newPassword || '');
+
+    if (!Number.isFinite(adminId)) {
+        return res.status(400).json({ error: 'Invalid admin id' });
+    }
+
+    if (adminId === req.session.adminId) {
+        return res.status(400).json({ error: 'Use the Password tab to change your own password' });
+    }
+
+    if (newPassword.length < 8) {
+        return res.status(400).json({ error: 'Temporary password must be at least 8 characters' });
+    }
+
+    try {
+        const existing = await pool.query('SELECT id, username, role FROM admin_users WHERE id = $1', [adminId]);
+        if (existing.rows.length === 0) {
+            return res.status(404).json({ error: 'Admin user not found' });
+        }
+
+        const admin = existing.rows[0];
+        if (normalizeAdminRole(admin.role) === ADMIN_ROLE_SUPERADMIN) {
+            return res.status(400).json({ error: 'SuperAdmin passwords cannot be reset here' });
+        }
+
+        const passwordHash = await bcrypt.hash(newPassword, 10);
+        const result = await pool.query(`
+            UPDATE admin_users
+            SET password_hash = $1, updated_at = NOW()
+            WHERE id = $2
+            RETURNING id, username, email, role, is_active, last_login_at, created_at, updated_at, created_by_admin_id
+        `, [passwordHash, adminId]);
+
+        res.locals.activityAction = 'reset_admin_password';
+        res.locals.activityEntityType = 'admin_user';
+        res.locals.activityEntityId = adminId;
+        res.locals.activityDescription = `${req.session.user} reset password for admin user ${admin.username}`;
+        res.locals.activityMetadata = { targetUsername: admin.username, targetRole: admin.role };
+
+        res.json({
+            message: 'Admin password reset successfully',
+            admin: result.rows[0]
+        });
+    } catch (err) {
+        console.error('Error resetting admin password:', err);
+        res.status(500).json({ error: 'Failed to reset admin password' });
+    }
+});
+
 app.delete('/api/admin/users/:id', requireSuperAdmin, async (req, res) => {
     const adminId = parseInt(req.params.id, 10);
 
