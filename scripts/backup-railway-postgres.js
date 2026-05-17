@@ -276,6 +276,79 @@ async function resetSerialSequence(pool, tableName, idColumn = 'id') {
     `, [tableName, idColumn]);
 }
 
+function buildSourceMemberNumberById(backup) {
+    const members = backup.tables.members;
+    if (!members) return new Map();
+    return new Map(members.rows.map(member => [member.id, member.membership_number]));
+}
+
+async function buildTargetMemberIdByNumber(targetPool, backup) {
+    const members = backup.tables.members;
+    if (!members || members.rows.length === 0) return new Map();
+
+    const memberNumbers = [...new Set(members.rows.map(member => member.membership_number).filter(Boolean))];
+    if (memberNumbers.length === 0) return new Map();
+
+    const result = await targetPool.query(
+        'SELECT id, membership_number FROM members WHERE membership_number = ANY($1)',
+        [memberNumbers]
+    );
+    return new Map(result.rows.map(member => [member.membership_number, member.id]));
+}
+
+function buildSourceAdminUsernameById(backup) {
+    const adminUsers = backup.tables.admin_users;
+    if (!adminUsers) return new Map();
+    return new Map(adminUsers.rows.map(admin => [admin.id, admin.username]));
+}
+
+async function buildTargetAdminIdByUsername(targetPool, rows, sourceAdminUsernameById) {
+    const usernames = new Set();
+    for (const row of rows || []) {
+        if (row.recorded_by_admin_username) {
+            usernames.add(row.recorded_by_admin_username);
+        }
+        const usernameFromId = sourceAdminUsernameById.get(row.recorded_by_admin_user_id);
+        if (usernameFromId) {
+            usernames.add(usernameFromId);
+        }
+    }
+
+    if (usernames.size === 0) return new Map();
+
+    try {
+        const result = await targetPool.query(
+            'SELECT id, username FROM admin_users WHERE username = ANY($1)',
+            [[...usernames]]
+        );
+        return new Map(result.rows.map(admin => [admin.username, admin.id]));
+    } catch {
+        return new Map();
+    }
+}
+
+function mapRecordedByAdmin(row, columns, sourceAdminUsernameById, targetAdminIdByUsername) {
+    if (!columns.includes('recorded_by_admin_user_id') && !columns.includes('recorded_by_admin_username')) {
+        return row;
+    }
+
+    const sourceUsername = row.recorded_by_admin_username
+        || sourceAdminUsernameById.get(row.recorded_by_admin_user_id)
+        || null;
+
+    if (columns.includes('recorded_by_admin_username') && !row.recorded_by_admin_username) {
+        row.recorded_by_admin_username = sourceUsername;
+    }
+
+    if (columns.includes('recorded_by_admin_user_id')) {
+        row.recorded_by_admin_user_id = sourceUsername
+            ? (targetAdminIdByUsername.get(sourceUsername) || null)
+            : null;
+    }
+
+    return row;
+}
+
 async function syncSubscriptionRates(localPool, backup) {
     const table = backup.tables.subscription_rates;
     if (!table) return 0;
@@ -317,16 +390,13 @@ async function syncSubscriptions(localPool, backup) {
     const members = backup.tables.members;
     if (!subscriptions || !members || subscriptions.rows.length === 0) return 0;
 
-    const railwayMemberNumberById = new Map(
-        members.rows.map(member => [member.id, member.membership_number])
-    );
-    const memberNumbers = [...new Set(members.rows.map(member => member.membership_number))];
-    const localMemberResult = await localPool.query(
-        'SELECT id, membership_number FROM members WHERE membership_number = ANY($1)',
-        [memberNumbers]
-    );
-    const localMemberIdByNumber = new Map(
-        localMemberResult.rows.map(member => [member.membership_number, member.id])
+    const railwayMemberNumberById = buildSourceMemberNumberById(backup);
+    const localMemberIdByNumber = await buildTargetMemberIdByNumber(localPool, backup);
+    const sourceAdminUsernameById = buildSourceAdminUsernameById(backup);
+    const targetAdminIdByUsername = await buildTargetAdminIdByUsername(
+        localPool,
+        subscriptions.rows,
+        sourceAdminUsernameById
     );
     const localColumns = await getColumns(localPool, 'subscriptions');
     const dataColumns = subscriptions.columns
@@ -338,7 +408,12 @@ async function syncSubscriptions(localPool, backup) {
         const localMemberId = localMemberIdByNumber.get(memberNumber);
         if (!localMemberId) continue;
 
-        preparedRows.push({ ...subscription, member_id: localMemberId });
+        preparedRows.push(mapRecordedByAdmin(
+            { ...subscription, member_id: localMemberId },
+            columns,
+            sourceAdminUsernameById,
+            targetAdminIdByUsername
+        ));
     }
 
     return upsertRows(
@@ -349,6 +424,54 @@ async function syncSubscriptions(localPool, backup) {
         '(member_id, subscription_year)',
         ['member_id', 'subscription_year']
     );
+}
+
+async function syncPayments(localPool, backup) {
+    const payments = backup.tables.payments;
+    const members = backup.tables.members;
+    if (!payments || !members || payments.rows.length === 0) return 0;
+
+    const sourceMemberNumberById = buildSourceMemberNumberById(backup);
+    const localMemberIdByNumber = await buildTargetMemberIdByNumber(localPool, backup);
+    const sourceAdminUsernameById = buildSourceAdminUsernameById(backup);
+    const targetAdminIdByUsername = await buildTargetAdminIdByUsername(
+        localPool,
+        payments.rows,
+        sourceAdminUsernameById
+    );
+    const localColumns = await getColumns(localPool, 'payments');
+    const columns = payments.columns.filter(column => localColumns.includes(column));
+
+    if (!columns.includes('id') || !columns.includes('member_id')) return 0;
+
+    const preparedRows = [];
+    for (const payment of payments.rows) {
+        const memberNumber = sourceMemberNumberById.get(payment.member_id);
+        const localMemberId = localMemberIdByNumber.get(memberNumber);
+        if (!localMemberId) continue;
+
+        preparedRows.push(mapRecordedByAdmin(
+            { ...payment, member_id: localMemberId },
+            columns,
+            sourceAdminUsernameById,
+            targetAdminIdByUsername
+        ));
+    }
+
+    const synced = await upsertRows(
+        localPool,
+        'payments',
+        preparedRows,
+        columns,
+        '(id)',
+        ['id']
+    );
+
+    if (synced > 0) {
+        await resetSerialSequence(localPool, 'payments');
+    }
+
+    return synced;
 }
 
 async function syncAdminUsers(localPool, backup) {
@@ -402,6 +525,7 @@ async function syncBackupToDatabase(targetPool, backup) {
         subscription_rates: await syncSubscriptionRates(targetPool, backup),
         members: await syncMembers(targetPool, backup),
         subscriptions: await syncSubscriptions(targetPool, backup),
+        payments: await syncPayments(targetPool, backup),
         admin_users: await syncAdminUsers(targetPool, backup),
         admin_activity_logs: await syncAdminActivityLogs(targetPool, backup)
     };

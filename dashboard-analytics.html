@@ -794,6 +794,26 @@
             height: 300px;
         }
 
+        .chart-canvas-wrap.short {
+            height: 260px;
+        }
+
+        .chart-canvas-wrap.tall {
+            height: 340px;
+        }
+
+        .chart-support-table {
+            margin-top: 1rem;
+            max-height: 240px;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+        }
+
+        .chart-support-table table {
+            min-width: 560px;
+        }
+
         .insight-stat-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1256,6 +1276,70 @@
                 : (type || 'Unknown');
         }
 
+        const CHART_COLORS = {
+            primary: '#12086f',
+            navy: '#0A2342',
+            teal: '#2CA58D',
+            green: '#10b981',
+            amber: '#f59e0b',
+            red: '#ef4444',
+            blue: '#3b82f6',
+            violet: '#8b5cf6',
+            cyan: '#06b6d4',
+            pink: '#ec4899',
+            slate: '#64748b'
+        };
+
+        function chartPalette(count) {
+            const colors = [
+                CHART_COLORS.primary,
+                CHART_COLORS.teal,
+                CHART_COLORS.blue,
+                CHART_COLORS.amber,
+                CHART_COLORS.violet,
+                CHART_COLORS.cyan,
+                CHART_COLORS.pink,
+                CHART_COLORS.red,
+                CHART_COLORS.slate
+            ];
+            return Array.from({ length: count }, (_, index) => colors[index % colors.length]);
+        }
+
+        function destroyChart(chart) {
+            if (chart) chart.destroy();
+            return null;
+        }
+
+        function createChartCanvas(containerId, canvasId, heightClass = '') {
+            const container = document.getElementById(containerId);
+            if (!container) return null;
+
+            container.innerHTML = `<div class="chart-canvas-wrap ${heightClass}"><canvas id="${canvasId}"></canvas></div>`;
+            return document.getElementById(canvasId);
+        }
+
+        function defaultChartOptions(extra = {}) {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            boxWidth: 8
+                        }
+                    },
+                    tooltip: {}
+                },
+                ...extra
+            };
+        }
+
         function escapeHtml(value) {
             const div = document.createElement('div');
             div.textContent = value == null ? '' : String(value);
@@ -1336,26 +1420,52 @@
                 data = data.filter(row => row.member_type !== 'Honorary');
                 paymentByTypeData = Array.isArray(data) ? data : [];
 
-                if (data && data.length > 0) {
-                    const html = data.map(row => `
-                        <div class="metric-row">
-                            <div class="metric-label">${formatMemberType(row.member_type)}</div>
-                            <div style="flex: 1; margin: 0 15px;">
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: ${row.paid_percent || 0}%"></div>
-                                </div>
-                            </div>
-                            <div class="metric-value">${row.paid_members || 0}/${row.total_members || 0}</div>
-                            <div style="color: #2CA58D; font-weight: 600; width: 60px; text-align: right;">${formatPercent(row.paid_percent)}</div>
-                        </div>
-                    `).join('');
-                    document.getElementById('paymentByTypeContent').innerHTML = html;
+                if (paymentByTypeData.length > 0) {
+                    const canvas = createChartCanvas('paymentByTypeContent', 'paymentByTypeChart');
+                    const labels = paymentByTypeData.map(row => formatMemberType(row.member_type));
+                    const paid = paymentByTypeData.map(row => parseInt(row.paid_members || 0, 10));
+                    const unpaid = paymentByTypeData.map(row => Math.max(0, parseInt(row.total_members || 0, 10) - parseInt(row.paid_members || 0, 10)));
+
+                    paymentByTypeChartInstance = destroyChart(paymentByTypeChartInstance);
+                    paymentByTypeChartInstance = new Chart(canvas, {
+                        type: 'bar',
+                        data: {
+                            labels,
+                            datasets: [
+                                {
+                                    label: 'Paid',
+                                    data: paid,
+                                    backgroundColor: CHART_COLORS.green,
+                                    borderRadius: 6
+                                },
+                                {
+                                    label: 'Unpaid',
+                                    data: unpaid,
+                                    backgroundColor: CHART_COLORS.red,
+                                    borderRadius: 6
+                                }
+                            ]
+                        },
+                        options: defaultChartOptions({
+                            indexAxis: 'y',
+                            scales: {
+                                x: {
+                                    beginAtZero: true,
+                                    stacked: true,
+                                    ticks: { precision: 0 }
+                                },
+                                y: { stacked: true }
+                            }
+                        })
+                    });
                 } else {
+                    paymentByTypeChartInstance = destroyChart(paymentByTypeChartInstance);
                     document.getElementById('paymentByTypeContent').innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No data available for the selected filter.</p></div>';
                 }
             } catch (err) {
                 console.error('Error loading payment by type:', err);
                 paymentByTypeData = [];
+                paymentByTypeChartInstance = destroyChart(paymentByTypeChartInstance);
                 document.getElementById('paymentByTypeContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i><p>Failed to load data. Check server connection.</p></div>';
             }
         }
@@ -1381,6 +1491,7 @@
             if (!content) return;
 
             if (!regionalPerformanceData.length) {
+                regionalPerformanceChartInstance = destroyChart(regionalPerformanceChartInstance);
                 content.innerHTML = '<div class="empty-state"><i class="fas fa-globe-africa"></i><p>No regional data available.</p></div>';
                 return;
             }
@@ -1389,33 +1500,71 @@
                 .sort((a, b) => parseFloat(b.payment_rate || 0) - parseFloat(a.payment_rate || 0))
                 .slice(0, 8);
 
-            const html = `
+            content.innerHTML = `
                 <div style="margin-bottom: 0.7rem; color: #6b7280; font-size: 0.82rem; font-weight: 600;">
                     Top ${ranked.length} regions by payment rate
                 </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Region</th>
-                            <th>Paid/Total</th>
-                            <th>Rate</th>
-                            <th>Revenue</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${ranked.map(row => `
+                <div class="chart-canvas-wrap short"><canvas id="regionalPerformanceChart"></canvas></div>
+                <div class="chart-support-table">
+                    <table>
+                        <thead>
                             <tr>
-                                <td><strong>${row.region || 'Unknown'}</strong></td>
-                                <td>${parseInt(row.paid_members || 0, 10).toLocaleString()}/${parseInt(row.total_members || 0, 10).toLocaleString()}</td>
-                                <td><span class="status-badge ${parseFloat(row.payment_rate || 0) >= 60 ? 'badge-paid' : parseFloat(row.payment_rate || 0) >= 40 ? 'badge-pending' : 'badge-overdue'}">${parseFloat(row.payment_rate || 0).toFixed(1)}%</span></td>
-                                <td>${formatCurrency(row.region_revenue || 0)}</td>
+                                <th>Region</th>
+                                <th>Paid/Total</th>
+                                <th>Rate</th>
+                                <th>Revenue</th>
                             </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            ${ranked.map(row => `
+                                <tr>
+                                    <td><strong>${escapeHtml(row.region || 'Unknown')}</strong></td>
+                                    <td>${parseInt(row.paid_members || 0, 10).toLocaleString()}/${parseInt(row.total_members || 0, 10).toLocaleString()}</td>
+                                    <td><span class="status-badge ${parseFloat(row.payment_rate || 0) >= 60 ? 'badge-paid' : parseFloat(row.payment_rate || 0) >= 40 ? 'badge-pending' : 'badge-overdue'}">${parseFloat(row.payment_rate || 0).toFixed(1)}%</span></td>
+                                    <td>${formatCurrency(row.region_revenue || 0)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
             `;
 
-            content.innerHTML = html;
+            regionalPerformanceChartInstance = destroyChart(regionalPerformanceChartInstance);
+            regionalPerformanceChartInstance = new Chart(document.getElementById('regionalPerformanceChart'), {
+                type: 'bar',
+                data: {
+                    labels: ranked.map(row => row.region || 'Unknown'),
+                    datasets: [
+                        {
+                            label: 'Payment Rate',
+                            data: ranked.map(row => parseFloat(row.payment_rate || 0)),
+                            backgroundColor: ranked.map(row => {
+                                const rate = parseFloat(row.payment_rate || 0);
+                                return rate >= 60 ? CHART_COLORS.green : rate >= 40 ? CHART_COLORS.amber : CHART_COLORS.red;
+                            }),
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: defaultChartOptions({
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: context => `${context.parsed.x.toFixed(1)}% payment rate`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { callback: value => `${value}%` }
+                        }
+                    }
+                })
+            });
         }
 
         // Load yearly trends
@@ -1430,36 +1579,87 @@
                 const data = await response.json();
 
                 if (data && data.length > 0) {
+                    const ordered = [...data].sort((a, b) => parseInt(a.subscription_year, 10) - parseInt(b.subscription_year, 10));
                     const html = `
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Year</th>
-                                    <th>Total Members</th>
-                                    <th>Paid Members</th>
-                                    <th>Payment Rate</th>
-                                    <th>Total Revenue</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${data.map(row => `
+                        <div class="chart-canvas-wrap tall"><canvas id="yearlyTrendsChart"></canvas></div>
+                        <div class="chart-support-table">
+                            <table>
+                                <thead>
                                     <tr>
-                                        <td><strong>${row.subscription_year}</strong></td>
-                                        <td>${row.members_count?.toLocaleString() || '-'}</td>
-                                        <td>${row.paid_members?.toLocaleString() || '-'}</td>
-                                        <td><span class="status-badge badge-paid">${formatPercent(row.payment_rate)}</span></td>
-                                        <td><strong>${formatCurrency(row.total_revenue)}</strong></td>
+                                        <th>Year</th>
+                                        <th>Total Members</th>
+                                        <th>Paid Members</th>
+                                        <th>Payment Rate</th>
+                                        <th>Total Revenue</th>
                                     </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    ${ordered.map(row => `
+                                        <tr>
+                                            <td><strong>${row.subscription_year}</strong></td>
+                                            <td>${row.members_count?.toLocaleString() || '-'}</td>
+                                            <td>${row.paid_members?.toLocaleString() || '-'}</td>
+                                            <td><span class="status-badge badge-paid">${formatPercent(row.payment_rate)}</span></td>
+                                            <td><strong>${formatCurrency(row.total_revenue)}</strong></td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
                     `;
                     document.getElementById('yearlyTrendsContent').innerHTML = html;
+                    yearlyTrendsChartInstance = destroyChart(yearlyTrendsChartInstance);
+                    yearlyTrendsChartInstance = new Chart(document.getElementById('yearlyTrendsChart'), {
+                        type: 'bar',
+                        data: {
+                            labels: ordered.map(row => row.subscription_year),
+                            datasets: [
+                                {
+                                    type: 'bar',
+                                    label: 'Revenue',
+                                    data: ordered.map(row => parseFloat(row.total_revenue || 0)),
+                                    backgroundColor: 'rgba(18, 8, 111, 0.72)',
+                                    borderColor: CHART_COLORS.primary,
+                                    borderWidth: 1,
+                                    borderRadius: 6,
+                                    yAxisID: 'y'
+                                },
+                                {
+                                    type: 'line',
+                                    label: 'Payment Rate',
+                                    data: ordered.map(row => parseFloat(row.payment_rate || 0)),
+                                    borderColor: CHART_COLORS.teal,
+                                    backgroundColor: 'rgba(44, 165, 141, 0.12)',
+                                    borderWidth: 3,
+                                    tension: 0.35,
+                                    pointRadius: 4,
+                                    yAxisID: 'y1'
+                                }
+                            ]
+                        },
+                        options: defaultChartOptions({
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: { callback: value => formatCurrency(value) }
+                                },
+                                y1: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    position: 'right',
+                                    grid: { drawOnChartArea: false },
+                                    ticks: { callback: value => `${value}%` }
+                                }
+                            }
+                        })
+                    });
                 } else {
+                    yearlyTrendsChartInstance = destroyChart(yearlyTrendsChartInstance);
                     document.getElementById('yearlyTrendsContent').innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No data available</p></div>';
                 }
             } catch (err) {
                 console.error('Error loading yearly trends:', err);
+                yearlyTrendsChartInstance = destroyChart(yearlyTrendsChartInstance);
                 document.getElementById('yearlyTrendsContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i><p>Failed to load data.</p></div>';
             }
         }
@@ -1511,49 +1711,93 @@
                     });
                 }
 
-                const yearLabel = yearFilter === 'all' ? '' : ` (${yearFilter})`;
-                const html = '<div class="gender-grid">' + typeOrder.map(type => {
+                const rows = typeOrder.map(type => {
                     const g = grouped[type];
-                    const total = g.Male + g.Female + g['Not Specified'];
-                    const mPct = total ? (g.Male / total * 100).toFixed(0) : 0;
-                    const fPct = total ? (g.Female / total * 100).toFixed(0) : 0;
-                    const oPct = total ? (g['Not Specified'] / total * 100).toFixed(0) : 0;
+                    return {
+                        type,
+                        label: formatMemberType(type),
+                        male: g.Male,
+                        female: g.Female,
+                        other: g['Not Specified'],
+                        total: g.Male + g.Female + g['Not Specified']
+                    };
+                });
+                const hasMembers = rows.some(row => row.total > 0);
 
-                    let bars = '';
-                    if (total === 0) {
-                        bars = '<div class="gender-bar-row" style="color:#9ca3af; font-size:0.85rem; text-align:center; padding:1rem 0;">No members</div>';
-                    } else {
-                        if (g.Male > 0) bars += `
-                            <div class="gender-bar-row">
-                                <div class="gender-bar-label"><i class="fas fa-mars" style="color:#3b82f6"></i> Male</div>
-                                <div class="gender-bar-track"><div class="gender-bar-fill male" style="width:${mPct}%">${mPct}%</div></div>
-                                <div class="gender-bar-count">${g.Male}</div>
-                            </div>`;
-                        if (g.Female > 0) bars += `
-                            <div class="gender-bar-row">
-                                <div class="gender-bar-label"><i class="fas fa-venus" style="color:#ec4899"></i> Female</div>
-                                <div class="gender-bar-track"><div class="gender-bar-fill female" style="width:${fPct}%">${fPct}%</div></div>
-                                <div class="gender-bar-count">${g.Female}</div>
-                            </div>`;
-                        if (g['Not Specified'] > 0) bars += `
-                            <div class="gender-bar-row">
-                                <div class="gender-bar-label"><i class="fas fa-question" style="color:#9ca3af"></i> N/A</div>
-                                <div class="gender-bar-track"><div class="gender-bar-fill other" style="width:${oPct}%">${oPct}%</div></div>
-                                <div class="gender-bar-count">${g['Not Specified']}</div>
-                            </div>`;
-                    }
+                if (!hasMembers) {
+                    genderByTypeChartInstance = destroyChart(genderByTypeChartInstance);
+                    document.getElementById('genderByTypeContent').innerHTML = '<div class="empty-state"><i class="fas fa-venus-mars"></i><p>No gender data available for the selected filter.</p></div>';
+                    return;
+                }
 
-                    return `
-                        <div class="gender-type-card ${typeClasses[type]}">
-                            <h4><i class="fas ${typeIcons[type]}"></i> ${type}</h4>
-                            ${bars}
-                            <div class="gender-total">Total: <span>${total}</span></div>
-                        </div>`;
-                }).join('') + '</div>';
+                document.getElementById('genderByTypeContent').innerHTML = `
+                    <div class="chart-canvas-wrap tall"><canvas id="genderByTypeChart"></canvas></div>
+                    <div class="chart-support-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Member Type</th>
+                                    <th>Male</th>
+                                    <th>Female</th>
+                                    <th>Not Specified</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rows.map(row => `
+                                    <tr>
+                                        <td><strong>${row.label}</strong></td>
+                                        <td>${row.male.toLocaleString()}</td>
+                                        <td>${row.female.toLocaleString()}</td>
+                                        <td>${row.other.toLocaleString()}</td>
+                                        <td><strong>${row.total.toLocaleString()}</strong></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
 
-                document.getElementById('genderByTypeContent').innerHTML = html;
+                genderByTypeChartInstance = destroyChart(genderByTypeChartInstance);
+                genderByTypeChartInstance = new Chart(document.getElementById('genderByTypeChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: rows.map(row => row.label),
+                        datasets: [
+                            {
+                                label: 'Male',
+                                data: rows.map(row => row.male),
+                                backgroundColor: CHART_COLORS.blue,
+                                borderRadius: 6
+                            },
+                            {
+                                label: 'Female',
+                                data: rows.map(row => row.female),
+                                backgroundColor: CHART_COLORS.pink,
+                                borderRadius: 6
+                            },
+                            {
+                                label: 'Not Specified',
+                                data: rows.map(row => row.other),
+                                backgroundColor: CHART_COLORS.slate,
+                                borderRadius: 6
+                            }
+                        ]
+                    },
+                    options: defaultChartOptions({
+                        scales: {
+                            x: { stacked: true },
+                            y: {
+                                beginAtZero: true,
+                                stacked: true,
+                                ticks: { precision: 0 }
+                            }
+                        }
+                    })
+                });
             } catch (err) {
                 console.error('Error loading gender by type:', err);
+                genderByTypeChartInstance = destroyChart(genderByTypeChartInstance);
                 document.getElementById('genderByTypeContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i><p>Failed to load gender data.</p></div>';
             }
         }
@@ -1652,7 +1896,15 @@
         }
 
         // Advanced analytics state
+        let paymentByTypeChartInstance = null;
+        let genderByTypeChartInstance = null;
+        let yearlyTrendsChartInstance = null;
+        let regionalPerformanceChartInstance = null;
         let memberGrowthChartInstance = null;
+        let paymentMethodsChartInstance = null;
+        let cohortAnalysisChartInstance = null;
+        let revenueForecastChartInstance = null;
+        let lapsedGoodStandingChartInstance = null;
         let memberGrowthData = [];
         let paymentMethodsData = [];
         let cohortAnalysisData = [];
@@ -1876,42 +2128,76 @@
                 paymentMethodsData = Array.isArray(data) ? data : [];
 
                 if (!paymentMethodsData.length) {
+                    paymentMethodsChartInstance = destroyChart(paymentMethodsChartInstance);
                     document.getElementById('paymentMethodsContent').innerHTML = '<div class="empty-state"><i class="fas fa-credit-card"></i><p>No payment method data available.</p></div>';
                     return;
                 }
 
                 const totalPaid = paymentMethodsData.reduce((sum, row) => sum + (parseFloat(row.total_paid) || 0), 0);
                 const html = `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Method</th>
-                                <th>Transactions</th>
-                                <th>Total Paid</th>
-                                <th>Avg Payment</th>
-                                <th>Share</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${paymentMethodsData.map(row => {
-                                const methodTotal = parseFloat(row.total_paid) || 0;
-                                const share = totalPaid > 0 ? (methodTotal / totalPaid) * 100 : 0;
-                                return `
-                                    <tr>
-                                        <td><strong>${row.payment_method || 'Not Specified'}</strong></td>
-                                        <td>${parseInt(row.transactions || 0, 10).toLocaleString()}</td>
-                                        <td>${formatCurrency(methodTotal)}</td>
-                                        <td>${formatCurrency(row.avg_payment || 0)}</td>
-                                        <td><span class="status-badge badge-paid">${share.toFixed(1)}%</span></td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
+                    <div class="chart-canvas-wrap short"><canvas id="paymentMethodsChart"></canvas></div>
+                    <div class="chart-support-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Transactions</th>
+                                    <th>Total Paid</th>
+                                    <th>Avg Payment</th>
+                                    <th>Share</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${paymentMethodsData.map(row => {
+                                    const methodTotal = parseFloat(row.total_paid) || 0;
+                                    const share = totalPaid > 0 ? (methodTotal / totalPaid) * 100 : 0;
+                                    return `
+                                        <tr>
+                                            <td><strong>${escapeHtml(row.payment_method || 'Not Specified')}</strong></td>
+                                            <td>${parseInt(row.transactions || 0, 10).toLocaleString()}</td>
+                                            <td>${formatCurrency(methodTotal)}</td>
+                                            <td>${formatCurrency(row.avg_payment || 0)}</td>
+                                            <td><span class="status-badge badge-paid">${share.toFixed(1)}%</span></td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
                 `;
                 document.getElementById('paymentMethodsContent').innerHTML = html;
+                paymentMethodsChartInstance = destroyChart(paymentMethodsChartInstance);
+                paymentMethodsChartInstance = new Chart(document.getElementById('paymentMethodsChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: paymentMethodsData.map(row => row.payment_method || 'Not Specified'),
+                        datasets: [
+                            {
+                                data: paymentMethodsData.map(row => parseFloat(row.total_paid || 0)),
+                                backgroundColor: chartPalette(paymentMethodsData.length),
+                                borderColor: '#ffffff',
+                                borderWidth: 2
+                            }
+                        ]
+                    },
+                    options: defaultChartOptions({
+                        cutout: '58%',
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { usePointStyle: true, boxWidth: 8 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: context => `${context.label}: ${formatCurrency(context.parsed || 0)}`
+                                }
+                            }
+                        }
+                    })
+                });
             } catch (err) {
                 console.error('Error loading payment methods:', err);
+                paymentMethodsChartInstance = destroyChart(paymentMethodsChartInstance);
                 document.getElementById('paymentMethodsContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i><p>Failed to load payment methods.</p></div>';
             }
         }
@@ -1923,6 +2209,7 @@
                 cohortAnalysisData = Array.isArray(data) ? data : [];
 
                 if (!cohortAnalysisData.length) {
+                    cohortAnalysisChartInstance = destroyChart(cohortAnalysisChartInstance);
                     const select = document.getElementById('cohortYearFilter');
                     if (select) {
                         select.innerHTML = '<option value="all">All Years</option>';
@@ -1935,6 +2222,7 @@
                 renderCohortAnalysis();
             } catch (err) {
                 console.error('Error loading cohort analysis:', err);
+                cohortAnalysisChartInstance = destroyChart(cohortAnalysisChartInstance);
                 const select = document.getElementById('cohortYearFilter');
                 if (select) {
                     select.innerHTML = '<option value="all">All Years</option>';
@@ -1986,6 +2274,7 @@
             if (!content) return;
 
             if (!cohortAnalysisData.length) {
+                cohortAnalysisChartInstance = destroyChart(cohortAnalysisChartInstance);
                 content.innerHTML = '<div class="empty-state"><i class="fas fa-users-viewfinder"></i><p>No cohort data available.</p></div>';
                 return;
             }
@@ -1998,6 +2287,7 @@
             }
 
             if (!rows.length) {
+                cohortAnalysisChartInstance = destroyChart(cohortAnalysisChartInstance);
                 content.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No cohort data for the selected year.</p></div>';
                 return;
             }
@@ -2006,34 +2296,83 @@
                 <div style="margin-bottom: 0.7rem; color: #6b7280; font-size: 0.82rem; font-weight: 600;">
                     Showing: ${selectedYear === 'all' ? 'All Cohort Years' : `Cohort ${selectedYear}`}
                 </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Cohort Year</th>
-                            <th>Years as Member</th>
-                            <th>Cohort Size</th>
-                            <th>Paid This Year</th>
-                            <th>Payment Rate</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows.map(row => {
-                            const rate = parseFloat(row.payment_rate || 0);
-                            const badgeClass = rate >= 75 ? 'badge-paid' : rate >= 50 ? 'badge-pending' : 'badge-overdue';
-                            return `
-                                <tr>
-                                    <td><strong>${row.cohort_year}</strong></td>
-                                    <td>${parseInt(row.years_as_member || 0, 10)} years</td>
-                                    <td>${parseInt(row.cohort_size || 0, 10).toLocaleString()}</td>
-                                    <td>${parseInt(row.paid_in_latest || 0, 10).toLocaleString()}</td>
-                                    <td><span class="status-badge ${badgeClass}">${rate.toFixed(1)}%</span></td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
+                <div class="chart-canvas-wrap short"><canvas id="cohortAnalysisChart"></canvas></div>
+                <div class="chart-support-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cohort Year</th>
+                                <th>Years as Member</th>
+                                <th>Cohort Size</th>
+                                <th>Paid This Year</th>
+                                <th>Payment Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map(row => {
+                                const rate = parseFloat(row.payment_rate || 0);
+                                const badgeClass = rate >= 75 ? 'badge-paid' : rate >= 50 ? 'badge-pending' : 'badge-overdue';
+                                return `
+                                    <tr>
+                                        <td><strong>${row.cohort_year}</strong></td>
+                                        <td>${parseInt(row.years_as_member || 0, 10)} years</td>
+                                        <td>${parseInt(row.cohort_size || 0, 10).toLocaleString()}</td>
+                                        <td>${parseInt(row.paid_in_latest || 0, 10).toLocaleString()}</td>
+                                        <td><span class="status-badge ${badgeClass}">${rate.toFixed(1)}%</span></td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
             `;
             content.innerHTML = html;
+
+            const chartRows = [...rows].sort((a, b) => parseInt(a.cohort_year || 0, 10) - parseInt(b.cohort_year || 0, 10));
+            cohortAnalysisChartInstance = destroyChart(cohortAnalysisChartInstance);
+            cohortAnalysisChartInstance = new Chart(document.getElementById('cohortAnalysisChart'), {
+                type: 'bar',
+                data: {
+                    labels: chartRows.map(row => row.cohort_year),
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Cohort Size',
+                            data: chartRows.map(row => parseInt(row.cohort_size || 0, 10)),
+                            backgroundColor: 'rgba(18, 8, 111, 0.7)',
+                            borderColor: CHART_COLORS.primary,
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            yAxisID: 'y'
+                        },
+                        {
+                            type: 'line',
+                            label: 'Payment Rate',
+                            data: chartRows.map(row => parseFloat(row.payment_rate || 0)),
+                            borderColor: CHART_COLORS.teal,
+                            backgroundColor: 'rgba(44, 165, 141, 0.12)',
+                            borderWidth: 3,
+                            tension: 0.3,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: defaultChartOptions({
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
+                        },
+                        y1: {
+                            beginAtZero: true,
+                            max: 100,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: { callback: value => `${value}%` }
+                        }
+                    }
+                })
+            });
         }
 
         async function loadRevenueForecast() {
@@ -2043,6 +2382,7 @@
                 revenueForecastData = Array.isArray(data) ? data : [];
 
                 if (!revenueForecastData.length) {
+                    revenueForecastChartInstance = destroyChart(revenueForecastChartInstance);
                     document.getElementById('revenueForecastContent').innerHTML = '<div class="empty-state"><i class="fas fa-sack-dollar"></i><p>No revenue forecast data available.</p></div>';
                     return;
                 }
@@ -2068,6 +2408,7 @@
                             <div class="insight-stat-value">${formatCurrency(projectedIncrease)}</div>
                         </div>
                     </div>
+                    <div class="chart-canvas-wrap short"><canvas id="revenueForecastChart"></canvas></div>
                     <table>
                         <thead>
                             <tr>
@@ -2090,8 +2431,59 @@
                     </table>
                 `;
                 document.getElementById('revenueForecastContent').innerHTML = html;
+                revenueForecastChartInstance = destroyChart(revenueForecastChartInstance);
+                revenueForecastChartInstance = new Chart(document.getElementById('revenueForecastChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: ordered.map(row => row.subscription_year),
+                        datasets: [
+                            {
+                                type: 'bar',
+                                label: 'Revenue',
+                                data: ordered.map(row => parseFloat(row.yearly_revenue || 0)),
+                                backgroundColor: 'rgba(18, 8, 111, 0.72)',
+                                borderColor: CHART_COLORS.primary,
+                                borderWidth: 1,
+                                borderRadius: 6
+                            },
+                            {
+                                type: 'line',
+                                label: 'Forecast (+5%)',
+                                data: ordered.map((row, index) => index === ordered.length - 1
+                                    ? parseFloat(row.forecasted_revenue_5pct_growth || 0)
+                                    : null
+                                ),
+                                borderColor: CHART_COLORS.amber,
+                                backgroundColor: 'rgba(245, 158, 11, 0.14)',
+                                borderWidth: 3,
+                                pointRadius: 5,
+                                spanGaps: true
+                            }
+                        ]
+                    },
+                    options: defaultChartOptions({
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { callback: value => formatCurrency(value) }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { usePointStyle: true }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: context => `${context.dataset.label}: ${formatCurrency(context.parsed.y || 0)}`
+                                }
+                            }
+                        }
+                    })
+                });
             } catch (err) {
                 console.error('Error loading revenue forecast:', err);
+                revenueForecastChartInstance = destroyChart(revenueForecastChartInstance);
                 document.getElementById('revenueForecastContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i><p>Failed to load revenue forecast.</p></div>';
             }
         }
@@ -2172,6 +2564,7 @@
                 console.error('Error loading lapsed good standing:', err);
                 lapsedGoodStandingReport = { summary: {}, members: [] };
                 lapsedGoodStandingLoaded = false;
+                lapsedGoodStandingChartInstance = destroyChart(lapsedGoodStandingChartInstance);
                 document.getElementById('lapsedGoodStandingContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i><p>Failed to load lapsed good standing data.</p></div>';
             }
         }
@@ -2187,6 +2580,7 @@
             const currentYear = report.current_year || new Date().getFullYear();
 
             if (!members.length) {
+                lapsedGoodStandingChartInstance = destroyChart(lapsedGoodStandingChartInstance);
                 content.innerHTML = `<div class="empty-state"><i class="fas fa-check-circle"></i><p>No members have missed good standing for 2 or more consecutive years through ${currentYear}.</p></div>`;
                 return;
             }
@@ -2211,6 +2605,7 @@
                         <div class="insight-stat-value">${formatCurrency(summary.estimated_outstanding || 0)}</div>
                     </div>
                 </div>
+                <div class="chart-canvas-wrap short"><canvas id="lapsedGoodStandingChart"></canvas></div>
                 <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
                     <span style="font-weight: 600; color: #12086f;">Showing top ${rowsToDisplay.length} members needing reactivation follow-up</span>
                     <span style="color: #666; font-size: 0.85rem;">Consecutive through ${currentYear}</span>
@@ -2255,6 +2650,38 @@
             `;
 
             content.innerHTML = html;
+            lapsedGoodStandingChartInstance = destroyChart(lapsedGoodStandingChartInstance);
+            lapsedGoodStandingChartInstance = new Chart(document.getElementById('lapsedGoodStandingChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['2 Years', '3+ Years'],
+                    datasets: [
+                        {
+                            data: [
+                                parseInt(summary.two_year_count || 0, 10),
+                                parseInt(summary.three_plus_count || 0, 10)
+                            ],
+                            backgroundColor: [CHART_COLORS.amber, CHART_COLORS.red],
+                            borderColor: '#ffffff',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: defaultChartOptions({
+                    cutout: '62%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { usePointStyle: true, boxWidth: 8 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: context => `${context.label}: ${parseInt(context.parsed || 0, 10).toLocaleString()} members`
+                            }
+                        }
+                    }
+                })
+            });
         }
 
         // Refresh all data
