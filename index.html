@@ -921,6 +921,24 @@
             background: white;
         }
 
+        .admin-activity-table-wrap {
+            max-height: min(360px, 45vh);
+            overflow: auto;
+        }
+
+        .admin-activity-table-wrap .admin-management-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .admin-activity-meta {
+            color: var(--text-light);
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 0.7rem;
+        }
+
         .admin-management-table {
             width: 100%;
             border-collapse: collapse;
@@ -1979,9 +1997,6 @@
             <a href="dashboard-analytics.html" class="nav-btn" title="Analytics Dashboard">
                 <i class="fas fa-chart-line"></i> Analytics
             </a>
-            <button id="admin-users-nav-btn" onclick="openSettingsModal('admins')" class="nav-btn" title="Admin Users" style="display: none; cursor: pointer;">
-                <i class="fas fa-user-shield"></i> Admins
-            </button>
             <button onclick="openSettingsModal()" class="nav-btn" title="Account Settings" style="cursor: pointer;">
                 <i class="fas fa-cog"></i> Settings
             </button>
@@ -2799,6 +2814,7 @@
         let currentAuthContext = { authenticated: false, role: 'admin', isSuperAdmin: false };
         let cachedAdminUsers = [];
         let resetAdminPasswordTargetId = null;
+        const ADMIN_ACTIVITY_LIMIT = 25;
 
         function escapeHtml(value) {
             const div = document.createElement('div');
@@ -2824,9 +2840,7 @@
 
         function updateSuperAdminVisibility() {
             const canManageAdmins = !!currentAuthContext.isSuperAdmin;
-            const navButton = document.getElementById('admin-users-nav-btn');
             const adminTab = document.getElementById('tab-admins');
-            if (navButton) navButton.style.display = canManageAdmins ? 'inline-flex' : 'none';
             if (adminTab) adminTab.style.display = canManageAdmins ? 'flex' : 'none';
         }
 
@@ -3335,7 +3349,7 @@
 
             container.innerHTML = '<div class="no-data" style="padding: 2rem;">Loading activity...</div>';
             try {
-                const response = await fetch('/api/admin/activity-logs?limit=50');
+                const response = await fetch(`/api/admin/activity-logs?limit=${ADMIN_ACTIVITY_LIMIT}`);
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Failed to load activity');
                 renderAdminActivityLogs(Array.isArray(data) ? data : []);
@@ -3372,7 +3386,8 @@
             `).join('');
 
             container.innerHTML = `
-                <div class="admin-table-wrap">
+                <div class="admin-activity-meta">Showing latest ${logs.length} admin actions</div>
+                <div class="admin-table-wrap admin-activity-table-wrap">
                     <table class="admin-management-table">
                         <thead>
                             <tr>
