@@ -247,35 +247,6 @@
             letter-spacing: 0.5px;
         }
 
-        .top-search {
-            flex: 1;
-            max-width: 440px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            gap: 0.65rem;
-            padding: 0 0.9rem;
-            background: #f6f8fb;
-            border: 1px solid #edf1f6;
-            border-radius: 8px;
-            color: #9aa3b2;
-            margin-left: auto;
-        }
-
-        .top-search input {
-            width: 100%;
-            border: 0;
-            outline: 0;
-            background: transparent;
-            color: var(--text-dark);
-            font: inherit;
-            font-size: 0.82rem;
-        }
-
-        .top-search input::placeholder {
-            color: #9aa3b2;
-        }
-
         .container {
             max-width: 1600px;
             margin: 0 auto;
@@ -288,15 +259,15 @@
         }
 
         .button-group {
-            order: 1;
-        }
-
-        #members-section {
             order: 2;
         }
 
-        #member-types {
+        #members-section {
             order: 3;
+        }
+
+        #member-types {
+            order: 1;
         }
 
         /* Welcome Banner */
@@ -1356,12 +1327,6 @@
                 align-items: flex-start;
             }
 
-            .top-search {
-                width: 100%;
-                max-width: none;
-                margin-left: 0;
-            }
-
             .nav-right {
                 width: 100%;
                 justify-content: flex-start;
@@ -2190,23 +2155,7 @@
                 <p>Institute of Directors - Ghana</p>
             </div>
         </div>
-        <div class="top-search">
-            <i class="fas fa-search"></i>
-            <input type="text" placeholder="Search dashboard, members, subscriptions..." oninput="document.getElementById('members-search').value = this.value; filterTable();" autocomplete="off">
-        </div>
         <div class="nav-right">
-            <a href="staff-dashboard.html" class="nav-btn" title="Staff View-Only Dashboard">
-                <i class="fas fa-users-viewfinder"></i> Staff View
-            </a>
-            <a href="good_standing.html" class="nav-btn" title="Good Standing Report">
-                <i class="fas fa-check-circle"></i> Good Standing
-            </a>
-            <a href="dashboard-analytics.html" class="nav-btn" title="Analytics Dashboard">
-                <i class="fas fa-chart-line"></i> Analytics
-            </a>
-            <button onclick="openSettingsModal()" class="nav-btn" title="Account Settings" style="cursor: pointer;">
-                <i class="fas fa-cog"></i> Settings
-            </button>
             <button onclick="logout()" class="nav-btn" title="Sign Out" style="background: rgba(220,38,38,0.15); color: #fca5a5; border: 1px solid rgba(220,38,38,0.3); cursor: pointer;">
                 <i class="fas fa-sign-out-alt"></i> Logout
             </button>
