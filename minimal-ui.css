@@ -1,0 +1,224 @@
+/* Shared minimal shell for secondary dashboard pages */
+:root {
+    --primary: #16235a;
+    --primary-light: #263a83;
+    --secondary: #0f766e;
+    --accent: #2563eb;
+    --success: #047857;
+    --danger: #b91c1c;
+    --warning: #b45309;
+    --text-dark: #111827;
+    --text-light: #6b7280;
+    --bg-light: #f4f6fb;
+    --bg-white: #ffffff;
+    --surface-muted: #eef2f7;
+    --border: #d9e0ea;
+    --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.06);
+    --shadow-md: 0 8px 20px rgba(17, 24, 39, 0.08);
+}
+
+body {
+    background: #f4f6fb !important;
+    color: var(--text-dark) !important;
+}
+
+body::before {
+    display: none !important;
+}
+
+header {
+    background: rgba(255, 255, 255, 0.92) !important;
+    color: var(--text-dark) !important;
+    border-bottom: 1px solid var(--border) !important;
+    box-shadow: none !important;
+    backdrop-filter: blur(12px);
+    padding: 1rem 1.35rem !important;
+}
+
+.header-left {
+    gap: 0.9rem !important;
+}
+
+.logo-section {
+    width: 42px !important;
+    height: 42px !important;
+    background: #eef3ff !important;
+    border: 1px solid #dce6ff !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+}
+
+.logo-section:hover {
+    transform: none !important;
+}
+
+.logo-section img {
+    width: 34px !important;
+    height: 34px !important;
+    object-fit: contain;
+}
+
+header h1,
+.header-text h1 {
+    color: var(--text-dark) !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+}
+
+header p,
+.header-text p {
+    color: var(--text-light) !important;
+    opacity: 1 !important;
+    font-size: 0.82rem !important;
+}
+
+.nav-right {
+    gap: 0.45rem !important;
+    flex-wrap: wrap;
+}
+
+.nav-btn,
+.refresh-btn {
+    background: #ffffff !important;
+    color: var(--text-light) !important;
+    min-height: 38px !important;
+    padding: 0.5rem 0.7rem !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    font-size: 0.78rem !important;
+}
+
+.nav-btn:hover,
+.refresh-btn:hover,
+.nav-btn.active {
+    background: #eef3ff !important;
+    color: var(--primary) !important;
+    border-color: #dce6ff !important;
+    transform: translateY(-1px) !important;
+}
+
+.staff-badge {
+    background: #ecfdf5 !important;
+    color: var(--success) !important;
+    border: 1px solid #bbf7d0 !important;
+    border-radius: 8px !important;
+    backdrop-filter: none !important;
+}
+
+.container {
+    max-width: 1600px !important;
+    margin: 0 auto !important;
+    padding: 1.25rem 1.35rem 2.5rem !important;
+}
+
+.controls-card,
+.content-section,
+.kpi-card,
+.chart-card,
+.table-card,
+.readonly-notice {
+    background: #ffffff !important;
+    border: 1px solid #edf1f6 !important;
+    border-radius: 8px !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+.kpi-card,
+.chart-card,
+.table-card,
+.content-section {
+    transition: box-shadow 0.2s ease, transform 0.2s ease !important;
+}
+
+.kpi-card:hover,
+.chart-card:hover,
+.table-card:hover,
+.content-section:hover {
+    box-shadow: var(--shadow-md) !important;
+    transform: translateY(-1px) !important;
+}
+
+.kpi-icon {
+    border-radius: 8px !important;
+    background: var(--primary) !important;
+}
+
+.kpi-value,
+.chart-title,
+.section-title,
+.dashboard-title,
+.report-title {
+    color: var(--primary) !important;
+}
+
+.filter-bar,
+.controls {
+    gap: 0.75rem !important;
+}
+
+select,
+input,
+button,
+.export-btn,
+.search-box {
+    border-radius: 8px !important;
+}
+
+select,
+input,
+.search-box {
+    border-color: var(--border) !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+button,
+.export-btn {
+    background: var(--primary) !important;
+    color: #ffffff !important;
+    border: 1px solid transparent !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+button:hover,
+.export-btn:hover {
+    background: var(--primary-light) !important;
+    transform: translateY(-1px) !important;
+}
+
+table {
+    border-collapse: collapse !important;
+}
+
+thead {
+    background: #eef2f7 !important;
+}
+
+th {
+    color: var(--text-dark) !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+td {
+    border-bottom: 1px solid #edf1f6 !important;
+}
+
+tbody tr:hover {
+    background: #f8fafc !important;
+}
+
+@media (max-width: 768px) {
+    header {
+        align-items: flex-start !important;
+        flex-direction: column !important;
+        gap: 0.85rem !important;
+    }
+
+    .nav-right {
+        width: 100% !important;
+        justify-content: flex-start !important;
+    }
+}
