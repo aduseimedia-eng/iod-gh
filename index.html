@@ -2193,14 +2193,16 @@
         }
 
         .mp-grid {
+            display: grid !important;
+            grid-template-columns: 1fr !important;
             gap: 0.75rem !important;
         }
 
         .mp-card {
             border: 0 !important;
             border-radius: 0 !important;
-            padding: 0.85rem !important;
-            background: rgba(244, 246, 251, 0.62) !important;
+            padding: 0 !important;
+            background: transparent !important;
             box-shadow: none !important;
         }
 
@@ -2214,13 +2216,15 @@
         }
 
         .mp-card.accent-green {
-            background: rgba(15, 118, 110, 0.07) !important;
+            background: transparent !important;
         }
 
         .mp-card-title {
-            font-size: 0.7rem !important;
-            margin-bottom: 0.55rem !important;
+            font-size: 0.72rem !important;
+            margin-bottom: 0 !important;
             color: #334155 !important;
+            padding: 0.72rem 0.8rem !important;
+            background: rgba(244, 246, 251, 0.72) !important;
         }
 
         .mp-card-title .icon-circle {
@@ -2232,8 +2236,13 @@
         }
 
         .mp-field {
-            padding: 0.42rem 0 !important;
+            display: grid !important;
+            grid-template-columns: minmax(130px, 0.34fr) minmax(0, 1fr) !important;
+            gap: 0.8rem !important;
+            align-items: start !important;
+            padding: 0.62rem 0.8rem !important;
             border-bottom: 1px solid rgba(226, 232, 240, 0.82) !important;
+            background: rgba(255, 255, 255, 0.72) !important;
         }
 
         .mp-field:last-child {
@@ -2243,11 +2252,16 @@
         .mp-field .label {
             color: #94a3b8 !important;
             font-size: 0.72rem !important;
+            min-width: 0 !important;
+            white-space: normal !important;
         }
 
         .mp-field .value {
             color: #1f2937 !important;
             font-size: 0.78rem !important;
+            text-align: left !important;
+            min-width: 0 !important;
+            overflow-wrap: anywhere !important;
         }
 
         .mp-feedback,
@@ -2340,6 +2354,10 @@
                 border-top: 1px solid rgba(226, 232, 240, 0.9);
             }
             .mp-body { padding: 0.9rem; }
+            .mp-field {
+                grid-template-columns: 1fr !important;
+                gap: 0.25rem !important;
+            }
             .mp-footer { flex-direction: column; }
             .mp-action-btn { justify-content: center; }
             .mp-history table { font-size: 0.78rem; }
