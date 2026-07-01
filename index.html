@@ -1161,6 +1161,117 @@
             border: 1px solid #a7f3d0;
         }
 
+        .payment-management-section {
+            margin-top: 1.9rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .payment-management-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .payment-management-header h3 {
+            margin: 0;
+            color: var(--text-dark);
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .payment-balance-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        .payment-balance-card {
+            padding: 0.95rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #ffffff;
+        }
+
+        .payment-balance-card.success {
+            border-left: 4px solid var(--success);
+        }
+
+        .payment-balance-card.primary {
+            border-left: 4px solid var(--primary);
+        }
+
+        .payment-balance-label {
+            color: var(--text-light);
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .payment-balance-value {
+            margin-top: 0.35rem;
+            font-size: 1.35rem;
+            font-weight: 800;
+        }
+
+        .payment-record-card {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border: 1px solid #dbe6ff;
+            border-radius: 12px;
+            background: #f5f8ff;
+        }
+
+        .payment-record-card h4,
+        .payment-table-title {
+            margin: 0 0 0.8rem;
+            color: var(--text-dark);
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .payment-record-card .form-row {
+            gap: 0.85rem;
+        }
+
+        .payment-record-card textarea {
+            min-height: 70px;
+            resize: vertical;
+        }
+
+        .payment-record-card .btn-primary {
+            width: 100%;
+            margin-top: 0.35rem;
+        }
+
+        .payment-table-wrap,
+        #subscription-status-list {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow-x: auto;
+            background: #ffffff;
+        }
+
+        .payment-table-wrap table {
+            width: 100%;
+            font-size: 0.82rem;
+            border-collapse: collapse;
+        }
+
+        .payment-table-wrap thead {
+            background: #f8fafc;
+        }
+
+        .payment-table-wrap th,
+        .payment-table-wrap td {
+            padding: 0.7rem;
+            border-bottom: 1px solid var(--border);
+        }
+
         .close-btn {
             background: linear-gradient(135deg, #ef4444, #dc2626);
             border: none;
@@ -3198,27 +3309,29 @@
                 </div>
 
                 <!-- Payment History Section -->
-                <div style="margin-top: 30px; border-top: 2px solid var(--border); padding-top: 20px;">
-                    <h3 style="margin-bottom: 15px;">Payment History & Balance</h3>
+                <div class="payment-management-section">
+                    <div class="payment-management-header">
+                        <h3><i class="fas fa-receipt"></i> Payment History & Balance</h3>
+                    </div>
                     
                     <!-- Current Balance Display -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                        <div style="padding: 15px; background: #f8f9fa; border-left: 4px solid var(--success);">
-                            <div style="font-size: 12px; color: var(--text-light); font-weight: 600; text-transform: uppercase;">Current Balance</div>
-                            <div id="member-balance" style="font-size: 24px; font-weight: bold; color: var(--success); margin-top: 8px;">₵ 0.00</div>
+                    <div class="payment-balance-grid">
+                        <div class="payment-balance-card success">
+                            <div class="payment-balance-label">Current Balance</div>
+                            <div id="member-balance" class="payment-balance-value" style="color: var(--success);">&#8373; 0.00</div>
                         </div>
-                        <div style="padding: 15px; background: #f8f9fa; border-left: 4px solid var(--primary);">
-                            <div style="font-size: 12px; color: var(--text-light); font-weight: 600; text-transform: uppercase;">Total Paid</div>
-                            <div id="member-total-paid" style="font-size: 24px; font-weight: bold; color: var(--primary); margin-top: 8px;">₵ 0.00</div>
+                        <div class="payment-balance-card primary">
+                            <div class="payment-balance-label">Total Paid</div>
+                            <div id="member-total-paid" class="payment-balance-value" style="color: var(--primary);">&#8373; 0.00</div>
                         </div>
                     </div>
 
                     <!-- Add Payment Form -->
-                    <div style="margin-bottom: 20px; padding: 15px; background: #f0f7ff; border-radius: 8px;">
-                        <h4 style="margin-bottom: 10px; font-size: 14px;">Record New Payment</h4>
+                    <div class="payment-record-card">
+                        <h4><i class="fas fa-plus-circle"></i> Record New Payment</h4>
                         <div class="form-row">
                             <div class="form-group" style="flex: 1;">
-                                <label for="new-payment-amount">Amount (₵)</label>
+                                <label for="new-payment-amount">Amount (&#8373;)</label>
                                 <input type="number" id="new-payment-amount" min="0" step="0.01" placeholder="0.00">
                             </div>
                             <div class="form-group" style="flex: 1;">
@@ -3249,16 +3362,16 @@
                         </div>
                         <div class="form-group">
                             <label for="new-payment-notes">Notes</label>
-                            <textarea id="new-payment-notes" style="height: 60px; resize: vertical;" placeholder="e.g., Payment covers 2025 subscription, excess for 2026"></textarea>
+                            <textarea id="new-payment-notes" placeholder="e.g., Payment covers 2025 subscription, excess for 2026"></textarea>
                         </div>
-                        <button type="button" class="btn-primary" onclick="recordMemberPayment()" style="width: 100%; margin-top: 10px;">Record Payment</button>
+                        <button type="button" class="btn-primary" onclick="recordMemberPayment()"><i class="fas fa-save"></i> Record Payment</button>
                     </div>
 
                     <!-- Payment History Table -->
-                    <h4 style="margin-bottom: 10px; font-size: 14px;">Payment Transactions</h4>
-                    <div style="overflow-x: auto; border: 1px solid var(--border);">
-                        <table style="width: 100%; font-size: 13px;">
-                            <thead style="background: var(--bg-light);">
+                    <h4 class="payment-table-title">Payment Transactions</h4>
+                    <div class="payment-table-wrap">
+                        <table>
+                            <thead>
                                 <tr>
                                     <th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--border);">Date</th>
                                     <th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--border);">Year</th>
@@ -3277,8 +3390,8 @@
                     </div>
 
                     <!-- Year-by-Year Subscription Status -->
-                    <h4 style="margin-top: 20px; margin-bottom: 10px; font-size: 14px;">Subscription Status by Year</h4>
-                    <div id="subscription-status-list" style="border: 1px solid var(--border); border-radius: 8px; overflow-x: auto;">
+                    <h4 class="payment-table-title" style="margin-top: 1rem;">Subscription Status by Year</h4>
+                    <div id="subscription-status-list">
                         <div style="padding: 20px; text-align: center; color: var(--text-light);">Loading subscription data...</div>
                     </div>
                 </div>
