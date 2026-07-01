@@ -153,6 +153,14 @@
             margin-top: 0.2rem;
         }
 
+        .page-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.65rem;
+            flex-wrap: wrap;
+        }
+
         .layout-grid {
             display: grid;
             grid-template-columns: 1fr;
@@ -183,6 +191,52 @@
 
         .panel-body {
             padding: 1rem 1.1rem 1.1rem;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1.1rem;
+            background: rgba(15, 23, 42, 0.46);
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        body.modal-open {
+            overflow: hidden;
+        }
+
+        .candidate-modal {
+            width: min(940px, 100%);
+            max-height: min(88vh, 820px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+        }
+
+        .candidate-modal .panel-body {
+            overflow-y: auto;
+        }
+
+        .icon-close {
+            width: 34px;
+            min-height: 34px;
+            padding: 0;
+            background: #ffffff;
+            color: var(--text-light);
+        }
+
+        .icon-close:hover {
+            color: var(--danger);
+            border-color: #fecaca;
+            background: #fff5f5;
         }
 
         .form-grid {
@@ -359,6 +413,12 @@
 
         .alert.success {
             display: block;
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1200;
+            width: min(420px, calc(100vw - 2rem));
+            box-shadow: var(--shadow-md);
             background: #ecfdf5;
             border: 1px solid #a7f3d0;
             color: #065f46;
@@ -366,6 +426,12 @@
 
         .alert.error {
             display: block;
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1200;
+            width: min(420px, calc(100vw - 2rem));
+            box-shadow: var(--shadow-md);
             background: #fff5f5;
             border: 1px solid #fecaca;
             color: #991b1b;
@@ -403,6 +469,7 @@
             }
 
             .page-header,
+            .page-actions,
             .table-toolbar,
             .button-row {
                 flex-direction: column;
@@ -451,17 +518,26 @@
                     <h1>Induction List</h1>
                     <p>Add candidates here first, then promote them into the main database after induction.</p>
                 </div>
-                <button class="btn-secondary" onclick="loadPendingMembers()">
-                    <i class="fas fa-rotate"></i> Refresh
-                </button>
+                <div class="page-actions">
+                    <button class="btn-primary" onclick="openCandidateModal()">
+                        <i class="fas fa-user-plus"></i> New Induction Candidate
+                    </button>
+                    <button class="btn-secondary" onclick="loadPendingMembers()">
+                        <i class="fas fa-rotate"></i> Refresh
+                    </button>
+                </div>
             </div>
 
             <div id="page-alert" class="alert"></div>
 
             <div class="layout-grid">
-                <section class="panel">
+                <div class="modal-overlay" id="candidate-modal" onclick="handleModalBackdrop(event)">
+                <section class="panel candidate-modal" role="dialog" aria-modal="true" aria-labelledby="form-title">
                     <div class="panel-header">
                         <h2 id="form-title">New Induction Candidate</h2>
+                        <button type="button" class="icon-close" onclick="closeCandidateModal()" title="Close">
+                            <i class="fas fa-xmark"></i>
+                        </button>
                     </div>
                     <div class="panel-body">
                         <form id="pending-form">
@@ -606,6 +682,7 @@
                         </form>
                     </div>
                 </section>
+                </div>
 
                 <section class="panel">
                     <div class="panel-header">
@@ -651,6 +728,10 @@
             loadPendingMembers();
         });
 
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') closeCandidateModal();
+        });
+
         function appUrl(path) {
             if (!path) return path;
             if (/^https?:\/\//i.test(path)) return path;
@@ -672,6 +753,22 @@
                 alert.className = 'alert';
                 alert.textContent = '';
             }, 4500);
+        }
+
+        function openCandidateModal(shouldReset = true) {
+            if (shouldReset) resetForm();
+            document.getElementById('candidate-modal').classList.add('open');
+            document.body.classList.add('modal-open');
+            window.setTimeout(() => document.getElementById('member-type').focus(), 0);
+        }
+
+        function closeCandidateModal() {
+            document.getElementById('candidate-modal').classList.remove('open');
+            document.body.classList.remove('modal-open');
+        }
+
+        function handleModalBackdrop(event) {
+            if (event.target.id === 'candidate-modal') closeCandidateModal();
         }
 
         function sanitizeInput(value) {
@@ -741,6 +838,7 @@
                 const saved = await response.json();
                 showAlert(`${saved.candidate_code || 'Candidate'} saved.`);
                 resetForm();
+                closeCandidateModal();
                 await loadPendingMembers();
             } else {
                 const error = await response.json().catch(() => ({}));
@@ -846,7 +944,7 @@
             setField('years-served-on-boards', candidate.years_served_on_boards || 0);
             setField('notes', candidate.notes);
             updateCandidateFields();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            openCandidateModal(false);
         }
 
         function setField(id, value) {
