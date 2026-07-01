@@ -1928,6 +1928,225 @@
         .mp-action-btn.print-btn { background: linear-gradient(135deg, #2ca58d, #1e8a74); box-shadow: 0 4px 12px rgba(44,165,141,0.25); }
         .mp-action-btn.edit-btn  { background: linear-gradient(135deg, #12086f, #4f39c4); box-shadow: 0 4px 12px rgba(18,8,111,0.25); }
 
+        /* Minimal popup refresh */
+        .modal {
+            background: rgba(17, 24, 39, 0.28) !important;
+            backdrop-filter: blur(5px) !important;
+            -webkit-backdrop-filter: blur(5px) !important;
+            padding: 1rem;
+        }
+
+        .modal-content {
+            background: rgba(255, 255, 255, 0.98) !important;
+            border: 0 !important;
+            border-radius: 8px !important;
+            box-shadow: 0 18px 46px rgba(17, 24, 39, 0.18) !important;
+            margin: 1.25rem auto !important;
+            padding: 1.25rem !important;
+            max-height: calc(100vh - 2.5rem) !important;
+            animation: modalSlideIn 0.22s ease forwards !important;
+        }
+
+        .modal-header {
+            margin-bottom: 1rem !important;
+            padding: 0 2.6rem 0.85rem 0 !important;
+            border-bottom: 1px solid rgba(217, 224, 234, 0.8) !important;
+        }
+
+        .modal-header h2 {
+            font-size: 1.05rem !important;
+            color: var(--text-dark) !important;
+            letter-spacing: 0 !important;
+        }
+
+        .close-btn {
+            width: 32px !important;
+            height: 32px !important;
+            min-height: 32px !important;
+            border-radius: 8px !important;
+            background: rgba(185, 28, 28, 0.08) !important;
+            color: var(--danger) !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            font-size: 1rem !important;
+            top: 0.85rem !important;
+            right: 0.85rem !important;
+        }
+
+        .close-btn:hover {
+            transform: translateY(-1px) !important;
+            background: rgba(185, 28, 28, 0.14) !important;
+            box-shadow: none !important;
+        }
+
+        .form-group {
+            margin-bottom: 0.85rem !important;
+        }
+
+        label {
+            margin-bottom: 0.35rem !important;
+            font-size: 0.76rem !important;
+            letter-spacing: 0 !important;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        input[type="date"],
+        input[type="number"],
+        input[type="password"],
+        textarea,
+        .form-group select {
+            padding: 0.58rem 0.75rem !important;
+            border-radius: 8px !important;
+            font-size: 0.82rem !important;
+            background-color: rgba(244, 246, 251, 0.72) !important;
+            box-shadow: none !important;
+        }
+
+        textarea {
+            min-height: 82px !important;
+        }
+
+        .form-row {
+            gap: 0.8rem !important;
+        }
+
+        .form-actions {
+            gap: 0.55rem !important;
+            margin-top: 1rem !important;
+            padding-top: 0.85rem !important;
+        }
+
+        .form-actions button,
+        .mp-action-btn {
+            padding: 0.58rem 0.95rem !important;
+            border-radius: 8px !important;
+            font-size: 0.8rem !important;
+            box-shadow: none !important;
+        }
+
+        #view-modal .modal-content {
+            max-width: 860px !important;
+            padding: 0 !important;
+            border-radius: 8px !important;
+        }
+
+        .mp-header {
+            background: rgba(22, 35, 90, 0.96) !important;
+            padding: 1.4rem 1.25rem !important;
+        }
+
+        .mp-header::before {
+            display: none !important;
+        }
+
+        .mp-avatar {
+            width: 58px !important;
+            height: 58px !important;
+            font-size: 1.35rem !important;
+            margin-bottom: 0.55rem !important;
+            animation: none !important;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2) !important;
+        }
+
+        .mp-name {
+            font-size: 1.15rem !important;
+        }
+
+        .mp-subtitle {
+            font-size: 0.78rem !important;
+            margin-bottom: 0.65rem !important;
+        }
+
+        .mp-body {
+            padding: 1rem !important;
+        }
+
+        .mp-grid {
+            gap: 0.75rem !important;
+        }
+
+        .mp-card {
+            border: 0 !important;
+            border-radius: 8px !important;
+            padding: 0.85rem !important;
+            background: rgba(244, 246, 251, 0.68) !important;
+            box-shadow: none !important;
+        }
+
+        .mp-card::before {
+            display: none !important;
+        }
+
+        .mp-card:hover {
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .mp-card.accent-green {
+            background: rgba(4, 120, 87, 0.08) !important;
+        }
+
+        .mp-card-title {
+            font-size: 0.72rem !important;
+            margin-bottom: 0.65rem !important;
+        }
+
+        .mp-card-title .icon-circle {
+            width: 24px !important;
+            height: 24px !important;
+            border-radius: 8px !important;
+            background: rgba(22, 35, 90, 0.12) !important;
+            color: var(--primary) !important;
+        }
+
+        .mp-footer {
+            padding: 0.85rem 1rem !important;
+            gap: 0.5rem !important;
+        }
+
+        .mp-action-btn.mp-close-btn,
+        .mp-action-btn.print-btn,
+        .mp-action-btn.edit-btn {
+            background: var(--primary) !important;
+        }
+
+        #import-step-1 > div {
+            background: rgba(15, 118, 110, 0.06) !important;
+            border: 1px dashed rgba(15, 118, 110, 0.28) !important;
+            border-radius: 8px !important;
+            padding: 1.4rem !important;
+            margin: 0.75rem 0 !important;
+        }
+
+        #settings-modal .modal-content > div:first-of-type {
+            background: var(--primary) !important;
+            padding: 1.2rem 1.4rem !important;
+        }
+
+        #settings-modal .modal-content > div:first-of-type > div[style*="position: absolute"] {
+            display: none !important;
+        }
+
+        #settings-tabs {
+            border-radius: 8px !important;
+        }
+
+        #settings-tabs button,
+        .settings-tab {
+            border-radius: 8px !important;
+            padding: 0.5rem !important;
+            font-size: 0.76rem !important;
+        }
+
+        .superadmin-panel {
+            border: 0 !important;
+            border-radius: 8px !important;
+            background: rgba(244, 246, 251, 0.65) !important;
+            padding: 1rem !important;
+        }
+
         /* Responsive */
         @media (max-width: 700px) {
             .mp-grid { grid-template-columns: 1fr; }
