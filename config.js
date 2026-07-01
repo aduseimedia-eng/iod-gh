@@ -4,7 +4,7 @@
 
 const CONFIG = {
     // API Base URL
-    API_BASE_URL: 'http://localhost:3000',
+    API_BASE_URL: (typeof window !== 'undefined' && window.IOD_API_BASE_URL) || '',
     
     // API Endpoints
     ENDPOINTS: {

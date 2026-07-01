@@ -34,6 +34,7 @@ const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
     .split(',')
     .map(origin => origin.trim())
     .filter(Boolean);
+const sessionSameSite = process.env.SESSION_SAME_SITE || (isProduction ? 'none' : 'lax');
 
 // ============================================================
 // AUTHENTICATION SETUP (credentials stored in database)
@@ -59,7 +60,7 @@ app.use(session({
     cookie: {
         secure: isProduction,
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite: sessionSameSite,
         maxAge: 8 * 60 * 60 * 1000 // 8 hours
     }
 }));

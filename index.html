@@ -2772,6 +2772,7 @@
         </div>
     </div>
 
+    <script src="api-client.js"></script>
     <script>
         // ==========================================
         // AUTH HELPERS
@@ -2817,7 +2818,7 @@
 
         async function logout() {
             await fetch('/api/logout', { method: 'POST' });
-            window.location.href = '/login.html';
+            window.location.href = appUrl('login.html');
         }
 
         // Intercept all fetch calls to detect 401 and redirect to login
@@ -2825,7 +2826,7 @@
         window.fetch = async function(...args) {
             const response = await _origFetch(...args);
             if (response.status === 401 && !args[0]?.toString().includes('/api/login')) {
-                window.location.href = '/login.html';
+                window.location.href = appUrl('login.html');
             }
             return response;
         };

@@ -556,6 +556,7 @@
 
 
 
+    <script src="api-client.js"></script>
     <script>
         let resetUsername = ''; // Store username across steps
 
@@ -563,7 +564,7 @@
         fetch('/api/auth-status')
             .then(r => r.json())
             .then(data => {
-                if (data.authenticated) window.location.href = '/';
+                if (data.authenticated) window.location.href = appUrl('');
             })
             .catch(() => {});
 
@@ -774,7 +775,7 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    window.location.href = '/';
+                    window.location.href = appUrl('');
                 } else {
                     errorText.textContent = data.error || 'Invalid username or password';
                     errorMsg.classList.add('show');
