@@ -3422,9 +3422,7 @@
         }
 
         function updateWelcomeBanner() {
-            const heading = document.getElementById('welcome-admin-heading');
-            const adminName = currentAuthContext.user || 'Admin';
-            if (heading) heading.textContent = `Howdy, ${adminName}`;
+            // Welcome heading stays static by design.
         }
 
         async function logout() {
