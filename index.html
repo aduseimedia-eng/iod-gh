@@ -736,18 +736,22 @@
 
         /* Action Buttons */
         .action-btn {
-            padding: 0.35rem 0.65rem;
-            margin-right: 0.3rem;
-            background: transparent;
+            width: 34px;
+            min-width: 34px;
+            height: 34px;
+            padding: 0;
+            margin-right: 0;
+            background: #ffffff;
             color: var(--primary);
-            border: 1.5px solid #e2e8f0;
+            border: 1px solid var(--border);
             border-radius: 8px;
             cursor: pointer;
-            font-size: 0.7rem;
+            font-size: 0.78rem;
             font-weight: 600;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 0.25rem;
             position: relative;
             overflow: hidden;
@@ -758,11 +762,11 @@
         }
 
         .action-btn:hover {
-            background: linear-gradient(135deg, #2C1972, #3d2a8a);
+            background: var(--primary);
             color: white;
-            border-color: #2C1972;
-            transform: translateY(-2px) scale(1.05);
-            box-shadow: 0 4px 12px rgba(44, 25, 114, 0.3);
+            border-color: var(--primary);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
         }
 
         .action-btn.delete {
@@ -771,10 +775,10 @@
         }
 
         .action-btn.delete:hover {
-            background: linear-gradient(135deg, #ef4444, #dc2626);
+            background: #ef4444;
             color: white;
             border-color: #ef4444;
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+            box-shadow: var(--shadow-sm);
         }
 
         .action-btn.edit {
@@ -783,10 +787,10 @@
         }
 
         .action-btn.edit:hover {
-            background: linear-gradient(135deg, #2CA58D, #238b76);
+            background: #2CA58D;
             color: white;
             border-color: #2CA58D;
-            box-shadow: 0 4px 12px rgba(44, 165, 141, 0.3);
+            box-shadow: var(--shadow-sm);
         }
 
         .action-btn.print-btn {
@@ -795,10 +799,30 @@
         }
 
         .action-btn.print-btn:hover {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            background: #3b82f6;
             color: white;
             border-color: #3b82f6;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .action-btn.paid {
+            color: var(--success);
+            border-color: #a7f3d0;
+            background: #ecfdf5;
+        }
+
+        .action-btn.paid:hover {
+            background: var(--success);
+            color: #ffffff;
+            border-color: var(--success);
+        }
+
+        .table-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.4rem;
         }
 
         /* Pagination */
@@ -5024,9 +5048,9 @@
                 admissionYear = member.admission_year;
             }
             
-            const viewButton = isPaidCurrentYear 
-                ? `<button class="action-btn" onclick="event.stopPropagation(); viewMember(${member.id})" title="Paid for ${currentYear}" style="background: linear-gradient(135deg, #10b981, #059669); color: white;">
-                       <i class="fas fa-check-circle"></i> Paid
+            const viewButton = isPaidCurrentYear
+                ? `<button class="action-btn paid" onclick="event.stopPropagation(); viewMember(${member.id})" title="Paid for ${currentYear}">
+                       <i class="fas fa-check-circle"></i>
                    </button>`
                 : `<button class="action-btn" onclick="event.stopPropagation(); viewMember(${member.id})" title="View">
                        <i class="fas fa-eye"></i>
@@ -5041,8 +5065,9 @@
                     <td>${member.organization}</td>
                     <td style="max-width:180px;">${member.expertise ? `<span style="font-size:12px;color:#4b5563;">${member.expertise}</span>` : '-'}</td>
                     <td>
+                        <div class="table-actions">
                         ${viewButton}
-                        <button class="action-btn" onclick="event.stopPropagation(); printMemberDirect(${member.id})" title="Print" style="background: #2CA58D;">
+                        <button class="action-btn print-btn" onclick="event.stopPropagation(); printMemberDirect(${member.id})" title="Print">
                             <i class="fas fa-print"></i>
                         </button>
                         <button class="action-btn edit" onclick="event.stopPropagation(); editMember(${member.id})" title="Edit">
@@ -5051,6 +5076,7 @@
                         <button class="action-btn delete" onclick="event.stopPropagation(); deleteMember(${member.id})" title="Delete">
                             <i class="fas fa-trash"></i>
                         </button>
+                        </div>
                     </td>
                 </tr>
             `;
