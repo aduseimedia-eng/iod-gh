@@ -931,6 +931,236 @@
             font-weight: 700;
         }
 
+        .payment-edit-overlay {
+            display: flex;
+            position: fixed;
+            inset: 0;
+            z-index: 1001;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: rgba(15, 23, 42, 0.44);
+            backdrop-filter: blur(8px);
+        }
+
+        .payment-edit-dialog {
+            width: min(94vw, 560px);
+            max-height: 90vh;
+            overflow-y: auto;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .payment-edit-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.25rem 1.35rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .payment-edit-title {
+            margin: 0;
+            color: var(--text-dark);
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+
+        .payment-edit-subtitle {
+            margin-top: 0.2rem;
+            color: var(--text-light);
+            font-size: 0.78rem;
+            font-weight: 500;
+        }
+
+        .payment-edit-close {
+            width: 36px;
+            height: 36px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #ffffff;
+            color: var(--text-light);
+            cursor: pointer;
+        }
+
+        .payment-edit-close:hover {
+            color: var(--danger);
+            border-color: #fecaca;
+            background: #fff5f5;
+        }
+
+        .payment-edit-body {
+            padding: 1.25rem 1.35rem 1.35rem;
+        }
+
+        .payment-summary-card,
+        .payment-waive-card,
+        .payment-preview-card {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.9rem 1rem;
+            margin-bottom: 1rem;
+            background: #f8fafc;
+        }
+
+        .payment-summary-card {
+            background: #f5f8ff;
+            border-color: #dbe6ff;
+        }
+
+        .payment-waive-card {
+            background: #fffbeb;
+            border-color: #fde68a;
+        }
+
+        .payment-summary-row,
+        .payment-preview-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            color: var(--text-light);
+            font-size: 0.84rem;
+        }
+
+        .payment-summary-row + .payment-summary-row,
+        .payment-preview-row + .payment-preview-row {
+            margin-top: 0.55rem;
+            padding-top: 0.55rem;
+            border-top: 1px dashed #d8e0ec;
+        }
+
+        .payment-summary-value,
+        .payment-preview-value {
+            color: var(--text-dark);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .payment-waive-label {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin: 0;
+            color: #854d0e;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .payment-waive-label input {
+            width: 18px;
+            height: 18px;
+            accent-color: #b45309;
+            cursor: pointer;
+        }
+
+        .payment-waive-note {
+            margin: 0.35rem 0 0 2rem;
+            color: #a16207;
+            font-size: 0.78rem;
+        }
+
+        .payment-form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.85rem;
+        }
+
+        .payment-form-field.full {
+            grid-column: 1 / -1;
+        }
+
+        .payment-form-field label {
+            display: block;
+            margin-bottom: 0.35rem;
+            color: var(--text-dark);
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
+        .payment-form-field input,
+        .payment-form-field select {
+            width: 100%;
+            min-height: 42px;
+            padding: 0.65rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #ffffff;
+            color: var(--text-dark);
+            font-size: 0.9rem;
+        }
+
+        .payment-form-field input:focus,
+        .payment-form-field select:focus {
+            outline: none;
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(38, 58, 131, 0.12);
+        }
+
+        .payment-edit-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.7rem;
+            margin-top: 1.2rem;
+        }
+
+        .payment-action-btn {
+            min-height: 42px;
+            padding: 0.65rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .payment-action-btn.secondary {
+            background: #ffffff;
+            color: var(--text-light);
+        }
+
+        .payment-action-btn.primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #ffffff;
+        }
+
+        .payment-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.65rem;
+            border-radius: 999px;
+            color: #ffffff;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
+        .payment-waived-state,
+        .payment-overpay-state {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            border-radius: 10px;
+            padding: 0.75rem 0.85rem;
+        }
+
+        .payment-waived-state {
+            justify-content: center;
+            text-align: center;
+            background: #fffbeb;
+            color: #854d0e;
+        }
+
+        .payment-overpay-state {
+            margin-top: 0.7rem;
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+
         .close-btn {
             background: linear-gradient(135deg, #ef4444, #dc2626);
             border: none;
@@ -1332,6 +1562,23 @@
         }
 
         @media (max-width: 768px) {
+            .payment-edit-dialog {
+                width: 100%;
+                max-height: 92vh;
+            }
+
+            .payment-form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .payment-edit-actions {
+                flex-direction: column-reverse;
+            }
+
+            .payment-action-btn {
+                width: 100%;
+            }
+
             header {
                 padding: 1rem;
                 flex-direction: column;
@@ -5806,100 +6053,100 @@
             
             // Create and show modal
             const modalHtml = `
-                <div id="payment-edit-modal" style="display: flex; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center;">
-                    <div style="background: white; padding: 2rem; width: 90%; max-width: 540px; max-height:90vh; overflow-y:auto;">
-                        <h3 style="margin: 0 0 1.2rem; color: #12086f; display: flex; align-items: center; gap: 0.5rem;">
-                            <i class="fas fa-edit"></i> ${subData.is_virtual ? 'Record' : 'Edit'} Payment - Year ${subData.year}
-                        </h3>
-
-                        <!-- Expected Amount Info Box -->
-                        <div style="background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 1px solid #93c5fd; border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 1rem;">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <span style="font-size: 0.85rem; color: #1e40af; font-weight: 600;"><i class="fas fa-receipt"></i> Expected Amount</span>
-                                <span style="font-size: 1.1rem; font-weight: 700; color: #1e3a8a;">₵${expectedAmt.toFixed(2)}</span>
+                <div id="payment-edit-modal" class="payment-edit-overlay">
+                    <div class="payment-edit-dialog">
+                        <div class="payment-edit-header">
+                            <div>
+                                <h3 class="payment-edit-title"><i class="fas fa-edit"></i> ${subData.is_virtual ? 'Record' : 'Edit'} Payment</h3>
+                                <div class="payment-edit-subtitle">Subscription year ${subData.year}</div>
                             </div>
-                            ${creditAvailable > 0 ? '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.5rem;padding-top:0.5rem;border-top:1px dashed #93c5fd"><span style="font-size:0.82rem;color:#059669;font-weight:600"><i class="fas fa-wallet"></i> Credit from ' + (subData.year - 1) + '</span><span style="font-size:1rem;font-weight:700;color:#059669">+₵' + creditAvailable.toFixed(2) + '</span></div>' : ''}
+                            <button type="button" class="payment-edit-close" onclick="closePaymentEditModal()" aria-label="Close payment popup">
+                                <i class="fas fa-xmark"></i>
+                            </button>
                         </div>
 
-                        <form id="payment-edit-form" onsubmit="savePaymentHistory(event)">
-                            <!-- Waive Payment Toggle -->
-                            <div style="margin-bottom: 1rem; background: linear-gradient(135deg, #fefce8, #fef9c3); border: 1px solid #fde047; border-radius: 12px; padding: 0.85rem 1rem;">
-                                <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; margin: 0; font-weight: 600; color: #854d0e;">
-                                    <input type="checkbox" id="edit-waive-payment" onchange="toggleWaivePayment()" ${subData.status === 'Waived' ? 'checked' : ''}
-                                        style="width: 18px; height: 18px; accent-color: #eab308; cursor: pointer;">
-                                    <i class="fas fa-hand-holding-heart"></i> Waive Payment for Year ${subData.year}
-                                </label>
-                                <p style="margin: 0.3rem 0 0 2.2rem; font-size: 0.78rem; color: #a16207;">Member will be marked as in good standing without payment required.</p>
+                        <div class="payment-edit-body">
+                            <div class="payment-summary-card">
+                                <div class="payment-summary-row">
+                                    <span><i class="fas fa-receipt"></i> Expected Amount</span>
+                                    <span class="payment-summary-value">&#8373;${expectedAmt.toFixed(2)}</span>
+                                </div>
+                                ${creditAvailable > 0 ? '<div class="payment-summary-row"><span><i class="fas fa-wallet"></i> Credit from ' + (subData.year - 1) + '</span><span class="payment-summary-value" style="color:#047857">+&#8373;' + creditAvailable.toFixed(2) + '</span></div>' : ''}
                             </div>
 
-                            <div id="payment-fields-container">
-                            <div style="margin-bottom: 1rem;">
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Amount Paid (₵)</label>
-                                <input type="number" id="edit-amount-paid" step="0.01" value="${currentPaid}" 
-                                    oninput="updatePaymentPreview()"
-                                    style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem;">
-                            </div>
+                            <form id="payment-edit-form" onsubmit="savePaymentHistory(event)">
+                                <div class="payment-waive-card">
+                                    <label class="payment-waive-label">
+                                        <input type="checkbox" id="edit-waive-payment" onchange="toggleWaivePayment()" ${subData.status === 'Waived' ? 'checked' : ''}>
+                                        <i class="fas fa-hand-holding-heart"></i> Waive payment for ${subData.year}
+                                    </label>
+                                    <p class="payment-waive-note">Marks this member as in good standing without recording money received.</p>
+                                </div>
 
-                            <!-- Live Calculation Preview -->
-                            <div id="payment-calc-preview" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 1rem; font-size: 0.85rem;">
-                            </div>
+                                <div id="payment-fields-container">
+                                    <div class="payment-form-grid">
+                                        <div class="payment-form-field full">
+                                            <label for="edit-amount-paid">Amount Paid (&#8373;)</label>
+                                            <input type="number" id="edit-amount-paid" step="0.01" min="0" value="${currentPaid}" oninput="updatePaymentPreview()">
+                                        </div>
+                                        <div class="payment-form-field">
+                                            <label for="edit-payment-method">Payment Method</label>
+                                            <select id="edit-payment-method">
+                                                <option value="">Select method</option>
+                                                <option value="Cash" ${subData.payment_method === 'Cash' ? 'selected' : ''}>Cash</option>
+                                                <option value="Check" ${subData.payment_method === 'Check' ? 'selected' : ''}>Check</option>
+                                                <option value="Bank Transfer" ${subData.payment_method === 'Bank Transfer' ? 'selected' : ''}>Bank Transfer</option>
+                                                <option value="Mobile Money" ${subData.payment_method === 'Mobile Money' ? 'selected' : ''}>Mobile Money</option>
+                                                <option value="Credit Card" ${subData.payment_method === 'Credit Card' ? 'selected' : ''}>Credit Card</option>
+                                            </select>
+                                        </div>
+                                        <div class="payment-form-field">
+                                            <label for="edit-payment-date">Payment Date</label>
+                                            <input type="date" id="edit-payment-date" value="${subData.payment_date ? subData.payment_date.split('T')[0] : ''}">
+                                        </div>
+                                        <div class="payment-form-field full">
+                                            <label for="edit-receipt-number">Receipt Number</label>
+                                            <input type="text" id="edit-receipt-number" value="${subData.receipt_number || ''}" placeholder="Optional receipt or reference">
+                                        </div>
+                                    </div>
 
-                            <input type="hidden" id="edit-payment-status" value="">
+                                    <div id="payment-calc-preview" class="payment-preview-card"></div>
+                                </div>
 
-                            <div style="margin-bottom: 1rem;">
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Payment Method</label>
-                                <select id="edit-payment-method" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem;">
-                                    <option value="">-- Select --</option>
-                                    <option value="Cash" ${subData.payment_method === 'Cash' ? 'selected' : ''}>Cash</option>
-                                    <option value="Check" ${subData.payment_method === 'Check' ? 'selected' : ''}>Check</option>
-                                    <option value="Bank Transfer" ${subData.payment_method === 'Bank Transfer' ? 'selected' : ''}>Bank Transfer</option>
-                                    <option value="Mobile Money" ${subData.payment_method === 'Mobile Money' ? 'selected' : ''}>Mobile Money</option>
-                                    <option value="Credit Card" ${subData.payment_method === 'Credit Card' ? 'selected' : ''}>Credit Card</option>
-                                </select>
-                            </div>
-                            <div style="margin-bottom: 1rem;">
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Receipt Number</label>
-                                <input type="text" id="edit-receipt-number" value="${subData.receipt_number || ''}" 
-                                    style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem;">
-                            </div>
-                            <div style="margin-bottom: 1.5rem;">
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Payment Date</label>
-                                <input type="date" id="edit-payment-date" value="${subData.payment_date ? subData.payment_date.split('T')[0] : ''}" 
-                                    style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem;">
-                            </div>
-                            </div><!-- end payment-fields-container -->
-                            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-                                <button type="button" onclick="closePaymentEditModal()" 
-                                    style="padding: 0.75rem 1.5rem; background: #6b7280; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                                    Cancel
-                                </button>
-                                <button type="submit" 
-                                    style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #12086f, #2d1b8f); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                                    <i class="fas fa-save"></i> Save Changes
-                                </button>
-                            </div>
-                        </form>
+                                <input type="hidden" id="edit-payment-status" value="">
+
+                                <div class="payment-edit-actions">
+                                    <button type="button" onclick="closePaymentEditModal()" class="payment-action-btn secondary">Cancel</button>
+                                    <button type="submit" class="payment-action-btn primary">
+                                        <i class="fas fa-save"></i> Save Payment
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             `;
-            
             document.body.insertAdjacentHTML('beforeend', modalHtml);
             toggleWaivePayment(); // Apply initial state
             updatePaymentPreview();
         }
 
         function toggleWaivePayment() {
-            const waived = document.getElementById('edit-waive-payment').checked;
+            const checkbox = document.getElementById('edit-waive-payment');
             const container = document.getElementById('payment-fields-container');
             const preview = document.getElementById('payment-calc-preview');
-            if (waived) {
+            if (!checkbox || !container || !preview) return;
+
+            if (checkbox.checked) {
                 container.style.display = 'none';
                 document.getElementById('edit-payment-status').value = 'Waived';
                 preview.innerHTML = `
-                    <div style="text-align:center;padding:1rem">
-                        <i class="fas fa-hand-holding-heart" style="font-size:2rem;color:#eab308;margin-bottom:0.5rem"></i>
-                        <div style="font-weight:700;color:#854d0e;font-size:1rem">Payment Waived</div>
-                        <div style="font-size:0.85rem;color:#a16207;margin-top:0.3rem">This member will be marked as in good standing for this year without payment.</div>
+                    <div class="payment-waived-state">
+                        <i class="fas fa-hand-holding-heart" style="font-size:1.5rem"></i>
+                        <div>
+                            <div style="font-weight:700">Payment Waived</div>
+                            <div style="font-size:0.82rem;margin-top:0.15rem">This member will be marked as in good standing for this year.</div>
+                        </div>
                     </div>
                 `;
             } else {
@@ -5910,17 +6157,18 @@
 
         function updatePaymentPreview() {
             if (!currentPaymentEdit) return;
-            if (document.getElementById('edit-waive-payment') && document.getElementById('edit-waive-payment').checked) return;
+            const waiveCheckbox = document.getElementById('edit-waive-payment');
+            if (waiveCheckbox && waiveCheckbox.checked) return;
+
             const { subData } = currentPaymentEdit;
             const expectedAmt = parseFloat(subData.expected_amount || 0);
             const creditAvailable = parseFloat(subData.credit_applied || 0);
-            const amountPaid = parseFloat(document.getElementById('edit-amount-paid').value) || 0;
+            const amountPaid = parseFloat(document.getElementById('edit-amount-paid')?.value) || 0;
             const isInductionYear = subData.is_induction_year === true;
             const totalApplied = amountPaid + creditAvailable;
             const balanceDue = isInductionYear ? null : Math.max(0, expectedAmt - totalApplied);
             const overpayment = isInductionYear ? 0 : Math.max(0, totalApplied - expectedAmt);
-            
-            // Auto-determine status
+
             let status = isInductionYear ? 'Paid' : 'Pending';
             if (!isInductionYear && totalApplied >= expectedAmt && expectedAmt > 0) {
                 status = 'Paid';
@@ -5933,64 +6181,71 @@
             const statusIcon = status === 'Paid' ? 'check-circle' : status === 'Partial' ? 'exclamation-circle' : 'times-circle';
 
             let previewHtml = `
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem">
-                    <span style="color:#6b7280">Amount Paid:</span>
-                    <span style="font-weight:600">₵${amountPaid.toFixed(2)}</span>
+                <div class="payment-preview-row">
+                    <span>Amount Paid</span>
+                    <span class="payment-preview-value">&#8373;${amountPaid.toFixed(2)}</span>
                 </div>
             `;
+
             if (isInductionYear) {
                 previewHtml += `
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem">
-                        <span style="color:#059669;font-weight:600">Payment Note:</span>
-                        <span style="font-weight:700;color:#059669">Inducted this year</span>
+                    <div class="payment-preview-row">
+                        <span style="color:#059669;font-weight:700">Payment Note</span>
+                        <span class="payment-preview-value" style="color:#059669">Inducted this year</span>
                     </div>
                 `;
             }
+
             if (creditAvailable > 0) {
                 previewHtml += `
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem">
-                        <span style="color:#059669">+ Credit Applied:</span>
-                        <span style="font-weight:600;color:#059669">₵${creditAvailable.toFixed(2)}</span>
+                    <div class="payment-preview-row">
+                        <span style="color:#059669">Credit Applied</span>
+                        <span class="payment-preview-value" style="color:#059669">+&#8373;${creditAvailable.toFixed(2)}</span>
                     </div>
                 `;
             }
+
             previewHtml += `
-                <div style="display:flex;justify-content:space-between;align-items:center;padding-top:0.4rem;border-top:1px solid #e5e7eb;margin-bottom:0.4rem">
-                    <span style="font-weight:600;color:#374151">Total Applied:</span>
-                    <span style="font-weight:700;font-size:1rem">${isInductionYear ? 'Inducted this year' : '₵' + totalApplied.toFixed(2) + ' / ₵' + expectedAmt.toFixed(2)}</span>
+                <div class="payment-preview-row">
+                    <span style="font-weight:700;color:#374151">Total Applied</span>
+                    <span class="payment-preview-value">${isInductionYear ? 'Inducted this year' : '&#8373;' + totalApplied.toFixed(2) + ' / &#8373;' + expectedAmt.toFixed(2)}</span>
                 </div>
             `;
+
             if (isInductionYear) {
                 previewHtml += `
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem">
-                        <span style="color:#374151;font-weight:600">Balance Due:</span>
-                        <span style="font-weight:700;color:#9ca3af">-</span>
+                    <div class="payment-preview-row">
+                        <span style="color:#374151;font-weight:700">Balance Due</span>
+                        <span class="payment-preview-value" style="color:#9ca3af">-</span>
                     </div>
                 `;
             }
+
             if (balanceDue !== null && balanceDue > 0) {
                 previewHtml += `
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem">
-                        <span style="color:#dc2626;font-weight:600">Balance Due:</span>
-                        <span style="font-weight:700;color:#dc2626">₵${balanceDue.toFixed(2)}</span>
+                    <div class="payment-preview-row">
+                        <span style="color:#dc2626;font-weight:700">Balance Due</span>
+                        <span class="payment-preview-value" style="color:#dc2626">&#8373;${balanceDue.toFixed(2)}</span>
                     </div>
                 `;
             }
+
             if (overpayment > 0) {
                 previewHtml += `
-                    <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:8px;padding:0.6rem 0.8rem;margin-top:0.5rem;display:flex;align-items:center;gap:0.5rem">
-                        <i class="fas fa-arrow-circle-right" style="color:#059669;font-size:1.1rem"></i>
+                    <div class="payment-overpay-state">
+                        <i class="fas fa-arrow-circle-right" style="font-size:1.1rem"></i>
                         <div>
-                            <div style="font-weight:700;color:#065f46;font-size:0.88rem">Overpayment: ₵${overpayment.toFixed(2)}</div>
+                            <div style="font-weight:700;font-size:0.88rem">Overpayment: &#8373;${overpayment.toFixed(2)}</div>
                             <div style="font-size:0.78rem;color:#047857">This amount will be credited to <strong>${subData.year + 1}</strong> subscription</div>
                         </div>
                     </div>
                 `;
             }
+
             previewHtml += `
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.5rem;padding-top:0.4rem;border-top:1px solid #e5e7eb">
-                    <span style="font-weight:600">Auto Status:</span>
-                    <span style="background:${statusColor};color:white;padding:0.2rem 0.7rem;border-radius:20px;font-size:0.8rem;font-weight:600"><i class="fas fa-${statusIcon}"></i> ${status}</span>
+                <div class="payment-preview-row">
+                    <span style="font-weight:700">Auto Status</span>
+                    <span class="payment-status-pill" style="background:${statusColor}"><i class="fas fa-${statusIcon}"></i> ${status}</span>
                 </div>
             `;
 
