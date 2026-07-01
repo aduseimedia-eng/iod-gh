@@ -2778,15 +2778,225 @@
             font-size: 0.76rem !important;
         }
 
-        .superadmin-panel {
-            border: 0 !important;
+        #settings-modal .modal-content {
+            max-width: 780px !important;
+            width: min(94vw, 780px) !important;
+            padding: 0 !important;
+            border-radius: 16px !important;
+            background: #ffffff !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: var(--shadow-lg) !important;
+            overflow: hidden !important;
+        }
+
+        #settings-modal .close-btn {
+            top: 1rem !important;
+            right: 1rem !important;
+            width: 36px !important;
+            height: 36px !important;
             border-radius: 8px !important;
-            background: rgba(244, 246, 251, 0.65) !important;
+            background: #ffffff !important;
+            color: var(--text-light) !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: none !important;
+            z-index: 3 !important;
+        }
+
+        #settings-modal .close-btn:hover {
+            color: var(--danger) !important;
+            background: #fff5f5 !important;
+            border-color: #fecaca !important;
+        }
+
+        #settings-modal .modal-content > div:first-of-type {
+            background: #ffffff !important;
+            padding: 1.2rem 1.5rem !important;
+            border-bottom: 1px solid var(--border) !important;
+            overflow: visible !important;
+        }
+
+        #settings-modal .modal-content > div:first-of-type > div[style*="display: flex"] {
+            gap: 0.85rem !important;
+        }
+
+        #settings-modal .modal-content > div:first-of-type > div[style*="display: flex"] > div:first-child {
+            width: 44px !important;
+            height: 44px !important;
+            border-radius: 10px !important;
+            background: #eef3ff !important;
+            border: 1px solid #dbe6ff !important;
+        }
+
+        #settings-modal .modal-content > div:first-of-type > div[style*="display: flex"] > div:first-child i {
+            color: var(--primary) !important;
+            font-size: 1.1rem !important;
+        }
+
+        #settings-modal .modal-content > div:first-of-type h2 {
+            color: var(--text-dark) !important;
+            font-size: 1.15rem !important;
+        }
+
+        #settings-modal .modal-content > div:first-of-type p {
+            color: var(--text-light) !important;
+            font-weight: 400 !important;
+        }
+
+        #settings-user-badge {
+            margin-top: 1rem !important;
+            padding: 0.42rem 0.75rem !important;
+            border-radius: 999px !important;
+            background: #f8fafc !important;
+            border: 1px solid var(--border) !important;
+        }
+
+        #settings-user-badge i {
+            color: var(--primary) !important;
+        }
+
+        #settings-current-user-display {
+            color: var(--text-dark) !important;
+            font-weight: 700 !important;
+        }
+
+        #settings-current-role-display {
+            color: var(--text-light) !important;
+        }
+
+        #settings-alert {
+            margin: 1rem 1.5rem 0 !important;
+            border-radius: 10px !important;
+        }
+
+        #settings-modal .modal-content > div[style*="padding: 1.5rem 2rem 0"] {
+            padding: 1rem 1.5rem 0 !important;
+        }
+
+        #settings-tabs {
+            display: grid !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.35rem !important;
+            padding: 0.3rem !important;
+            background: #f4f6fb !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 10px !important;
+        }
+
+        #settings-tabs button,
+        .settings-tab {
+            min-height: 40px !important;
+            border-radius: 8px !important;
+            padding: 0.55rem 0.65rem !important;
+            font-size: 0.78rem !important;
+            font-weight: 700 !important;
+        }
+
+        #settings-panel-username,
+        #settings-panel-password,
+        #settings-panel-admins {
+            padding: 1rem 1.5rem 1.5rem !important;
+        }
+
+        #settings-panel-username > div,
+        #settings-panel-password > div {
+            padding: 1.15rem !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 12px !important;
+            background: #ffffff !important;
+            box-shadow: var(--shadow-sm) !important;
+        }
+
+        #settings-modal .form-group {
+            margin-bottom: 1rem !important;
+        }
+
+        #settings-modal label {
+            color: var(--text-dark) !important;
+            font-size: 0.76rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0 !important;
+            text-transform: none !important;
+        }
+
+        #settings-modal input {
+            min-height: 42px !important;
+            border-radius: 8px !important;
+            border: 1px solid var(--border) !important;
+            background: #ffffff !important;
+        }
+
+        #settings-current-user {
+            background: #f8fafc !important;
+            border-style: solid !important;
+        }
+
+        #settings-modal button[onclick^="toggleSettingsPw"] {
+            right: 0.65rem !important;
+            width: 32px !important;
+            height: 32px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 8px !important;
+        }
+
+        #settings-modal .btn-primary {
+            border-radius: 8px !important;
+            background: var(--primary) !important;
+            box-shadow: none !important;
+        }
+
+        #settings-panel-password > div > div:first-child {
+            background: #f8fafc !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 10px !important;
+        }
+
+        .superadmin-panel {
+            border: 1px solid var(--border) !important;
+            border-radius: 12px !important;
+            background: #ffffff !important;
             padding: 1rem !important;
+            box-shadow: var(--shadow-sm) !important;
+        }
+
+        .superadmin-section-title {
+            color: var(--text-dark) !important;
+            font-size: 0.9rem !important;
+            padding-bottom: 0.7rem !important;
+            margin-bottom: 1rem !important;
+            border-bottom: 1px solid var(--border) !important;
+        }
+
+        .admin-status-action {
+            border-radius: 8px !important;
+            border: 1px solid var(--border) !important;
+            background: #ffffff !important;
+            color: var(--primary) !important;
         }
 
         /* Responsive */
         @media (max-width: 700px) {
+            #settings-modal .modal-content {
+                width: 96vw !important;
+                max-height: 92vh !important;
+            }
+
+            #settings-modal .modal-content > div:first-of-type {
+                padding: 1rem !important;
+                padding-right: 3.5rem !important;
+            }
+
+            #settings-tabs {
+                grid-template-columns: 1fr !important;
+            }
+
+            #settings-panel-username,
+            #settings-panel-password,
+            #settings-panel-admins {
+                padding: 0.9rem 1rem 1rem !important;
+            }
+
             .mp-grid { grid-template-columns: 1fr; }
             .mp-header { min-height: 108px !important; padding: 0 !important; }
             .mp-profile-summary {
