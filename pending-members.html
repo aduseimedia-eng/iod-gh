@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Induction List | IoD Ghana</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #16235a;
+            --primary-light: #263a83;
+            --secondary: #0f766e;
+            --success: #047857;
+            --danger: #b91c1c;
+            --warning: #b45309;
+            --text-dark: #111827;
+            --text-light: #6b7280;
+            --bg-light: #f4f6fb;
+            --bg-white: #ffffff;
+            --border: #d9e0ea;
+            --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.06);
+            --shadow-md: 0 8px 20px rgba(17, 24, 39, 0.08);
+        }
+
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: var(--text-dark);
+            background: var(--bg-light);
+            min-height: 100vh;
+        }
+
+        .dashboard-shell {
+            display: grid;
+            grid-template-columns: 248px minmax(0, 1fr);
+            min-height: 100vh;
+        }
+
+        .app-sidebar {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            background: #fbfcff;
+            border-right: 1px solid var(--border);
+            padding: 1.35rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            overflow-y: auto;
+        }
+
+        .sidebar-brand {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.15rem 0.35rem 1rem;
+            border-bottom: 1px solid #edf1f6;
+            text-align: center;
+        }
+
+        .sidebar-brand img {
+            width: 92px;
+            height: 92px;
+            object-fit: contain;
+        }
+
+        .sidebar-brand strong {
+            display: block;
+            color: var(--text-dark);
+            font-size: 0.92rem;
+            line-height: 1.2;
+        }
+
+        .sidebar-brand span {
+            display: block;
+            color: var(--text-light);
+            font-size: 0.72rem;
+            margin-top: 0.15rem;
+        }
+
+        .sidebar-section-label {
+            margin: 0.5rem 0 0.35rem;
+            padding: 0 0.45rem;
+            color: #9aa3b2;
+            font-size: 0.64rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .sidebar-link {
+            color: #4b5563;
+            text-decoration: none;
+            min-height: 38px;
+            padding: 0.55rem 0.65rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: 1px solid transparent;
+        }
+
+        .sidebar-link i {
+            width: 16px;
+            color: #8b95a5;
+            text-align: center;
+        }
+
+        .sidebar-link:hover,
+        .sidebar-link.active {
+            background: #eef3ff;
+            color: var(--primary);
+            border-color: #dce6ff;
+        }
+
+        .main-workspace {
+            min-width: 0;
+            padding: 1.35rem;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .page-title h1 {
+            color: var(--text-dark);
+            font-size: 1.35rem;
+            line-height: 1.2;
+        }
+
+        .page-title p {
+            color: var(--text-light);
+            font-size: 0.84rem;
+            margin-top: 0.2rem;
+        }
+
+        .layout-grid {
+            display: grid;
+            grid-template-columns: minmax(320px, 410px) minmax(0, 1fr);
+            gap: 1rem;
+            align-items: start;
+        }
+
+        .panel {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .panel-header {
+            padding: 1rem 1.1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .panel-header h2 {
+            font-size: 0.98rem;
+            color: var(--text-dark);
+        }
+
+        .panel-body {
+            padding: 1rem 1.1rem 1.1rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+        }
+
+        .form-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .form-field.full {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            color: var(--text-dark);
+            font-size: 0.74rem;
+            font-weight: 700;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            min-height: 40px;
+            padding: 0.62rem 0.72rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #ffffff;
+            color: var(--text-dark);
+            font-family: inherit;
+            font-size: 0.84rem;
+        }
+
+        textarea {
+            min-height: 84px;
+            resize: vertical;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(38, 58, 131, 0.12);
+        }
+
+        .button-row {
+            display: flex;
+            gap: 0.65rem;
+            justify-content: flex-end;
+            margin-top: 1rem;
+        }
+
+        button {
+            min-height: 38px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            padding: 0.55rem 0.85rem;
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #ffffff;
+        }
+
+        .btn-secondary {
+            background: #ffffff;
+            color: var(--text-light);
+        }
+
+        .btn-danger {
+            background: #fff5f5;
+            color: var(--danger);
+            border-color: #fecaca;
+        }
+
+        .btn-success {
+            background: #ecfdf5;
+            color: var(--success);
+            border-color: #a7f3d0;
+        }
+
+        .table-toolbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.9rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .table-toolbar input {
+            max-width: 320px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+
+        th,
+        td {
+            padding: 0.75rem 0.85rem;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        th {
+            background: #f8fafc;
+            color: var(--text-light);
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 800;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.22rem 0.55rem;
+            border-radius: 999px;
+            background: #eef3ff;
+            color: var(--primary);
+            font-size: 0.72rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+
+        .actions button {
+            width: 34px;
+            min-height: 34px;
+            padding: 0;
+        }
+
+        .empty {
+            padding: 2rem;
+            text-align: center;
+            color: var(--text-light);
+        }
+
+        .alert {
+            display: none;
+            margin-bottom: 1rem;
+            padding: 0.8rem 0.95rem;
+            border-radius: 10px;
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+
+        .alert.success {
+            display: block;
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+        }
+
+        .alert.error {
+            display: block;
+            background: #fff5f5;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-shell {
+                grid-template-columns: 1fr;
+            }
+
+            .app-sidebar {
+                position: static;
+                height: auto;
+                border-right: 0;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .sidebar-nav {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .sidebar-section-label {
+                display: none;
+            }
+
+            .layout-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 680px) {
+            .main-workspace {
+                padding: 1rem;
+            }
+
+            .page-header,
+            .table-toolbar,
+            .button-row {
+                flex-direction: column;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-shell">
+        <aside class="app-sidebar">
+            <div class="sidebar-brand">
+                <img src="IoD_Logo_png.png" alt="IoD-Ghana Logo">
+                <div>
+                    <strong>IoD Ghana</strong>
+                    <span>Member Registry</span>
+                </div>
+            </div>
+
+            <div>
+                <div class="sidebar-section-label">Main</div>
+                <nav class="sidebar-nav">
+                    <a href="index.html" class="sidebar-link"><i class="fas fa-table-columns"></i> Dashboard</a>
+                    <a href="pending-members.html" class="sidebar-link active"><i class="fas fa-user-clock"></i> Induction List</a>
+                    <a href="dashboard-analytics.html" class="sidebar-link"><i class="fas fa-chart-line"></i> Analytics</a>
+                    <a href="good_standing.html" class="sidebar-link"><i class="fas fa-circle-check"></i> Good Standing</a>
+                    <a href="staff-dashboard.html" class="sidebar-link"><i class="fas fa-users-viewfinder"></i> Staff View</a>
+                </nav>
+            </div>
+
+            <div>
+                <div class="sidebar-section-label">Account</div>
+                <nav class="sidebar-nav">
+                    <a href="index.html#settings" class="sidebar-link"><i class="fas fa-gear"></i> Settings</a>
+                    <a href="#" onclick="logout(); return false;" class="sidebar-link"><i class="fas fa-right-from-bracket"></i> Logout</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="main-workspace">
+            <div class="page-header">
+                <div class="page-title">
+                    <h1>Induction List</h1>
+                    <p>Add candidates here first, then promote them into the main database after induction.</p>
+                </div>
+                <button class="btn-secondary" onclick="loadPendingMembers()">
+                    <i class="fas fa-rotate"></i> Refresh
+                </button>
+            </div>
+
+            <div id="page-alert" class="alert"></div>
+
+            <div class="layout-grid">
+                <section class="panel">
+                    <div class="panel-header">
+                        <h2 id="form-title">New Induction Candidate</h2>
+                    </div>
+                    <div class="panel-body">
+                        <form id="pending-form">
+                            <input type="hidden" id="pending-id">
+                            <div class="form-grid">
+                                <div class="form-field">
+                                    <label for="member-type">Member Type</label>
+                                    <select id="member-type" required onchange="updateCandidateFields()">
+                                        <option value="">Select type</option>
+                                        <option value="AIOD">Associate, IoD</option>
+                                        <option value="MIOD">Member, IoD</option>
+                                        <option value="FIOD">Fellow, IoD</option>
+                                        <option value="Honorary">Honorary Fellow</option>
+                                        <option value="Corporate">Corporate Member</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-field" id="membership-category-field" style="display:none;">
+                                    <label for="membership-category">Corporate Category</label>
+                                    <select id="membership-category">
+                                        <option value="Platinum">Platinum</option>
+                                        <option value="Gold">Gold</option>
+                                        <option value="Silver">Silver</option>
+                                        <option value="Bronze">Bronze</option>
+                                        <option value="Standard">Standard</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-field" id="title-field">
+                                    <label for="title">Title</label>
+                                    <select id="title">
+                                        <option value="">Select title</option>
+                                        <option value="Mr.">Mr.</option>
+                                        <option value="Mrs.">Mrs.</option>
+                                        <option value="Ms.">Ms.</option>
+                                        <option value="Dr.">Dr.</option>
+                                        <option value="Prof.">Prof.</option>
+                                        <option value="Eng.">Eng.</option>
+                                        <option value="Hon.">Hon.</option>
+                                        <option value="Rev.">Rev.</option>
+                                        <option value="Chief">Chief</option>
+                                        <option value="Nana">Nana</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-field" id="gender-field">
+                                    <label for="gender">Gender</label>
+                                    <select id="gender">
+                                        <option value="">Select gender</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="first-name">First Name</label>
+                                    <input id="first-name" type="text">
+                                </div>
+
+                                <div class="form-field" id="surname-field">
+                                    <label for="surname">Surname</label>
+                                    <input id="surname" type="text">
+                                </div>
+
+                                <div class="form-field" id="last-name-field">
+                                    <label for="last-name">Last Name</label>
+                                    <input id="last-name" type="text">
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="other-names">Other Names</label>
+                                    <input id="other-names" type="text">
+                                </div>
+
+                                <div class="form-field full">
+                                    <label for="organization">Organization</label>
+                                    <input id="organization" type="text" required>
+                                </div>
+
+                                <div class="form-field" id="designation-field">
+                                    <label for="designation">Designation</label>
+                                    <input id="designation" type="text">
+                                </div>
+
+                                <div class="form-field" id="position-field">
+                                    <label for="position">Position</label>
+                                    <input id="position" type="text">
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="sector">Sector</label>
+                                    <input id="sector" type="text">
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="region">Region</label>
+                                    <input id="region" type="text">
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="phone-number">Phone Number(s)</label>
+                                    <input id="phone-number" type="text">
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="email">Email(s)</label>
+                                    <input id="email" type="text">
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="proposed-induction-date">Proposed Induction Date</label>
+                                    <input id="proposed-induction-date" type="date">
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="years-served-on-boards">Years Served on Boards</label>
+                                    <input id="years-served-on-boards" type="number" min="0" value="0">
+                                </div>
+
+                                <div class="form-field full">
+                                    <label for="postal-address">Postal Address</label>
+                                    <textarea id="postal-address"></textarea>
+                                </div>
+
+                                <div class="form-field full">
+                                    <label for="expertise">Expertise</label>
+                                    <textarea id="expertise" placeholder="e.g. Finance, Corporate Governance, Risk Management"></textarea>
+                                </div>
+
+                                <div class="form-field full">
+                                    <label for="notes">Induction Notes</label>
+                                    <textarea id="notes" placeholder="Internal notes before induction"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="button-row">
+                                <button type="button" class="btn-secondary" onclick="resetForm()">Clear</button>
+                                <button type="submit" class="btn-primary">
+                                    <i class="fas fa-save"></i> Save Candidate
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-header">
+                        <h2>Pending Candidates</h2>
+                        <span class="badge" id="pending-count">0 pending</span>
+                    </div>
+                    <div class="table-toolbar">
+                        <input id="candidate-search" type="search" placeholder="Search candidates..." oninput="renderPendingMembers()">
+                        <button class="btn-secondary" onclick="toggleHistory()">
+                            <i class="fas fa-clock-rotate-left"></i> <span id="history-label">Show History</span>
+                        </button>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Candidate</th>
+                                    <th>Type</th>
+                                    <th>Organization</th>
+                                    <th>Induction</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pending-tbody">
+                                <tr><td colspan="6" class="empty">Loading candidates...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let pendingMembers = [];
+        let showHistory = false;
+
+        document.getElementById('pending-form').addEventListener('submit', savePendingMember);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateCandidateFields();
+            loadPendingMembers();
+        });
+
+        function appUrl(path) {
+            if (!path) return path;
+            if (/^https?:\/\//i.test(path)) return path;
+            if (path.startsWith('/')) return path;
+            return path;
+        }
+
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = appUrl('login.html');
+        }
+
+        function showAlert(message, type = 'success') {
+            const alert = document.getElementById('page-alert');
+            alert.textContent = message;
+            alert.className = `alert ${type}`;
+            window.clearTimeout(showAlert.timer);
+            showAlert.timer = window.setTimeout(() => {
+                alert.className = 'alert';
+                alert.textContent = '';
+            }, 4500);
+        }
+
+        function sanitizeInput(value) {
+            return String(value || '').trim().replace(/[<>]/g, '').replace(/javascript:/gi, '').replace(/on\w+=/gi, '');
+        }
+
+        function updateCandidateFields() {
+            const memberType = document.getElementById('member-type').value;
+            const isCorporate = memberType === 'Corporate';
+            document.getElementById('membership-category-field').style.display = isCorporate ? 'flex' : 'none';
+            document.getElementById('gender-field').style.display = isCorporate ? 'none' : 'flex';
+            document.getElementById('title-field').style.display = isCorporate ? 'none' : 'flex';
+            document.getElementById('first-name').closest('.form-field').style.display = isCorporate ? 'none' : 'flex';
+            document.getElementById('surname-field').style.display = memberType === 'AIOD' ? 'flex' : 'none';
+            document.getElementById('last-name-field').style.display = (!isCorporate && memberType !== 'AIOD') ? 'flex' : 'none';
+            document.getElementById('designation-field').style.display = memberType === 'AIOD' ? 'flex' : 'none';
+            document.getElementById('position-field').style.display = (!isCorporate && memberType !== 'AIOD') ? 'flex' : 'none';
+        }
+
+        function getFormData() {
+            const memberType = sanitizeInput(document.getElementById('member-type').value);
+            const isCorporate = memberType === 'Corporate';
+            return {
+                member_type: memberType,
+                title: isCorporate ? '' : sanitizeInput(document.getElementById('title').value),
+                first_name: isCorporate ? '' : sanitizeInput(document.getElementById('first-name').value),
+                surname: isCorporate ? '' : sanitizeInput(document.getElementById('surname').value),
+                last_name: isCorporate ? '' : sanitizeInput(document.getElementById('last-name').value),
+                other_names: isCorporate ? '' : sanitizeInput(document.getElementById('other-names').value),
+                membership_category: isCorporate ? sanitizeInput(document.getElementById('membership-category').value) : '',
+                gender: isCorporate ? '' : sanitizeInput(document.getElementById('gender').value),
+                organization: sanitizeInput(document.getElementById('organization').value),
+                designation: sanitizeInput(document.getElementById('designation').value),
+                position: sanitizeInput(document.getElementById('position').value),
+                sector: sanitizeInput(document.getElementById('sector').value),
+                region: sanitizeInput(document.getElementById('region').value),
+                postal_address: sanitizeInput(document.getElementById('postal-address').value),
+                proposed_induction_date: document.getElementById('proposed-induction-date').value,
+                phone_number: sanitizeInput(document.getElementById('phone-number').value),
+                email: sanitizeInput(document.getElementById('email').value),
+                expertise: sanitizeInput(document.getElementById('expertise').value),
+                years_served_on_boards: parseInt(document.getElementById('years-served-on-boards').value, 10) || 0,
+                notes: sanitizeInput(document.getElementById('notes').value)
+            };
+        }
+
+        async function savePendingMember(event) {
+            event.preventDefault();
+            const data = getFormData();
+            if (!data.member_type) {
+                showAlert('Select a member type.', 'error');
+                return;
+            }
+            if (!data.organization) {
+                showAlert('Organization is required.', 'error');
+                return;
+            }
+
+            const id = document.getElementById('pending-id').value;
+            const response = await fetch(id ? `/api/pending-members/${id}` : '/api/pending-members', {
+                method: id ? 'PUT' : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                const saved = await response.json();
+                showAlert(`${saved.candidate_code || 'Candidate'} saved.`);
+                resetForm();
+                await loadPendingMembers();
+            } else {
+                const error = await response.json().catch(() => ({}));
+                showAlert(error.error || 'Failed to save candidate.', 'error');
+            }
+        }
+
+        async function loadPendingMembers() {
+            const response = await fetch(`/api/pending-members?include_all=${showHistory ? 'true' : 'false'}`);
+            if (response.ok) {
+                pendingMembers = await response.json();
+                renderPendingMembers();
+            } else {
+                document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="6" class="empty">Failed to load candidates.</td></tr>';
+            }
+        }
+
+        function renderPendingMembers() {
+            const search = document.getElementById('candidate-search').value.toLowerCase().trim();
+            const rows = pendingMembers.filter(candidate => {
+                const text = [
+                    candidate.candidate_code,
+                    candidate.first_name,
+                    candidate.surname,
+                    candidate.last_name,
+                    candidate.organization,
+                    candidate.member_type,
+                    candidate.email
+                ].join(' ').toLowerCase();
+                return !search || text.includes(search);
+            });
+
+            document.getElementById('pending-count').textContent = `${pendingMembers.filter(c => c.status === 'Pending').length} pending`;
+
+            if (rows.length === 0) {
+                document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="6" class="empty">No candidates found.</td></tr>';
+                return;
+            }
+
+            document.getElementById('pending-tbody').innerHTML = rows.map(candidate => {
+                const name = candidate.member_type === 'Corporate'
+                    ? candidate.organization
+                    : [candidate.title, candidate.first_name, candidate.surname || candidate.last_name].filter(Boolean).join(' ') || 'Unnamed candidate';
+                const inductionDate = candidate.proposed_induction_date
+                    ? new Date(candidate.proposed_induction_date).toLocaleDateString('en-GB')
+                    : '-';
+                const canPromote = candidate.status === 'Pending';
+                return `
+                    <tr>
+                        <td>
+                            <div style="font-weight:700;color:var(--text-dark)">${escapeHtml(name)}</div>
+                            <div style="font-size:0.72rem;color:var(--text-light)">${escapeHtml(candidate.candidate_code || '')}</div>
+                        </td>
+                        <td><span class="badge">${escapeHtml(candidate.member_type || '-')}</span></td>
+                        <td>${escapeHtml(candidate.organization || '-')}</td>
+                        <td>${inductionDate}</td>
+                        <td><span class="badge">${escapeHtml(candidate.status || 'Pending')}</span></td>
+                        <td>
+                            <div class="actions">
+                                ${canPromote ? `<button class="btn-secondary" title="Edit" onclick="editCandidate(${candidate.id})"><i class="fas fa-pen"></i></button>` : ''}
+                                ${canPromote ? `<button class="btn-success" title="Promote to main database" onclick="promoteCandidate(${candidate.id})"><i class="fas fa-user-check"></i></button>` : ''}
+                                ${canPromote ? `<button class="btn-danger" title="Archive" onclick="archiveCandidate(${candidate.id})"><i class="fas fa-box-archive"></i></button>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function escapeHtml(value) {
+            return String(value || '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            }[char]));
+        }
+
+        function editCandidate(id) {
+            const candidate = pendingMembers.find(item => item.id === id);
+            if (!candidate) return;
+            document.getElementById('form-title').textContent = `Edit ${candidate.candidate_code || 'Candidate'}`;
+            document.getElementById('pending-id').value = candidate.id;
+            setField('member-type', candidate.member_type);
+            setField('title', candidate.title);
+            setField('first-name', candidate.first_name);
+            setField('surname', candidate.surname);
+            setField('last-name', candidate.last_name);
+            setField('other-names', candidate.other_names);
+            setField('membership-category', candidate.membership_category || 'Gold');
+            setField('gender', candidate.gender);
+            setField('organization', candidate.organization);
+            setField('designation', candidate.designation);
+            setField('position', candidate.position);
+            setField('sector', candidate.sector);
+            setField('region', candidate.region);
+            setField('postal-address', candidate.postal_address);
+            setField('proposed-induction-date', candidate.proposed_induction_date ? candidate.proposed_induction_date.slice(0, 10) : '');
+            setField('phone-number', candidate.phone_number);
+            setField('email', candidate.email);
+            setField('expertise', candidate.expertise);
+            setField('years-served-on-boards', candidate.years_served_on_boards || 0);
+            setField('notes', candidate.notes);
+            updateCandidateFields();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function setField(id, value) {
+            const el = document.getElementById(id);
+            if (el) el.value = value || '';
+        }
+
+        function resetForm() {
+            document.getElementById('pending-form').reset();
+            document.getElementById('pending-id').value = '';
+            document.getElementById('form-title').textContent = 'New Induction Candidate';
+            document.getElementById('years-served-on-boards').value = '0';
+            updateCandidateFields();
+        }
+
+        async function promoteCandidate(id) {
+            const candidate = pendingMembers.find(item => item.id === id);
+            if (!candidate) return;
+            const label = candidate.candidate_code || 'this candidate';
+            if (!confirm(`Promote ${label} to the main member database?`)) return;
+
+            const response = await fetch(`/api/pending-members/${id}/promote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ induction_date: candidate.proposed_induction_date || '' })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                showAlert(`${label} promoted as ${result.member.membership_number}.`);
+                resetForm();
+                await loadPendingMembers();
+            } else {
+                const error = await response.json().catch(() => ({}));
+                showAlert(error.error || 'Failed to promote candidate.', 'error');
+            }
+        }
+
+        async function archiveCandidate(id) {
+            const candidate = pendingMembers.find(item => item.id === id);
+            if (!candidate) return;
+            if (!confirm(`Archive ${candidate.candidate_code || 'this candidate'}?`)) return;
+
+            const response = await fetch(`/api/pending-members/${id}`, { method: 'DELETE' });
+            if (response.ok) {
+                showAlert('Candidate archived.');
+                resetForm();
+                await loadPendingMembers();
+            } else {
+                const error = await response.json().catch(() => ({}));
+                showAlert(error.error || 'Failed to archive candidate.', 'error');
+            }
+        }
+
+        function toggleHistory() {
+            showHistory = !showHistory;
+            document.getElementById('history-label').textContent = showHistory ? 'Hide History' : 'Show History';
+            loadPendingMembers();
+        }
+    </script>
+</body>
+</html>

@@ -1529,9 +1529,85 @@ async function initializeSubscriptionRates() {
     }
 }
 
+async function initializePendingMembers() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS pending_members (
+                id SERIAL PRIMARY KEY,
+                candidate_code TEXT UNIQUE,
+                member_type VARCHAR(50) NOT NULL CHECK (member_type IN ('AIOD', 'FIOD', 'MIOD', 'Honorary', 'Corporate')),
+                title VARCHAR(20),
+                first_name VARCHAR(100),
+                surname VARCHAR(100),
+                last_name VARCHAR(100),
+                other_names VARCHAR(100),
+                membership_category VARCHAR(50),
+                gender VARCHAR(10) CHECK (gender IN ('Male', 'Female', NULL)),
+                organization VARCHAR(255) NOT NULL,
+                designation VARCHAR(150),
+                position VARCHAR(150),
+                sector VARCHAR(100),
+                region VARCHAR(100),
+                postal_address TEXT,
+                proposed_induction_date DATE,
+                phone_number VARCHAR(50),
+                email TEXT,
+                feedback_on_calls TEXT,
+                expertise TEXT,
+                years_served_on_boards INTEGER DEFAULT 0,
+                srl_no INTEGER,
+                reg_no VARCHAR(50),
+                contact_person VARCHAR(150),
+                contact_phone VARCHAR(50),
+                contact_email VARCHAR(150),
+                status VARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Inducted', 'Archived')),
+                notes TEXT,
+                promoted_member_id INTEGER REFERENCES members(id) ON DELETE SET NULL,
+                promoted_at TIMESTAMP,
+                created_by_admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+                created_by_admin_username VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await pool.query(`
+            ALTER TABLE pending_members
+                ADD COLUMN IF NOT EXISTS candidate_code TEXT UNIQUE,
+                ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Pending',
+                ADD COLUMN IF NOT EXISTS notes TEXT,
+                ADD COLUMN IF NOT EXISTS promoted_member_id INTEGER REFERENCES members(id) ON DELETE SET NULL,
+                ADD COLUMN IF NOT EXISTS promoted_at TIMESTAMP,
+                ADD COLUMN IF NOT EXISTS created_by_admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+                ADD COLUMN IF NOT EXISTS created_by_admin_username VARCHAR(100),
+                ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        `);
+
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_pending_members_status
+            ON pending_members(status)
+        `);
+
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_pending_members_member_type
+            ON pending_members(member_type)
+        `);
+
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_pending_members_created_at
+            ON pending_members(created_at DESC)
+        `);
+
+        console.log('Pending members table initialized successfully');
+    } catch (err) {
+        console.error('Error initializing pending members table:', err);
+    }
+}
+
 async function initializeApplication() {
     await initializeAdminUsers();
     await initializeSubscriptionRates();
+    await initializePendingMembers();
 }
 
 // Run initialization
@@ -1580,12 +1656,298 @@ function validateAndSanitizeMemberData(data) {
     return { errors, sanitized };
 }
 
+async function generateMembershipNumber(client, memberType) {
+    const prefixMap = {
+        'AIOD': 'A',
+        'FIOD': 'F',
+        'MIOD': 'M',
+        'Corporate': 'C',
+        'Honorary': 'H'
+    };
+    const prefix = prefixMap[memberType] || 'M';
+
+    const maxResult = await client.query(`
+        SELECT membership_number,
+               CAST(SUBSTRING(membership_number FROM 2) AS INTEGER) as num_part
+        FROM members
+        WHERE membership_number ~ $1
+        ORDER BY num_part DESC LIMIT 1
+    `, ['^' + prefix + '[0-9]+$']);
+
+    let nextNumber = 1;
+    if (maxResult.rows.length > 0) {
+        const numPart = maxResult.rows[0].num_part;
+        if (numPart !== null && !isNaN(numPart)) {
+            nextNumber = numPart + 1;
+        }
+    }
+
+    return prefix + String(nextNumber).padStart(5, '0');
+}
+
 // ============================================================
 // ROOT ROUTE
 // ============================================================
 
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
+});
+
+// ============================================================
+// PENDING / INDUCTION MEMBER ENDPOINTS
+// ============================================================
+
+const pendingMemberColumns = [
+    'member_type', 'title', 'first_name', 'surname', 'last_name', 'other_names',
+    'membership_category', 'gender', 'organization', 'designation', 'position',
+    'sector', 'region', 'postal_address', 'proposed_induction_date',
+    'phone_number', 'email', 'feedback_on_calls', 'expertise',
+    'years_served_on_boards', 'srl_no', 'reg_no', 'contact_person',
+    'contact_phone', 'contact_email', 'notes'
+];
+
+function buildPendingMemberValues(data) {
+    return pendingMemberColumns.map(column => {
+        if (column === 'years_served_on_boards') {
+            return parseInt(data[column], 10) || 0;
+        }
+        if (column === 'proposed_induction_date') {
+            return data[column] || null;
+        }
+        if (column === 'srl_no') {
+            const value = parseInt(data[column], 10);
+            return Number.isFinite(value) ? value : null;
+        }
+        return data[column] || null;
+    });
+}
+
+app.get('/api/pending-members', async (req, res) => {
+    try {
+        const includeAll = req.query.include_all === 'true';
+        const result = await pool.query(`
+            SELECT *
+            FROM pending_members
+            ${includeAll ? '' : "WHERE status = 'Pending'"}
+            ORDER BY created_at DESC, id DESC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error fetching pending members:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+app.get('/api/pending-members/:id', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM pending_members WHERE id = $1', [req.params.id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Pending member not found' });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error fetching pending member:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+app.post('/api/pending-members', async (req, res) => {
+    const { errors, sanitized } = validateAndSanitizeMemberData(req.body);
+    if (errors.length > 0) {
+        return res.status(400).json({ error: 'Validation failed', details: errors });
+    }
+    if (!sanitized.member_type) {
+        return res.status(400).json({ error: 'Member type is required' });
+    }
+    if (!sanitized.organization || !String(sanitized.organization).trim()) {
+        return res.status(400).json({ error: 'Organization is required' });
+    }
+
+    const recorder = getSessionAdminRecorder(req);
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const values = buildPendingMemberValues(sanitized);
+        const columnsSql = pendingMemberColumns.join(', ');
+        const placeholders = pendingMemberColumns.map((_, index) => `$${index + 1}`).join(', ');
+
+        const result = await client.query(`
+            INSERT INTO pending_members (
+                ${columnsSql}, created_by_admin_user_id, created_by_admin_username
+            )
+            VALUES (${placeholders}, $${values.length + 1}, $${values.length + 2})
+            RETURNING *
+        `, [...values, recorder.adminUserId, recorder.adminUsername]);
+
+        const candidate = result.rows[0];
+        const candidateCode = `IND-${new Date().getFullYear()}-${String(candidate.id).padStart(4, '0')}`;
+        const updated = await client.query(
+            'UPDATE pending_members SET candidate_code = $1 WHERE id = $2 RETURNING *',
+            [candidateCode, candidate.id]
+        );
+
+        await client.query('COMMIT');
+        res.locals.activityAction = 'create_pending_member';
+        res.locals.activityEntityType = 'pending_member';
+        res.locals.activityEntityId = candidate.id;
+        res.locals.activityDescription = `${req.session.user} added induction candidate ${candidateCode}`;
+        res.status(201).json(updated.rows[0]);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error creating pending member:', err);
+        res.status(500).json({ error: err.message || 'Database error' });
+    } finally {
+        client.release();
+    }
+});
+
+app.put('/api/pending-members/:id', async (req, res) => {
+    const { errors, sanitized } = validateAndSanitizeMemberData(req.body);
+    if (errors.length > 0) {
+        return res.status(400).json({ error: 'Validation failed', details: errors });
+    }
+    if (!sanitized.member_type) {
+        return res.status(400).json({ error: 'Member type is required' });
+    }
+    if (!sanitized.organization || !String(sanitized.organization).trim()) {
+        return res.status(400).json({ error: 'Organization is required' });
+    }
+
+    try {
+        const values = buildPendingMemberValues(sanitized);
+        const assignments = pendingMemberColumns.map((column, index) => `${column} = $${index + 1}`).join(', ');
+        const result = await pool.query(`
+            UPDATE pending_members
+            SET ${assignments}, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $${values.length + 1} AND status = 'Pending'
+            RETURNING *
+        `, [...values, req.params.id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Pending member not found or already promoted' });
+        }
+
+        res.locals.activityAction = 'update_pending_member';
+        res.locals.activityEntityType = 'pending_member';
+        res.locals.activityEntityId = req.params.id;
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error updating pending member:', err);
+        res.status(500).json({ error: err.message || 'Database error' });
+    }
+});
+
+app.post('/api/pending-members/:id/promote', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const pendingResult = await client.query(`
+            SELECT *
+            FROM pending_members
+            WHERE id = $1
+            FOR UPDATE
+        `, [req.params.id]);
+
+        if (pendingResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Pending member not found' });
+        }
+
+        const pending = pendingResult.rows[0];
+        if (pending.status !== 'Pending') {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Candidate has already been processed' });
+        }
+
+        const membershipNumber = await generateMembershipNumber(client, pending.member_type);
+        const inductionDate = req.body.induction_date || pending.proposed_induction_date || new Date().toISOString().slice(0, 10);
+        const recorder = getSessionAdminRecorder(req);
+
+        const memberResult = await client.query(`
+            INSERT INTO members (
+                membership_number, member_type, title, first_name, surname, last_name,
+                other_names, membership_category, gender, organization, designation,
+                position, sector, region, postal_address, date_of_admission,
+                registration_date, phone_number, email, feedback_on_calls,
+                expertise, years_served_on_boards, srl_no, reg_no, contact_person,
+                contact_phone, contact_email
+            )
+            VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+                $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
+            )
+            RETURNING *
+        `, [
+            membershipNumber, pending.member_type, pending.title, pending.first_name, pending.surname,
+            pending.last_name, pending.other_names, pending.membership_category, pending.gender,
+            pending.organization, pending.designation, pending.position, pending.sector, pending.region,
+            pending.postal_address, pending.member_type === 'Corporate' ? null : inductionDate,
+            pending.member_type === 'Corporate' ? inductionDate : null, pending.phone_number, pending.email,
+            pending.feedback_on_calls, pending.expertise, pending.years_served_on_boards || 0,
+            pending.srl_no, pending.reg_no, pending.contact_person, pending.contact_phone, pending.contact_email
+        ]);
+
+        const member = memberResult.rows[0];
+        const inductionYear = new Date(inductionDate).getFullYear();
+        if (Number.isFinite(inductionYear)) {
+            await client.query(`
+                INSERT INTO subscriptions (
+                    member_id, subscription_year, status, amount_paid, payment_date,
+                    payment_method, recorded_by_admin_user_id, recorded_by_admin_username
+                )
+                VALUES ($1, $2, 'Paid', 0, $3, 'Not Specified', $4, $5)
+                ON CONFLICT (member_id, subscription_year) DO NOTHING
+            `, [member.id, inductionYear, inductionDate, recorder.adminUserId, recorder.adminUsername]);
+        }
+
+        const updatedPending = await client.query(`
+            UPDATE pending_members
+            SET status = 'Inducted',
+                promoted_member_id = $1,
+                promoted_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+            RETURNING *
+        `, [member.id, pending.id]);
+
+        await client.query('COMMIT');
+
+        res.locals.activityAction = 'promote_pending_member';
+        res.locals.activityEntityType = 'pending_member';
+        res.locals.activityEntityId = pending.id;
+        res.locals.activityDescription = `${req.session.user} promoted ${pending.candidate_code || pending.id} to ${membershipNumber}`;
+        res.json({ member, pending_member: updatedPending.rows[0] });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error promoting pending member:', err);
+        res.status(500).json({ error: err.message || 'Database error' });
+    } finally {
+        client.release();
+    }
+});
+
+app.delete('/api/pending-members/:id', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            UPDATE pending_members
+            SET status = 'Archived', updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1 AND status = 'Pending'
+            RETURNING *
+        `, [req.params.id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Pending member not found or already processed' });
+        }
+
+        res.locals.activityAction = 'archive_pending_member';
+        res.locals.activityEntityType = 'pending_member';
+        res.locals.activityEntityId = req.params.id;
+        res.json({ message: 'Pending member archived', pending_member: result.rows[0] });
+    } catch (err) {
+        console.error('Error archiving pending member:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 // ============================================================
@@ -1871,34 +2233,7 @@ app.post('/api/members', async (req, res) => {
         } = sanitized;
         const recorder = getSessionAdminRecorder(req);
 
-        // Generate membership number based on member type
-        const prefixMap = {
-            'AIOD': 'A',
-            'FIOD': 'F',
-            'MIOD': 'M',
-            'Corporate': 'C',
-            'Honorary': 'H'
-        };
-        const prefix = prefixMap[member_type] || 'M';
-        
-        // Get the highest number for this member type (only matching new format: X00000)
-        const maxResult = await client.query(`
-            SELECT membership_number, 
-                   CAST(SUBSTRING(membership_number FROM 2) AS INTEGER) as num_part
-            FROM members 
-            WHERE membership_number ~ $1
-            ORDER BY num_part DESC LIMIT 1
-        `, ['^' + prefix + '[0-9]+$']);
-        
-        let nextNumber = 1;
-        if (maxResult.rows.length > 0) {
-            const numPart = maxResult.rows[0].num_part;
-            if (numPart !== null && !isNaN(numPart)) {
-                nextNumber = numPart + 1;
-            }
-        }
-        
-        const membership_number = prefix + String(nextNumber).padStart(5, '0');
+        const membership_number = await generateMembershipNumber(client, member_type);
 
         const memberResult = await client.query(`
             INSERT INTO members (

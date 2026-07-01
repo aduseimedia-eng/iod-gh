@@ -132,6 +132,49 @@ CREATE INDEX idx_payments_member_id ON payments(member_id);
 CREATE INDEX idx_payments_payment_date ON payments(payment_date);
 CREATE INDEX idx_payments_recorded_by_admin_user_id ON payments(recorded_by_admin_user_id);
 
+-- STAGING TABLE FOR INDUCTION CANDIDATES
+CREATE TABLE IF NOT EXISTS pending_members (
+    id SERIAL PRIMARY KEY,
+    candidate_code TEXT UNIQUE,
+    member_type VARCHAR(50) NOT NULL CHECK (member_type IN ('AIOD', 'FIOD', 'MIOD', 'Honorary', 'Corporate')),
+    title VARCHAR(20),
+    first_name VARCHAR(100),
+    surname VARCHAR(100),
+    last_name VARCHAR(100),
+    other_names VARCHAR(100),
+    membership_category VARCHAR(50),
+    gender VARCHAR(10) CHECK (gender IN ('Male', 'Female', NULL)),
+    organization VARCHAR(255) NOT NULL,
+    designation VARCHAR(150),
+    position VARCHAR(150),
+    sector VARCHAR(100),
+    region VARCHAR(100),
+    postal_address TEXT,
+    proposed_induction_date DATE,
+    phone_number VARCHAR(50),
+    email TEXT,
+    feedback_on_calls TEXT,
+    expertise TEXT,
+    years_served_on_boards INTEGER DEFAULT 0,
+    srl_no INTEGER,
+    reg_no VARCHAR(50),
+    contact_person VARCHAR(150),
+    contact_phone VARCHAR(50),
+    contact_email VARCHAR(150),
+    status VARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Inducted', 'Archived')),
+    notes TEXT,
+    promoted_member_id INTEGER REFERENCES members(id) ON DELETE SET NULL,
+    promoted_at TIMESTAMP,
+    created_by_admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+    created_by_admin_username VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pending_members_status ON pending_members(status);
+CREATE INDEX IF NOT EXISTS idx_pending_members_member_type ON pending_members(member_type);
+CREATE INDEX IF NOT EXISTS idx_pending_members_created_at ON pending_members(created_at DESC);
+
 -- ============================================================
 -- TRIGGER: Auto-update timestamp
 -- ============================================================
