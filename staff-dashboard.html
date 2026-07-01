@@ -899,6 +899,310 @@
         }
     </style>
     <link href="minimal-ui.css" rel="stylesheet">
+    <style>
+        body {
+            display: grid;
+            grid-template-columns: 248px minmax(0, 1fr);
+            align-items: start;
+            background: #f4f6fb !important;
+        }
+
+        header {
+            position: sticky !important;
+            top: 0;
+            grid-column: 1;
+            height: 100vh;
+            padding: 1.35rem 1rem !important;
+            background: #fbfcff !important;
+            border-right: 1px solid var(--border) !important;
+            border-bottom: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+            gap: 1.2rem !important;
+            overflow-y: auto;
+        }
+
+        .header-left {
+            flex-direction: column;
+            align-items: center !important;
+            gap: 0.55rem !important;
+            padding: 0.15rem 0.35rem 1rem;
+            border-bottom: 1px solid #edf1f6;
+            text-align: center;
+        }
+
+        .logo-section {
+            width: 92px !important;
+            height: 92px !important;
+            background: transparent !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+        }
+
+        .logo-section img {
+            width: 92px !important;
+            height: 92px !important;
+            object-fit: contain;
+        }
+
+        .header-text h1 {
+            font-size: 0.92rem !important;
+            line-height: 1.2;
+        }
+
+        .header-text p {
+            font-size: 0.72rem !important;
+            margin-top: 0.15rem;
+        }
+
+        .nav-right {
+            width: 100%;
+            flex-direction: column;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+            gap: 0.2rem !important;
+        }
+
+        .staff-badge,
+        .nav-btn {
+            width: 100%;
+            min-height: 38px !important;
+            border-radius: 8px !important;
+            justify-content: flex-start;
+            box-shadow: none !important;
+        }
+
+        .staff-badge {
+            margin-bottom: 0.5rem;
+            justify-content: center;
+        }
+
+        .nav-btn {
+            background: transparent !important;
+            color: #4b5563 !important;
+            border-color: transparent !important;
+            padding: 0.55rem 0.65rem !important;
+        }
+
+        .nav-btn i {
+            width: 16px;
+            color: #8b95a5;
+            text-align: center;
+        }
+
+        .nav-btn:hover,
+        .nav-btn-active {
+            background: #eef3ff !important;
+            color: var(--primary) !important;
+            border-color: #dce6ff !important;
+            transform: none !important;
+        }
+
+        .nav-btn:hover i,
+        .nav-btn-active i {
+            color: var(--primary);
+        }
+
+        .container {
+            grid-column: 2;
+            width: 100%;
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 1.35rem !important;
+        }
+
+        .readonly-notice,
+        .content-section,
+        .kpi-card,
+        .gs-type-card {
+            border-radius: 8px !important;
+            border-color: var(--border) !important;
+            box-shadow: var(--shadow-sm) !important;
+        }
+
+        .readonly-notice {
+            background: #eef3ff !important;
+            color: var(--primary) !important;
+            border-color: #dce6ff !important;
+        }
+
+        .kpi-grid {
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .kpi-card {
+            padding: 1rem 1.1rem !important;
+        }
+
+        .kpi-card:hover,
+        .content-section:hover {
+            transform: none !important;
+            box-shadow: var(--shadow-sm) !important;
+        }
+
+        .kpi-label {
+            letter-spacing: 0.04em;
+        }
+
+        .kpi-value {
+            font-size: 1.85rem;
+            color: var(--primary) !important;
+        }
+
+        .content-section {
+            padding: 0 !important;
+            overflow: hidden;
+        }
+
+        .section-header {
+            margin: 0;
+            padding: 1rem 1.1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-size: 1rem !important;
+            color: var(--text-dark) !important;
+        }
+
+        .filter-bar {
+            margin: 0;
+            padding: 0.9rem 1rem;
+            border-bottom: 1px solid var(--border);
+            background: #ffffff;
+        }
+
+        .search-box,
+        select {
+            min-height: 40px;
+            border-radius: 8px !important;
+        }
+
+        .table-container {
+            background: #ffffff;
+        }
+
+        th {
+            background: #f8fafc !important;
+            color: var(--text-light) !important;
+            font-size: 0.68rem !important;
+            font-weight: 800 !important;
+            border-bottom: 1px solid var(--border) !important;
+        }
+
+        th:hover {
+            background: #eef3ff !important;
+        }
+
+        td {
+            vertical-align: middle;
+        }
+
+        tbody tr:hover {
+            box-shadow: none !important;
+        }
+
+        .view-btn {
+            width: 34px;
+            min-width: 34px;
+            height: 34px;
+            padding: 0 !important;
+            border-radius: 8px !important;
+            background: #ffffff !important;
+            color: var(--primary) !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: none !important;
+            justify-content: center;
+        }
+
+        .view-btn:hover {
+            background: var(--primary) !important;
+            color: #ffffff !important;
+            border-color: var(--primary) !important;
+            transform: translateY(-1px) !important;
+            filter: none !important;
+            box-shadow: var(--shadow-sm) !important;
+        }
+
+        .pagination button {
+            border-radius: 8px !important;
+            box-shadow: none !important;
+        }
+
+        .pagination button.active {
+            background: var(--primary) !important;
+            border-color: var(--primary) !important;
+        }
+
+        .modal-overlay {
+            background: rgba(15, 23, 42, 0.46) !important;
+            backdrop-filter: none !important;
+        }
+
+        .modal-content {
+            border-radius: 12px !important;
+            box-shadow: var(--shadow-md) !important;
+        }
+
+        .modal-header {
+            background: #ffffff !important;
+            color: var(--text-dark) !important;
+            padding: 1rem 1.1rem !important;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-header::before {
+            display: none;
+        }
+
+        .modal-close {
+            background: #ffffff !important;
+            color: var(--text-light) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 8px !important;
+        }
+
+        .modal-close:hover {
+            background: #fff5f5 !important;
+            color: var(--danger) !important;
+            border-color: #fecaca !important;
+            transform: none !important;
+        }
+
+        .modal-footer {
+            border-top: 1px solid var(--border);
+        }
+
+        @media (max-width: 1024px) {
+            body {
+                display: block;
+            }
+
+            header {
+                position: static !important;
+                height: auto;
+                border-right: 0 !important;
+                border-bottom: 1px solid var(--border) !important;
+            }
+
+            .nav-right {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .staff-badge,
+            .nav-btn {
+                width: auto;
+            }
+
+            .container {
+                padding: 1rem !important;
+            }
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -1110,13 +1414,13 @@
             } catch (err) {
                 console.error('Error loading members:', err);
                 document.getElementById('members-tbody').innerHTML =
-                    '<tr><td colspan="9" class="no-data"><i class="fas fa-exclamation-triangle" style="color: var(--danger); margin-right: 0.5rem;"></i>Failed to load member data. Please refresh the page.</td></tr>';
+                    '<tr><td colspan="8" class="no-data"><i class="fas fa-exclamation-triangle" style="color: var(--danger); margin-right: 0.5rem;"></i>Failed to load member data. Please refresh the page.</td></tr>';
             }
         }
 
         function refreshData() {
             document.getElementById('members-tbody').innerHTML =
-                '<tr><td colspan="9" class="no-data"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>';
+                '<tr><td colspan="8" class="no-data"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>';
             loadMembers();
         }
 
@@ -1270,7 +1574,7 @@
             const tbody = document.getElementById('members-tbody');
 
             if (pageData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="no-data">No members found matching your criteria</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="no-data">No members found matching your criteria</td></tr>';
                 document.getElementById('pagination').innerHTML = '';
                 return;
             }
@@ -1289,7 +1593,7 @@
                         <td>${getPaymentBadge(member, year)}</td>
                         <td style="text-align: center;">
                             <button class="view-btn" onclick="handleRowClick(this.closest('tr'), ${member.id})" title="View Details">
-                                <i class="fas fa-eye"></i> View
+                                <i class="fas fa-eye"></i>
                             </button>
                         </td>
                     </tr>
