@@ -48,24 +48,165 @@
             display: none;
         }
 
+        .dashboard-shell {
+            display: grid;
+            grid-template-columns: 248px minmax(0, 1fr);
+            min-height: 100vh;
+            background: #f4f6fb;
+        }
+
+        .app-sidebar {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            background: #fbfcff;
+            border-right: 1px solid var(--border);
+            padding: 1.35rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            overflow-y: auto;
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.15rem 0.35rem 0.9rem;
+            border-bottom: 1px solid #edf1f6;
+        }
+
+        .sidebar-brand img {
+            width: 34px;
+            height: 34px;
+            object-fit: contain;
+            background: var(--primary);
+            border-radius: 8px;
+            padding: 0.25rem;
+        }
+
+        .sidebar-brand strong {
+            display: block;
+            color: var(--text-dark);
+            font-size: 0.92rem;
+            line-height: 1.2;
+        }
+
+        .sidebar-brand span {
+            display: block;
+            color: var(--text-light);
+            font-size: 0.72rem;
+            margin-top: 0.15rem;
+        }
+
+        .sidebar-user {
+            display: grid;
+            grid-template-columns: 34px 1fr;
+            gap: 0.7rem;
+            align-items: center;
+            padding: 0.8rem;
+            border: 1px solid #edf1f6;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+
+        .sidebar-user-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            background: var(--secondary);
+        }
+
+        .sidebar-user strong {
+            display: block;
+            font-size: 0.78rem;
+            color: var(--text-dark);
+        }
+
+        .sidebar-user span {
+            display: block;
+            font-size: 0.7rem;
+            color: var(--text-light);
+            margin-top: 0.1rem;
+        }
+
+        .sidebar-section-label {
+            margin: 0.5rem 0 0.35rem;
+            padding: 0 0.45rem;
+            color: #9aa3b2;
+            font-size: 0.64rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .sidebar-link {
+            color: #4b5563;
+            text-decoration: none;
+            min-height: 38px;
+            padding: 0.55rem 0.65rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: 1px solid transparent;
+            transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+        }
+
+        .sidebar-link i {
+            width: 16px;
+            color: #8b95a5;
+            text-align: center;
+        }
+
+        .sidebar-link:hover,
+        .sidebar-link.active {
+            background: #eef3ff;
+            color: var(--primary);
+            border-color: #dce6ff;
+        }
+
+        .sidebar-link:hover i,
+        .sidebar-link.active i {
+            color: var(--primary);
+        }
+
+        .main-workspace {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
         /* Navigation Buttons */
         .nav-right {
             display: flex;
-            gap: 0.5rem;
+            gap: 0.45rem;
             align-items: center;
             flex-wrap: wrap;
             justify-content: flex-end;
         }
 
         .nav-btn {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            min-height: 40px;
-            padding: 0.55rem 0.85rem;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: #ffffff;
+            color: var(--text-light);
+            min-height: 38px;
+            padding: 0.5rem 0.7rem;
+            border: 1px solid var(--border);
             border-radius: 8px;
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             font-weight: 500;
             transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
             text-decoration: none;
@@ -75,8 +216,9 @@
         }
 
         .nav-btn:hover {
-            background: rgba(255, 255, 255, 0.18);
-            border-color: rgba(255, 255, 255, 0.42);
+            background: #f8fafc;
+            border-color: #cfd8e6;
+            color: var(--primary);
             transform: translateY(-1px);
         }
 
@@ -88,16 +230,19 @@
 
         /* Header Styles */
         header {
-            background: var(--gradient-primary);
-            color: white;
-            padding: 0.9rem 1.5rem;
-            box-shadow: 0 8px 24px rgba(11, 20, 56, 0.22);
+            background: rgba(255, 255, 255, 0.9);
+            color: var(--text-dark);
+            padding: 1rem 1.35rem;
+            box-shadow: none;
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(12px);
             position: sticky;
             top: 0;
             z-index: 100;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 1rem;
         }
 
         .header-left {
@@ -107,24 +252,24 @@
         }
 
         .logo-section {
-            width: 48px;
-            height: 48px;
-            background: rgba(255, 255, 255, 0.1);
+            width: 42px;
+            height: 42px;
+            background: #eef3ff;
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            border: 1px solid #dce6ff;
         }
 
         .logo-section img {
-            width: 42px;
-            height: 42px;
+            width: 34px;
+            height: 34px;
             object-fit: contain;
         }
 
         .header-text h1 {
-            font-size: 1.15rem;
+            font-size: 1.1rem;
             font-weight: 700;
             margin-bottom: 0.1rem;
             letter-spacing: 0;
@@ -137,21 +282,65 @@
             letter-spacing: 0.5px;
         }
 
+        .top-search {
+            flex: 1;
+            max-width: 440px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0 0.9rem;
+            background: #f6f8fb;
+            border: 1px solid #edf1f6;
+            border-radius: 8px;
+            color: #9aa3b2;
+            margin-left: auto;
+        }
+
+        .top-search input {
+            width: 100%;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            color: var(--text-dark);
+            font: inherit;
+            font-size: 0.82rem;
+        }
+
+        .top-search input::placeholder {
+            color: #9aa3b2;
+        }
+
         .container {
             max-width: 1600px;
             margin: 0 auto;
-            padding: 0 1.25rem 2.5rem;
+            width: 100%;
+            padding: 0 1.35rem 2.5rem;
             position: relative;
             z-index: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .button-group {
+            order: 1;
+        }
+
+        #members-section {
+            order: 2;
+        }
+
+        #member-types {
+            order: 3;
         }
 
         /* Welcome Banner */
         .welcome-banner {
-            background: #ffffff;
-            border-bottom: 1px solid var(--border);
-            padding: 1.5rem 1.5rem;
-            margin-bottom: 1.25rem;
-            color: white;
+            background: transparent;
+            border-bottom: 0;
+            padding: 1.35rem 1.35rem 0.9rem;
+            margin-bottom: 0;
+            color: var(--text-dark);
             position: relative;
             overflow: hidden;
         }
@@ -169,36 +358,37 @@
 
         .welcome-text h2 {
             color: var(--text-dark);
-            font-size: 1.6rem;
+            font-size: 1.35rem;
             font-weight: 700;
-            margin-bottom: 0.35rem;
+            margin-bottom: 0.25rem;
             letter-spacing: 0;
         }
 
         .welcome-text p {
             color: var(--text-light);
-            font-size: 0.95rem;
+            font-size: 0.84rem;
             opacity: 1;
             font-weight: 400;
         }
 
         .welcome-stats {
             display: flex;
-            gap: 0.75rem;
+            gap: 0.8rem;
         }
 
         .welcome-stat {
             text-align: left;
-            background: var(--surface-muted);
-            border: 1px solid var(--border);
+            background: #ffffff;
+            border: 1px solid #edf1f6;
             border-radius: 8px;
-            padding: 0.85rem 1rem;
-            min-width: 132px;
+            padding: 0.85rem 1.05rem;
+            min-width: 152px;
+            box-shadow: var(--shadow-sm);
         }
 
         .welcome-stat-value {
             color: var(--primary);
-            font-size: 1.7rem;
+            font-size: 1.35rem;
             font-weight: 700;
             line-height: 1;
             margin-bottom: 0.25rem;
@@ -206,7 +396,7 @@
 
         .welcome-stat-label {
             color: var(--text-light);
-            font-size: 0.68rem;
+            font-size: 0.64rem;
             opacity: 1;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -328,13 +518,13 @@
         .button-group {
             display: flex;
             gap: 0.65rem;
-            margin-bottom: 1.25rem;
+            margin-bottom: 0.9rem;
             flex-wrap: wrap;
             align-items: center;
             padding: 0.85rem;
             background: #ffffff;
             border-radius: 8px;
-            border: 1px solid var(--border);
+            border: 1px solid #edf1f6;
             box-shadow: var(--shadow-sm);
         }
 
@@ -437,8 +627,8 @@
         .content-section {
             background: var(--gradient-card);
             padding: 1.25rem;
-            margin-bottom: 1.25rem;
-            border: 1px solid var(--border);
+            margin-bottom: 1rem;
+            border: 1px solid #edf1f6;
             border-radius: 8px;
             box-shadow: var(--shadow-sm);
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1142,6 +1332,32 @@
 
         /* Responsive Design */
         @media (max-width: 1024px) {
+            .dashboard-shell {
+                grid-template-columns: 1fr;
+            }
+
+            .app-sidebar {
+                position: static;
+                height: auto;
+                padding: 0.85rem 1rem;
+                border-right: 0;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .sidebar-brand,
+            .sidebar-user {
+                display: none;
+            }
+
+            .sidebar-nav {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .sidebar-section-label {
+                display: none;
+            }
+
             .container {
                 padding: 0 1rem;
             }
@@ -1174,6 +1390,12 @@
                 flex-direction: column;
                 gap: 1rem;
                 align-items: flex-start;
+            }
+
+            .top-search {
+                width: 100%;
+                max-width: none;
+                margin-left: 0;
             }
 
             .nav-right {
@@ -1311,6 +1533,20 @@
         }
 
         @media (max-width: 480px) {
+            .app-sidebar {
+                padding: 0.7rem;
+            }
+
+            .sidebar-link {
+                flex: 1 1 calc(50% - 0.25rem);
+                justify-content: center;
+                font-size: 0.74rem;
+            }
+
+            .sidebar-link i {
+                width: auto;
+            }
+
             .header-text h1 {
                 font-size: 1.1rem;
             }
@@ -1942,15 +2178,67 @@
     </style>
 </head>
 <body>
+    <div class="dashboard-shell">
+        <aside class="app-sidebar">
+            <div class="sidebar-brand">
+                <img src="White IOD_Logo_png.png" alt="IoD-Ghana Logo">
+                <div>
+                    <strong>IoD Ghana</strong>
+                    <span>Member Registry</span>
+                </div>
+            </div>
+
+            <div class="sidebar-user">
+                <div class="sidebar-user-icon"><i class="fas fa-user-shield"></i></div>
+                <div>
+                    <strong id="sidebar-admin-name">Admin</strong>
+                    <span>Database workspace</span>
+                </div>
+            </div>
+
+            <div>
+                <div class="sidebar-section-label">Main</div>
+                <nav class="sidebar-nav">
+                    <a href="index.html" class="sidebar-link active"><i class="fas fa-table-columns"></i> Dashboard</a>
+                    <a href="dashboard-analytics.html" class="sidebar-link"><i class="fas fa-chart-line"></i> Analytics</a>
+                    <a href="good_standing.html" class="sidebar-link"><i class="fas fa-circle-check"></i> Good Standing</a>
+                    <a href="staff-dashboard.html" class="sidebar-link"><i class="fas fa-users-viewfinder"></i> Staff View</a>
+                </nav>
+            </div>
+
+            <div>
+                <div class="sidebar-section-label">Members</div>
+                <nav class="sidebar-nav">
+                    <a href="#members-section" class="sidebar-link"><i class="fas fa-users"></i> Member List</a>
+                    <a href="#member-types" class="sidebar-link"><i class="fas fa-layer-group"></i> Categories</a>
+                    <a href="#" onclick="openImportModal(); return false;" class="sidebar-link"><i class="fas fa-file-arrow-up"></i> Import</a>
+                    <a href="#" onclick="exportToCSV(); return false;" class="sidebar-link"><i class="fas fa-download"></i> Export</a>
+                </nav>
+            </div>
+
+            <div>
+                <div class="sidebar-section-label">Account</div>
+                <nav class="sidebar-nav">
+                    <a href="#" onclick="openSettingsModal(); return false;" class="sidebar-link"><i class="fas fa-gear"></i> Settings</a>
+                    <a href="#" onclick="logout(); return false;" class="sidebar-link"><i class="fas fa-right-from-bracket"></i> Logout</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="main-workspace">
     <header>
         <div class="header-left">
             <div class="logo-section">
                 <img src="White IOD_Logo_png.png" width="60px" alt="IoD-Ghana Logo" height="60px">
             </div>
             <div class="header-text">
-                <h1>Member Database</h1>
+                <h1>Dashboard</h1>
                 <p>Institute of Directors - Ghana</p>
             </div>
+        </div>
+        <div class="top-search">
+            <i class="fas fa-search"></i>
+            <input type="text" placeholder="Search dashboard, members, subscriptions..." oninput="document.getElementById('members-search').value = this.value; filterTable();" autocomplete="off">
         </div>
         <div class="nav-right">
             <a href="staff-dashboard.html" class="nav-btn" title="Staff View-Only Dashboard">
@@ -2022,7 +2310,7 @@
         </select>
 
         <!-- Member Types Overview -->
-        <section class="content-section">
+        <section class="content-section" id="member-types">
             <div class="section-header">
                 <div>
                     <h2 class="section-title">Member Overview</h2>
@@ -2121,6 +2409,8 @@
                 <div class="pagination" id="members-pagination"></div>
             </div>
         </section>
+    </div>
+        </main>
     </div>
 
     <!-- Add/Edit Member Modal -->
@@ -2812,8 +3102,10 @@
 
         function updateWelcomeBanner() {
             const heading = document.getElementById('welcome-admin-heading');
-            if (!heading) return;
-            heading.textContent = `Howdy, ${currentAuthContext.user || 'Admin'}`;
+            const adminName = currentAuthContext.user || 'Admin';
+            if (heading) heading.textContent = `Howdy, ${adminName}`;
+            const sidebarName = document.getElementById('sidebar-admin-name');
+            if (sidebarName) sidebarName.textContent = adminName;
         }
 
         async function logout() {
