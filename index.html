@@ -1272,6 +1272,106 @@
             border-bottom: 1px solid var(--border);
         }
 
+        .payment-success-overlay {
+            display: flex;
+            position: fixed;
+            inset: 0;
+            z-index: 1200;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: rgba(15, 23, 42, 0.42);
+            backdrop-filter: blur(8px);
+        }
+
+        .payment-success-dialog {
+            width: min(92vw, 440px);
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+        }
+
+        .payment-success-head {
+            display: flex;
+            gap: 0.85rem;
+            align-items: center;
+            padding: 1.2rem 1.25rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .payment-success-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #047857;
+            background: #d1fae5;
+            flex: 0 0 auto;
+        }
+
+        .payment-success-title {
+            margin: 0;
+            color: var(--text-dark);
+            font-size: 1rem;
+            font-weight: 800;
+        }
+
+        .payment-success-subtitle {
+            margin-top: 0.12rem;
+            color: var(--text-light);
+            font-size: 0.78rem;
+        }
+
+        .payment-success-body {
+            padding: 1rem 1.25rem 1.2rem;
+        }
+
+        .payment-success-breakdown {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #f8fafc;
+        }
+
+        .payment-success-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.65rem 0.8rem;
+            color: var(--text-light);
+            font-size: 0.82rem;
+        }
+
+        .payment-success-row + .payment-success-row {
+            border-top: 1px solid var(--border);
+        }
+
+        .payment-success-row strong {
+            color: var(--text-dark);
+            white-space: nowrap;
+        }
+
+        .payment-success-note {
+            margin-top: 0.85rem;
+            padding: 0.75rem 0.85rem;
+            border: 1px solid #a7f3d0;
+            border-radius: 10px;
+            background: #ecfdf5;
+            color: #065f46;
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+
+        .payment-success-actions {
+            display: flex;
+            justify-content: flex-end;
+            padding-top: 1rem;
+        }
+
         .close-btn {
             background: linear-gradient(135deg, #ef4444, #dc2626);
             border: none;
@@ -6042,14 +6142,12 @@
 
                 if (response.ok) {
                     const result = await response.json();
-                    let message = 'Payment recorded successfully!';
-                    if (result.summary) {
-                        const status = result.summary.status || 'Pending';
-                        const creditBalance = parseFloat(result.summary.current_credit_balance || 0);
-                        message += `\n\nApplied from ${result.applied_year}. Status: ${status}.`;
-                        message += `\nCurrent balance after this year: ₵ ${creditBalance.toFixed(2)}.`;
-                    }
-                    alert(message);
+                    showPaymentSuccessPopup({
+                        title: 'Payment recorded successfully',
+                        subtitle: result.applied_year ? `Applied from ${result.applied_year}` : `Subscription year ${paymentYear}`,
+                        summary: null,
+                        nextYear: parseInt(paymentYear) + 1
+                    });
                     // Clear form
                     document.getElementById('new-payment-amount').value = '';
                     document.getElementById('new-receipt-number').value = '';
@@ -6371,6 +6469,72 @@
             currentPaymentEdit = null;
         }
 
+        function closePaymentSuccessPopup() {
+            const modal = document.getElementById('payment-success-popup');
+            if (modal) modal.remove();
+        }
+
+        function showPaymentSuccessPopup({ title, subtitle, summary, nextYear }) {
+            closePaymentSuccessPopup();
+
+            const row = (label, value) => `
+                <div class="payment-success-row">
+                    <span>${label}</span>
+                    <strong>${value}</strong>
+                </div>
+            `;
+
+            let rows = '';
+            let note = '';
+
+            if (summary) {
+                const expected = parseFloat(summary.expected_amount) || 0;
+                const paid = parseFloat(summary.amount_paid) || 0;
+                const credit = parseFloat(summary.credit_applied) || 0;
+                const total = parseFloat(summary.total_applied) || 0;
+                const creditNext = parseFloat(summary.credit_balance_for_next_year) || 0;
+
+                rows += row('Expected', `&#8373;${expected.toFixed(2)}`);
+                rows += row('Paid', `&#8373;${paid.toFixed(2)}`);
+                if (credit > 0) {
+                    rows += row('Credit Applied', `+&#8373;${credit.toFixed(2)}`);
+                }
+                rows += row('Total Applied', `&#8373;${total.toFixed(2)}`);
+                rows += row('Status', summary.status || 'Updated');
+
+                if (creditNext > 0) {
+                    note = `
+                        <div class="payment-success-note">
+                            Overpayment of &#8373;${creditNext.toFixed(2)} will be credited to ${nextYear} subscription.
+                        </div>
+                    `;
+                }
+            }
+
+            const popupHtml = `
+                <div id="payment-success-popup" class="payment-success-overlay" onclick="if(event.target === this) closePaymentSuccessPopup()">
+                    <div class="payment-success-dialog" role="dialog" aria-modal="true" aria-labelledby="payment-success-title">
+                        <div class="payment-success-head">
+                            <div class="payment-success-icon"><i class="fas fa-check"></i></div>
+                            <div>
+                                <h3 id="payment-success-title" class="payment-success-title">${title}</h3>
+                                <div class="payment-success-subtitle">${subtitle}</div>
+                            </div>
+                        </div>
+                        <div class="payment-success-body">
+                            ${rows ? `<div class="payment-success-breakdown">${rows}</div>` : ''}
+                            ${note}
+                            <div class="payment-success-actions">
+                                <button type="button" class="payment-action-btn primary" onclick="closePaymentSuccessPopup()">Done</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', popupHtml);
+        }
+
         async function savePaymentHistory(event) {
             event.preventDefault();
             
@@ -6423,27 +6587,12 @@
                     const result = await response.json();
                     closePaymentEditModal();
                     
-                    // Show detailed breakdown
-                    let message = subData.is_virtual ? '✅ Payment recorded successfully!' : '✅ Payment updated successfully!';
-                    if (result.summary) {
-                        const sExp = parseFloat(result.summary.expected_amount) || 0;
-                        const sPaid = parseFloat(result.summary.amount_paid) || 0;
-                        const sCredit = parseFloat(result.summary.credit_applied) || 0;
-                        const sTotal = parseFloat(result.summary.total_applied) || 0;
-                        const sCreditNext = parseFloat(result.summary.credit_balance_for_next_year) || 0;
-                        message += '\n\n📋 Breakdown:';
-                        message += '\n• Expected: ₵' + sExp.toFixed(2);
-                        message += '\n• Paid: ₵' + sPaid.toFixed(2);
-                        if (sCredit > 0) {
-                            message += '\n• Credit Applied (from previous year): +₵' + sCredit.toFixed(2);
-                        }
-                        message += '\n• Total Applied: ₵' + sTotal.toFixed(2);
-                        if (sCreditNext > 0) {
-                            message += '\n\n💰 Overpayment of ₵' + sCreditNext.toFixed(2) + ' will be automatically credited to ' + (subData.year + 1) + ' subscription.';
-                        }
-                        message += '\n\n📌 Status: ' + result.summary.status;
-                    }
-                    alert(message);
+                    showPaymentSuccessPopup({
+                        title: subData.is_virtual ? 'Payment recorded successfully' : 'Payment updated successfully',
+                        subtitle: `Subscription year ${subData.year}`,
+                        summary: result.summary,
+                        nextYear: subData.year + 1
+                    });
                     
                     // Refresh the member view
                     viewMember(memberId);
