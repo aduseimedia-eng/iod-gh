@@ -568,6 +568,26 @@ app.get('/api/staff/members/:id', async (req, res) => {
     }
 });
 
+// Staff: Get pending induction candidates (read-only, no auth required)
+app.get('/api/staff/pending-members', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT id, candidate_code, member_type, title, first_name, surname, last_name,
+                   other_names, organization, designation, position, sector, region,
+                   phone_number, email, expertise, years_served_on_boards,
+                   TO_CHAR(proposed_induction_date, 'DD/MM/YYYY') as proposed_induction_date,
+                   status
+            FROM pending_members
+            WHERE status = 'Pending'
+            ORDER BY proposed_induction_date NULLS LAST, created_at DESC, id DESC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error fetching pending members for staff:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 function toStaffGoodStandingMember(member, year) {
     return {
         id: member.id,

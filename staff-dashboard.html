@@ -1127,6 +1127,17 @@
             box-shadow: var(--shadow-sm) !important;
         }
 
+        .staff-table-actions {
+            display: flex;
+            justify-content: center;
+            gap: 0.4rem;
+        }
+
+        .candidate-count {
+            color: var(--text-light);
+            font-size: 0.85rem;
+        }
+
         .pagination button {
             border-radius: 8px !important;
             box-shadow: none !important;
@@ -1222,6 +1233,9 @@
             <button onclick="scrollToSection('members-section')" class="nav-btn nav-btn-active" id="nav-members-btn" title="Members Directory">
                 <i class="fas fa-users"></i> Members
             </button>
+            <button onclick="scrollToSection('induction-section')" class="nav-btn" id="nav-induction-btn" title="Induction List">
+                <i class="fas fa-user-clock"></i> Induction List
+            </button>
             <button onclick="scrollToSection('good-standing-section')" class="nav-btn" id="nav-gs-btn" title="Good Standing Report">
                 <i class="fas fa-clipboard-check"></i> Good Standing
             </button>
@@ -1238,7 +1252,7 @@
         <!-- Read-only notice -->
         <div class="readonly-notice">
             <i class="fas fa-info-circle"></i>
-            <span>This is a <strong>view-only</strong> dashboard for staff. To add, edit, or delete records, please log in as an administrator.</span>
+            <span>This is a <strong>view-only</strong> dashboard for staff. Members, induction candidates, and good standing reports can be viewed here.</span>
         </div>
 
         <!-- KPI Cards -->
@@ -1326,6 +1340,44 @@
             </div>
         </section>
 
+        <!-- Induction List Section -->
+        <section class="content-section" id="induction-section" style="display: none;">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title"><i class="fas fa-user-clock" style="margin-right:0.5rem;"></i>Induction List</h2>
+                    <p class="section-subtitle">View candidates waiting to be inducted into the main database</p>
+                </div>
+                <div class="candidate-count">
+                    Showing <strong id="pending-showing-count">0</strong> candidates
+                </div>
+            </div>
+
+            <div class="filter-bar">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="pending-search-input" placeholder="Search candidates..." oninput="renderStaffPendingMembers()">
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Candidate</th>
+                            <th>Type</th>
+                            <th>Organization</th>
+                            <th>Region</th>
+                            <th>Induction</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pending-members-tbody">
+                        <tr><td colspan="6" class="no-data"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <!-- Good Standing Section -->
         <section class="content-section" id="good-standing-section" style="display: none;">
             <div class="section-header">
@@ -1371,6 +1423,7 @@
         // ==========================================
         let members = [];
         let filteredMembers = [];
+        let pendingMembers = [];
         let currentPage = 1;
         const itemsPerPage = 25;
         let sortState = { column: null, direction: 'asc' };
@@ -1386,6 +1439,7 @@
             populateYearFilter();
             populateGSYearSelect();
             loadMembers();
+            loadStaffPendingMembers();
         });
 
         function populateYearFilter() {
@@ -1418,10 +1472,31 @@
             }
         }
 
+        async function loadStaffPendingMembers() {
+            try {
+                const response = await fetch('/api/staff/pending-members');
+                if (!response.ok) {
+                    throw new Error('Failed to load induction list');
+                }
+                pendingMembers = await response.json();
+                renderStaffPendingMembers();
+            } catch (err) {
+                console.error('Error loading induction list:', err);
+                document.getElementById('pending-members-tbody').innerHTML =
+                    '<tr><td colspan="6" class="no-data"><i class="fas fa-exclamation-triangle" style="color: var(--danger); margin-right: 0.5rem;"></i>Failed to load induction list. Please refresh the page.</td></tr>';
+            }
+        }
+
         function refreshData() {
             document.getElementById('members-tbody').innerHTML =
                 '<tr><td colspan="8" class="no-data"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>';
+            document.getElementById('pending-members-tbody').innerHTML =
+                '<tr><td colspan="6" class="no-data"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>';
             loadMembers();
+            loadStaffPendingMembers();
+            if (document.getElementById('good-standing-section').style.display !== 'none') {
+                loadGoodStanding();
+            }
         }
 
         // ==========================================
@@ -1553,6 +1628,34 @@
             return parts.join(' ') || '-';
         }
 
+        function escapeHtml(value) {
+            return String(value || '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            }[char]));
+        }
+
+        function formatMemberType(memberType) {
+            return memberType === 'AIOD' ? 'Associate, IoD'
+                : memberType === 'MIOD' ? 'Member, IoD'
+                : memberType === 'FIOD' ? 'Fellow, IoD'
+                : memberType === 'Honorary' ? 'Honorary Fellow'
+                : memberType === 'Corporate' ? 'Corporate Member'
+                : (memberType || '-');
+        }
+
+        function getPendingCandidateName(candidate) {
+            if (candidate.member_type === 'Corporate') {
+                return candidate.organization || '-';
+            }
+            return [candidate.title, candidate.first_name, candidate.surname || candidate.last_name]
+                .filter(Boolean)
+                .join(' ') || candidate.organization || 'Unnamed candidate';
+        }
+
         function getPaymentBadge(member, year) {
             if (member.member_type === 'Honorary') {
                 return '<span class="badge badge-waived">Waived</span>';
@@ -1602,6 +1705,46 @@
 
             tbody.innerHTML = html;
             renderPagination(filteredMembers.length);
+        }
+
+        function renderStaffPendingMembers() {
+            const searchInput = document.getElementById('pending-search-input');
+            const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const rows = pendingMembers.filter(candidate => {
+                const text = [
+                    candidate.candidate_code,
+                    candidate.first_name,
+                    candidate.surname,
+                    candidate.last_name,
+                    candidate.organization,
+                    candidate.member_type,
+                    candidate.region,
+                    candidate.email
+                ].join(' ').toLowerCase();
+                return !search || text.includes(search);
+            });
+
+            document.getElementById('pending-showing-count').textContent = rows.length.toLocaleString();
+
+            if (rows.length === 0) {
+                document.getElementById('pending-members-tbody').innerHTML =
+                    '<tr><td colspan="6" class="no-data">No induction candidates found.</td></tr>';
+                return;
+            }
+
+            document.getElementById('pending-members-tbody').innerHTML = rows.map(candidate => `
+                <tr>
+                    <td>
+                        <div style="font-weight:700;color:var(--text-dark)">${escapeHtml(getPendingCandidateName(candidate))}</div>
+                        <div style="font-size:0.72rem;color:var(--text-light)">${escapeHtml(candidate.candidate_code || '')}</div>
+                    </td>
+                    <td><span class="badge badge-type" style="text-transform: none;">${escapeHtml(formatMemberType(candidate.member_type))}</span></td>
+                    <td>${escapeHtml(candidate.organization || '-')}</td>
+                    <td>${escapeHtml(candidate.region || '-')}</td>
+                    <td>${escapeHtml(candidate.proposed_induction_date || '-')}</td>
+                    <td><span class="badge badge-pending">${escapeHtml(candidate.status || 'Pending')}</span></td>
+                </tr>
+            `).join('');
         }
 
         function renderPagination(total) {
@@ -1777,22 +1920,26 @@
         // ==========================================
         function scrollToSection(sectionId) {
             const membersSection = document.getElementById('members-section');
+            const inductionSection = document.getElementById('induction-section');
             const gsSection = document.getElementById('good-standing-section');
             const navMembers = document.getElementById('nav-members-btn');
+            const navInduction = document.getElementById('nav-induction-btn');
             const navGS = document.getElementById('nav-gs-btn');
 
-            if (sectionId === 'members-section') {
-                membersSection.style.display = '';
-                gsSection.style.display = 'none';
-                navMembers.classList.add('nav-btn-active');
-                navGS.classList.remove('nav-btn-active');
-            } else {
-                membersSection.style.display = 'none';
-                gsSection.style.display = '';
-                navGS.classList.add('nav-btn-active');
-                navMembers.classList.remove('nav-btn-active');
-                if (gsData.length === 0) loadGoodStanding();
+            membersSection.style.display = sectionId === 'members-section' ? '' : 'none';
+            inductionSection.style.display = sectionId === 'induction-section' ? '' : 'none';
+            gsSection.style.display = sectionId === 'good-standing-section' ? '' : 'none';
+            navMembers.classList.toggle('nav-btn-active', sectionId === 'members-section');
+            navInduction.classList.toggle('nav-btn-active', sectionId === 'induction-section');
+            navGS.classList.toggle('nav-btn-active', sectionId === 'good-standing-section');
+
+            if (sectionId === 'induction-section' && pendingMembers.length === 0) {
+                loadStaffPendingMembers();
             }
+            if (sectionId === 'good-standing-section' && gsData.length === 0) {
+                loadGoodStanding();
+            }
+
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
