@@ -2027,40 +2027,168 @@
         }
 
         #view-modal .modal-content {
-            max-width: 860px !important;
+            max-width: 880px !important;
             padding: 0 !important;
             border-radius: 8px !important;
+            overflow: hidden !important;
+        }
+
+        #view-modal .close-btn {
+            background: rgba(255, 255, 255, 0.86) !important;
+            color: #475569 !important;
+        }
+
+        .mp-profile-shell {
+            background: #ffffff;
         }
 
         .mp-header {
-            background: rgba(22, 35, 90, 0.96) !important;
-            padding: 1.4rem 1.25rem !important;
+            min-height: 124px !important;
+            padding: 0 !important;
+            background:
+                linear-gradient(135deg, rgba(15, 118, 110, 0.16), rgba(37, 99, 235, 0.08)),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0)) !important;
+            text-align: left !important;
         }
 
         .mp-header::before {
             display: none !important;
         }
 
+        .mp-profile-summary {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin: -42px 1.15rem 0;
+            padding-bottom: 0.95rem;
+        }
+
+        .mp-identity {
+            display: flex;
+            align-items: flex-end;
+            gap: 0.85rem;
+            min-width: 0;
+        }
+
         .mp-avatar {
-            width: 58px !important;
-            height: 58px !important;
-            font-size: 1.35rem !important;
-            margin-bottom: 0.55rem !important;
+            width: 76px !important;
+            height: 76px !important;
+            margin: 0 !important;
+            flex: 0 0 auto;
+            border: 5px solid #ffffff !important;
+            background: linear-gradient(135deg, rgba(15, 118, 110, 0.14), rgba(37, 99, 235, 0.12)) !important;
+            color: var(--primary) !important;
+            font-size: 1.45rem !important;
             animation: none !important;
-            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12) !important;
+        }
+
+        .mp-profile-copy {
+            min-width: 0;
+            padding-bottom: 0.1rem;
+        }
+
+        .mp-name-row {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            min-width: 0;
         }
 
         .mp-name {
-            font-size: 1.15rem !important;
+            margin: 0 !important;
+            color: #111827 !important;
+            font-size: 1.28rem !important;
+            line-height: 1.15 !important;
+            letter-spacing: 0 !important;
+            overflow-wrap: anywhere;
+        }
+
+        .mp-verify {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 999px;
+            background: rgba(15, 118, 110, 0.12);
+            color: #0f766e;
+            font-size: 0.65rem;
+            flex: 0 0 auto;
         }
 
         .mp-subtitle {
-            font-size: 0.78rem !important;
-            margin-bottom: 0.65rem !important;
+            color: #64748b !important;
+            font-size: 0.8rem !important;
+            margin: 0.22rem 0 0.55rem !important;
+            overflow-wrap: anywhere;
+        }
+
+        .mp-badge {
+            border-radius: 999px !important;
+            padding: 0.32rem 0.58rem !important;
+            box-shadow: none !important;
+            font-size: 0.72rem !important;
+        }
+
+        .mp-profile-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.38rem;
+            min-height: 34px;
+            padding: 0.5rem 0.75rem;
+            border: 0;
+            border-radius: 8px;
+            background: #111827;
+            color: #ffffff;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: none;
+        }
+
+        .mp-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            margin: 0 1.15rem;
+            border-top: 1px solid rgba(226, 232, 240, 0.9);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+        }
+
+        .mp-metric {
+            padding: 0.82rem 0.95rem;
+            border-right: 1px solid rgba(226, 232, 240, 0.9);
+            min-width: 0;
+        }
+
+        .mp-metric:last-child {
+            border-right: 0;
+        }
+
+        .mp-metric span {
+            display: block;
+            color: #94a3b8;
+            font-size: 0.68rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0;
+            margin-bottom: 0.24rem;
+        }
+
+        .mp-metric strong {
+            display: block;
+            color: #111827;
+            font-size: 0.84rem;
+            font-weight: 800;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .mp-body {
-            padding: 1rem !important;
+            padding: 1rem 1.15rem !important;
         }
 
         .mp-grid {
@@ -2069,9 +2197,9 @@
 
         .mp-card {
             border: 0 !important;
-            border-radius: 8px !important;
+            border-radius: 0 !important;
             padding: 0.85rem !important;
-            background: rgba(244, 246, 251, 0.68) !important;
+            background: rgba(244, 246, 251, 0.62) !important;
             box-shadow: none !important;
         }
 
@@ -2085,28 +2213,61 @@
         }
 
         .mp-card.accent-green {
-            background: rgba(4, 120, 87, 0.08) !important;
+            background: rgba(15, 118, 110, 0.07) !important;
         }
 
         .mp-card-title {
-            font-size: 0.72rem !important;
-            margin-bottom: 0.65rem !important;
+            font-size: 0.7rem !important;
+            margin-bottom: 0.55rem !important;
+            color: #334155 !important;
         }
 
         .mp-card-title .icon-circle {
-            width: 24px !important;
-            height: 24px !important;
+            width: 22px !important;
+            height: 22px !important;
             border-radius: 8px !important;
-            background: rgba(22, 35, 90, 0.12) !important;
+            background: rgba(22, 35, 90, 0.1) !important;
             color: var(--primary) !important;
         }
 
-        .mp-footer {
-            padding: 0.85rem 1rem !important;
-            gap: 0.5rem !important;
+        .mp-field {
+            padding: 0.42rem 0 !important;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.82) !important;
         }
 
-        .mp-action-btn.mp-close-btn,
+        .mp-field:last-child {
+            border-bottom: 0 !important;
+        }
+
+        .mp-field .label {
+            color: #94a3b8 !important;
+            font-size: 0.72rem !important;
+        }
+
+        .mp-field .value {
+            color: #1f2937 !important;
+            font-size: 0.78rem !important;
+        }
+
+        .mp-feedback,
+        .mp-history {
+            border: 0 !important;
+            border-radius: 0 !important;
+            background: rgba(244, 246, 251, 0.62) !important;
+            box-shadow: none !important;
+        }
+
+        .mp-footer {
+            padding: 0.85rem 1.15rem !important;
+            gap: 0.5rem !important;
+            border-top: 1px solid rgba(226, 232, 240, 0.9) !important;
+        }
+
+        .mp-action-btn.mp-close-btn {
+            background: rgba(100, 116, 139, 0.12) !important;
+            color: #334155 !important;
+        }
+
         .mp-action-btn.print-btn,
         .mp-action-btn.edit-btn {
             background: var(--primary) !important;
@@ -2150,8 +2311,34 @@
         /* Responsive */
         @media (max-width: 700px) {
             .mp-grid { grid-template-columns: 1fr; }
-            .mp-header { padding: 2rem 1.25rem 1.5rem; }
-            .mp-body { padding: 1.25rem; }
+            .mp-header { min-height: 108px !important; padding: 0 !important; }
+            .mp-profile-summary {
+                align-items: flex-start;
+                flex-direction: column;
+                margin: -36px 0.9rem 0;
+            }
+            .mp-identity {
+                align-items: flex-end;
+                width: 100%;
+            }
+            .mp-avatar {
+                width: 68px !important;
+                height: 68px !important;
+            }
+            .mp-profile-action {
+                width: 100%;
+            }
+            .mp-metrics {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                margin: 0 0.9rem;
+            }
+            .mp-metric:nth-child(2) {
+                border-right: 0;
+            }
+            .mp-metric:nth-child(n + 3) {
+                border-top: 1px solid rgba(226, 232, 240, 0.9);
+            }
+            .mp-body { padding: 0.9rem; }
             .mp-footer { flex-direction: column; }
             .mp-action-btn { justify-content: center; }
             .mp-history table { font-size: 0.78rem; }
@@ -5140,24 +5327,60 @@
                 }
 
                 // ── Assemble Final HTML ──
+                const profileEmail = member.email || member.contact_email || 'No email on record';
+                const joinedDate = member.date_of_admission || member.registration_date || 'N/A';
+                const profileStatusText = isCurrentYearWaived
+                    ? 'Waived'
+                    : (isCurrentYearPaid ? 'In good standing' : 'Payment pending');
+
                 const html = `
+                    <div class="mp-profile-shell">
                     <div class="print-header">
                         <img src="White IOD_Logo_png.png" alt="IoD-Ghana Logo" onerror="this.style.display='none'">
                         <h3>Institute of Directors - Ghana</h3>
                         <p>Member Profile</p>
                     </div>
 
-                    <!-- Profile Header Banner -->
-                    <div class="mp-header print-hide">
-                        <div class="mp-avatar">
-                            <i class="fas fa-${isCorporate ? 'building' : 'user'}"></i>
+                    <div class="mp-header print-hide"></div>
+                    <div class="mp-profile-summary print-hide">
+                        <div class="mp-identity">
+                            <div class="mp-avatar">
+                                <i class="fas fa-${isCorporate ? 'building' : 'user'}"></i>
+                            </div>
+                            <div class="mp-profile-copy">
+                                <div class="mp-name-row">
+                                    <h2 class="mp-name">${fullName}</h2>
+                                    <span class="mp-verify"><i class="fas fa-check"></i></span>
+                                </div>
+                                <p class="mp-subtitle">${profileEmail}</p>
+                                <span class="mp-badge ${isCurrentYearPaid ? 'paid' : 'unpaid'} ${isCurrentYearWaived ? 'waived' : ''}">
+                                    <i class="fas fa-${isCurrentYearPaid ? (isCurrentYearWaived ? 'hand-holding-heart' : 'check-circle') : 'times-circle'}"></i>
+                                    ${profileStatusText} for ${currentYear}
+                                </span>
+                            </div>
                         </div>
-                        <h2 class="mp-name">${fullName}</h2>
-                        <p class="mp-subtitle">${memberTypeFull} &mdash; ${member.membership_number || 'N/A'}</p>
-                        <span class="mp-badge ${isCurrentYearPaid ? 'paid' : 'unpaid'} ${isCurrentYearWaived ? 'waived' : ''}">
-                            <i class="fas fa-${isCurrentYearPaid ? (isCurrentYearWaived ? 'hand-holding-heart' : 'check-circle') : 'times-circle'}"></i>
-                            ${isCurrentYearWaived ? 'Waived for ' + currentYear : (isCurrentYearPaid ? 'Paid for ' + currentYear : 'Not Paid for ' + currentYear)}
-                        </span>
+                        <button onclick="printMemberProfile()" class="mp-profile-action">
+                            <i class="fas fa-print"></i> Print
+                        </button>
+                    </div>
+
+                    <div class="mp-metrics print-hide">
+                        <div class="mp-metric">
+                            <span>Member No.</span>
+                            <strong>${member.membership_number || 'N/A'}</strong>
+                        </div>
+                        <div class="mp-metric">
+                            <span>Joined</span>
+                            <strong>${joinedDate}</strong>
+                        </div>
+                        <div class="mp-metric">
+                            <span>Member Type</span>
+                            <strong>${member.member_type || 'N/A'}</strong>
+                        </div>
+                        <div class="mp-metric">
+                            <span>${currentYear} Status</span>
+                            <strong>${profileStatusText}</strong>
+                        </div>
                     </div>
 
                     <!-- Body -->
@@ -5240,6 +5463,7 @@
                         <button onclick="closeViewModal(); editMember(${member.id});" class="mp-action-btn edit-btn">
                             <i class="fas fa-edit"></i> Edit Member
                         </button>
+                    </div>
                     </div>
                 `;
                 
