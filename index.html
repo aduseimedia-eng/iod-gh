@@ -99,41 +99,6 @@
             margin-top: 0.15rem;
         }
 
-        .sidebar-user {
-            display: grid;
-            grid-template-columns: 34px 1fr;
-            gap: 0.7rem;
-            align-items: center;
-            padding: 0.8rem;
-            border: 1px solid #edf1f6;
-            border-radius: 8px;
-            background: #ffffff;
-        }
-
-        .sidebar-user-icon {
-            width: 34px;
-            height: 34px;
-            border-radius: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: #ffffff;
-            background: var(--secondary);
-        }
-
-        .sidebar-user strong {
-            display: block;
-            font-size: 0.78rem;
-            color: var(--text-dark);
-        }
-
-        .sidebar-user span {
-            display: block;
-            font-size: 0.7rem;
-            color: var(--text-light);
-            margin-top: 0.1rem;
-        }
-
         .sidebar-section-label {
             margin: 0.5rem 0 0.35rem;
             padding: 0 0.45rem;
@@ -1344,8 +1309,7 @@
                 border-bottom: 1px solid var(--border);
             }
 
-            .sidebar-brand,
-            .sidebar-user {
+            .sidebar-brand {
                 display: none;
             }
 
@@ -2188,14 +2152,6 @@
                 </div>
             </div>
 
-            <div class="sidebar-user">
-                <div class="sidebar-user-icon"><i class="fas fa-user-shield"></i></div>
-                <div>
-                    <strong id="sidebar-admin-name">Admin</strong>
-                    <span>Database workspace</span>
-                </div>
-            </div>
-
             <div>
                 <div class="sidebar-section-label">Main</div>
                 <nav class="sidebar-nav">
@@ -2211,8 +2167,6 @@
                 <nav class="sidebar-nav">
                     <a href="#members-section" class="sidebar-link"><i class="fas fa-users"></i> Member List</a>
                     <a href="#member-types" class="sidebar-link"><i class="fas fa-layer-group"></i> Categories</a>
-                    <a href="#" onclick="openImportModal(); return false;" class="sidebar-link"><i class="fas fa-file-arrow-up"></i> Import</a>
-                    <a href="#" onclick="exportToCSV(); return false;" class="sidebar-link"><i class="fas fa-download"></i> Export</a>
                 </nav>
             </div>
 
@@ -3104,8 +3058,6 @@
             const heading = document.getElementById('welcome-admin-heading');
             const adminName = currentAuthContext.user || 'Admin';
             if (heading) heading.textContent = `Howdy, ${adminName}`;
-            const sidebarName = document.getElementById('sidebar-admin-name');
-            if (sidebarName) sidebarName.textContent = adminName;
         }
 
         async function logout() {
