@@ -2917,7 +2917,8 @@
             background: #ffffff !important;
             border: 1px solid var(--border) !important;
             box-shadow: var(--shadow-lg) !important;
-            overflow: hidden !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
         }
 
         #settings-modal .close-btn {
@@ -3020,6 +3021,17 @@
             padding: 0.55rem 0.65rem !important;
             font-size: 0.78rem !important;
             font-weight: 700 !important;
+            background: #ffffff !important;
+            color: var(--text-light) !important;
+            border: 1px solid transparent !important;
+            box-shadow: none !important;
+        }
+
+        #settings-tabs .settings-tab.active {
+            background: var(--primary) !important;
+            color: #ffffff !important;
+            border-color: var(--primary) !important;
+            box-shadow: var(--shadow-sm) !important;
         }
 
         #settings-panel-username,
@@ -3130,16 +3142,6 @@
             font-size: 0.78rem !important;
         }
 
-        #settings-tabs button,
-        .settings-tab {
-            border: 1px solid transparent !important;
-        }
-
-        #settings-tabs button:not([style*="var(--primary)"]),
-        .settings-tab:not(.active) {
-            background: transparent !important;
-        }
-
         #settings-panel-username > div,
         #settings-panel-password > div,
         .superadmin-panel,
@@ -3189,6 +3191,29 @@
         #settings-alert {
             border: 1px solid transparent !important;
             box-shadow: none !important;
+        }
+
+        #settings-panel-admins {
+            overflow: visible !important;
+        }
+
+        #settings-panel-admins .superadmin-grid {
+            grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1.35fr) !important;
+            align-items: start !important;
+        }
+
+        #settings-panel-admins .superadmin-panel {
+            min-width: 0 !important;
+            overflow: visible !important;
+        }
+
+        #settings-panel-admins .admin-table-wrap {
+            max-width: 100% !important;
+            overflow: auto !important;
+        }
+
+        #settings-panel-admins .admin-management-table {
+            min-width: 520px !important;
         }
 
         #admin-reset-password-modal {
@@ -4429,12 +4454,14 @@
                 }
                 if (t === tab) {
                     btn.style.display = 'flex';
+                    btn.classList.add('active');
                     btn.style.background = 'var(--primary)';
                     btn.style.color = 'white';
                     btn.style.boxShadow = 'var(--shadow-sm)';
                     panel.style.display = 'block';
                 } else {
                     if (t === 'admins') btn.style.display = 'flex';
+                    btn.classList.remove('active');
                     btn.style.background = 'transparent';
                     btn.style.color = 'var(--text-light)';
                     btn.style.boxShadow = 'none';
