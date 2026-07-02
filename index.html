@@ -3106,6 +3106,153 @@
             color: var(--primary) !important;
         }
 
+        #settings-modal {
+            align-items: center !important;
+            padding: 1rem !important;
+            background: rgba(15, 23, 42, 0.46) !important;
+            backdrop-filter: none !important;
+        }
+
+        #settings-modal .modal-content {
+            max-height: 92vh !important;
+        }
+
+        #settings-modal .modal-content > div:first-of-type {
+            min-height: auto !important;
+        }
+
+        #settings-modal .modal-content > div:first-of-type h2,
+        #admin-reset-password-modal .modal-header h2 {
+            letter-spacing: 0 !important;
+        }
+
+        #settings-modal .modal-content > div:first-of-type p {
+            font-size: 0.78rem !important;
+        }
+
+        #settings-tabs button,
+        .settings-tab {
+            border: 1px solid transparent !important;
+        }
+
+        #settings-tabs button:not([style*="var(--primary)"]),
+        .settings-tab:not(.active) {
+            background: transparent !important;
+        }
+
+        #settings-panel-username > div,
+        #settings-panel-password > div,
+        .superadmin-panel,
+        #admin-reset-password-modal .modal-content > div:not(.modal-header) {
+            border-radius: 8px !important;
+        }
+
+        #settings-modal .btn-primary,
+        #admin-reset-password-modal .btn-primary {
+            min-height: 40px !important;
+            border-radius: 8px !important;
+            background: var(--primary) !important;
+            box-shadow: var(--shadow-sm) !important;
+        }
+
+        #settings-modal .btn-primary:hover,
+        #admin-reset-password-modal .btn-primary:hover {
+            background: var(--primary-light) !important;
+            transform: translateY(-1px) !important;
+        }
+
+        #settings-modal .btn-secondary,
+        #admin-reset-password-modal .btn-secondary {
+            min-height: 40px !important;
+            border-radius: 8px !important;
+            background: #ffffff !important;
+            border: 1px solid var(--border) !important;
+            color: var(--text-light) !important;
+            box-shadow: var(--shadow-sm) !important;
+        }
+
+        #settings-modal button[onclick^="toggleSettingsPw"],
+        #admin-reset-password-modal button[onclick^="toggleSettingsPw"] {
+            background: transparent !important;
+            border: 0 !important;
+            color: var(--text-light) !important;
+            box-shadow: none !important;
+            transform: translateY(-50%) !important;
+        }
+
+        #settings-modal button[onclick^="toggleSettingsPw"]:hover,
+        #admin-reset-password-modal button[onclick^="toggleSettingsPw"]:hover {
+            color: var(--primary) !important;
+            background: #eef3ff !important;
+        }
+
+        #settings-alert {
+            border: 1px solid transparent !important;
+            box-shadow: none !important;
+        }
+
+        #admin-reset-password-modal {
+            background: rgba(15, 23, 42, 0.46) !important;
+            backdrop-filter: none !important;
+        }
+
+        #admin-reset-password-modal .modal-content {
+            width: min(94vw, 480px) !important;
+            padding: 0 !important;
+            border-radius: 12px !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: var(--shadow-lg) !important;
+            overflow: hidden !important;
+        }
+
+        #admin-reset-password-modal .modal-header {
+            background: #ffffff !important;
+            color: var(--text-dark) !important;
+            padding: 1.05rem 1.25rem !important;
+            border-bottom: 1px solid var(--border) !important;
+        }
+
+        #admin-reset-password-modal .modal-header h2 {
+            color: var(--text-dark) !important;
+            font-size: 1.05rem !important;
+        }
+
+        #admin-reset-password-modal .close-btn {
+            top: 0.85rem !important;
+            right: 0.85rem !important;
+            width: 34px !important;
+            height: 34px !important;
+            border-radius: 8px !important;
+            background: #ffffff !important;
+            color: var(--text-light) !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: none !important;
+        }
+
+        #admin-reset-password-modal .close-btn:hover {
+            color: var(--danger) !important;
+            background: #fff5f5 !important;
+            border-color: #fecaca !important;
+            transform: none !important;
+        }
+
+        #admin-reset-password-modal .modal-content > div:not(.modal-header) {
+            margin-left: 1.25rem !important;
+            margin-right: 1.25rem !important;
+        }
+
+        #admin-reset-password-modal .form-group {
+            margin-left: 1.25rem !important;
+            margin-right: 1.25rem !important;
+        }
+
+        #admin-reset-password-modal .modal-content > div:last-child {
+            padding: 1rem 1.25rem 1.25rem !important;
+            margin: 0 !important;
+            border-top: 1px solid var(--border) !important;
+            background: #f8fafc !important;
+        }
+
         /* Responsive */
         @media (max-width: 700px) {
             #settings-modal .modal-content {
