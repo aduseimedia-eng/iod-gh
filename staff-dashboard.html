@@ -1644,9 +1644,6 @@
         }
 
         function getPendingCandidateName(candidate) {
-            if (candidate.member_type === 'Corporate') {
-                return candidate.organization || '-';
-            }
             return [candidate.title, candidate.first_name, candidate.surname || candidate.last_name]
                 .filter(Boolean)
                 .join(' ') || candidate.organization || 'Unnamed candidate';

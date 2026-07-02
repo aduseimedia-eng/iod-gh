@@ -543,17 +543,7 @@
                         <form id="pending-form">
                             <input type="hidden" id="pending-id">
                             <div class="form-grid">
-                                <div class="form-field">
-                                    <label for="member-type">Member Type</label>
-                                    <select id="member-type" required onchange="updateCandidateFields()">
-                                        <option value="">Select type</option>
-                                        <option value="AIOD">Associate, IoD</option>
-                                        <option value="MIOD">Member, IoD</option>
-                                        <option value="FIOD">Fellow, IoD</option>
-                                        <option value="Honorary">Honorary Fellow</option>
-                                        <option value="Corporate">Corporate Member</option>
-                                    </select>
-                                </div>
+                                <input type="hidden" id="member-type" value="MIOD">
 
                                 <div class="form-field" id="membership-category-field" style="display:none;">
                                     <label for="membership-category">Corporate Category</label>
@@ -758,7 +748,7 @@
             if (shouldReset) resetForm();
             document.getElementById('candidate-modal').classList.add('open');
             document.body.classList.add('modal-open');
-            window.setTimeout(() => document.getElementById('member-type').focus(), 0);
+            window.setTimeout(() => document.getElementById('title').focus(), 0);
         }
 
         function closeCandidateModal() {
@@ -775,30 +765,28 @@
         }
 
         function updateCandidateFields() {
-            const memberType = document.getElementById('member-type').value;
-            const isCorporate = memberType === 'Corporate';
-            document.getElementById('membership-category-field').style.display = isCorporate ? 'flex' : 'none';
-            document.getElementById('gender-field').style.display = isCorporate ? 'none' : 'flex';
-            document.getElementById('title-field').style.display = isCorporate ? 'none' : 'flex';
-            document.getElementById('first-name').closest('.form-field').style.display = isCorporate ? 'none' : 'flex';
-            document.getElementById('surname-field').style.display = memberType === 'AIOD' ? 'flex' : 'none';
-            document.getElementById('last-name-field').style.display = (!isCorporate && memberType !== 'AIOD') ? 'flex' : 'none';
-            document.getElementById('designation-field').style.display = memberType === 'AIOD' ? 'flex' : 'none';
-            document.getElementById('position-field').style.display = (!isCorporate && memberType !== 'AIOD') ? 'flex' : 'none';
+            document.getElementById('member-type').value = 'MIOD';
+            document.getElementById('membership-category-field').style.display = 'none';
+            document.getElementById('gender-field').style.display = 'flex';
+            document.getElementById('title-field').style.display = 'flex';
+            document.getElementById('first-name').closest('.form-field').style.display = 'flex';
+            document.getElementById('surname-field').style.display = 'flex';
+            document.getElementById('last-name-field').style.display = 'none';
+            document.getElementById('designation-field').style.display = 'flex';
+            document.getElementById('position-field').style.display = 'flex';
         }
 
         function getFormData() {
-            const memberType = sanitizeInput(document.getElementById('member-type').value);
-            const isCorporate = memberType === 'Corporate';
+            const memberType = 'MIOD';
             return {
                 member_type: memberType,
-                title: isCorporate ? '' : sanitizeInput(document.getElementById('title').value),
-                first_name: isCorporate ? '' : sanitizeInput(document.getElementById('first-name').value),
-                surname: isCorporate ? '' : sanitizeInput(document.getElementById('surname').value),
-                last_name: isCorporate ? '' : sanitizeInput(document.getElementById('last-name').value),
-                other_names: isCorporate ? '' : sanitizeInput(document.getElementById('other-names').value),
-                membership_category: isCorporate ? sanitizeInput(document.getElementById('membership-category').value) : '',
-                gender: isCorporate ? '' : sanitizeInput(document.getElementById('gender').value),
+                title: sanitizeInput(document.getElementById('title').value),
+                first_name: sanitizeInput(document.getElementById('first-name').value),
+                surname: sanitizeInput(document.getElementById('surname').value),
+                last_name: sanitizeInput(document.getElementById('last-name').value),
+                other_names: sanitizeInput(document.getElementById('other-names').value),
+                membership_category: '',
+                gender: sanitizeInput(document.getElementById('gender').value),
                 organization: sanitizeInput(document.getElementById('organization').value),
                 designation: sanitizeInput(document.getElementById('designation').value),
                 position: sanitizeInput(document.getElementById('position').value),
@@ -877,9 +865,9 @@
             }
 
             document.getElementById('pending-tbody').innerHTML = rows.map(candidate => {
-                const name = candidate.member_type === 'Corporate'
-                    ? candidate.organization
-                    : [candidate.title, candidate.first_name, candidate.surname || candidate.last_name].filter(Boolean).join(' ') || 'Unnamed candidate';
+                const name = [candidate.title, candidate.first_name, candidate.surname || candidate.last_name].filter(Boolean).join(' ')
+                    || candidate.organization
+                    || 'Unnamed candidate';
                 const inductionDate = candidate.proposed_induction_date
                     ? new Date(candidate.proposed_induction_date).toLocaleDateString('en-GB')
                     : '-';
@@ -952,6 +940,7 @@
         function resetForm() {
             document.getElementById('pending-form').reset();
             document.getElementById('pending-id').value = '';
+            document.getElementById('member-type').value = 'MIOD';
             document.getElementById('form-title').textContent = 'New Induction Candidate';
             document.getElementById('years-served-on-boards').value = '0';
             updateCandidateFields();
