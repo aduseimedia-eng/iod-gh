@@ -755,9 +755,14 @@
                     </div>
                     <div class="table-toolbar">
                         <input id="candidate-search" type="search" placeholder="Search candidates..." oninput="renderPendingMembers()">
-                        <button class="btn-secondary" onclick="toggleHistory()">
-                            <i class="fas fa-clock-rotate-left"></i> <span id="history-label">Show History</span>
-                        </button>
+                        <div class="actions">
+                            <button class="btn-secondary" onclick="toggleHistory()">
+                                <i class="fas fa-clock-rotate-left"></i> <span id="history-label">Show History</span>
+                            </button>
+                            <button class="btn-danger" id="clear-history-btn" onclick="clearInductionHistory()" style="display:none;">
+                                <i class="fas fa-trash"></i> Clear History
+                            </button>
+                        </div>
                     </div>
                     <div class="table-wrap">
                         <table>
@@ -969,7 +974,14 @@
                 return !search || text.includes(search);
             });
 
-            document.getElementById('pending-count').textContent = `${pendingMembers.filter(c => c.status === 'Pending').length} pending`;
+            const pendingCount = pendingMembers.filter(c => c.status === 'Pending').length;
+            const historyCount = pendingMembers.filter(c => c.status !== 'Pending').length;
+            document.getElementById('pending-count').textContent = `${pendingCount} pending`;
+            const clearHistoryBtn = document.getElementById('clear-history-btn');
+            if (clearHistoryBtn) {
+                clearHistoryBtn.style.display = showHistory && historyCount > 0 ? 'inline-flex' : 'none';
+                clearHistoryBtn.disabled = historyCount === 0;
+            }
 
             if (rows.length === 0) {
                 document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="5" class="empty">No candidates found.</td></tr>';
@@ -1125,6 +1137,39 @@
             showHistory = !showHistory;
             document.getElementById('history-label').textContent = showHistory ? 'Hide History' : 'Show History';
             loadPendingMembers();
+        }
+
+        async function clearInductionHistory() {
+            const historyCount = pendingMembers.filter(candidate => candidate.status !== 'Pending').length;
+            if (historyCount === 0) {
+                showAlert('No induction history to clear.', 'error');
+                return;
+            }
+
+            if (!confirm(`Clear ${historyCount} induction history record${historyCount === 1 ? '' : 's'}? Pending candidates will not be affected.`)) {
+                return;
+            }
+
+            const clearBtn = document.getElementById('clear-history-btn');
+            if (clearBtn) {
+                clearBtn.disabled = true;
+                clearBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Clearing...';
+            }
+
+            const response = await fetch('/api/pending-members/history', { method: 'DELETE' });
+            if (response.ok) {
+                const result = await response.json();
+                showAlert(`${result.deleted_count || 0} induction history record${result.deleted_count === 1 ? '' : 's'} cleared.`);
+                await loadPendingMembers();
+            } else {
+                const error = await response.json().catch(() => ({}));
+                showAlert(error.error || 'Failed to clear induction history.', 'error');
+            }
+
+            if (clearBtn) {
+                clearBtn.disabled = false;
+                clearBtn.innerHTML = '<i class="fas fa-trash"></i> Clear History';
+            }
         }
     </script>
 </body>

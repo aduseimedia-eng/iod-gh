@@ -1802,6 +1802,29 @@ app.post('/api/pending-members/:id/promote', async (req, res) => {
     }
 });
 
+app.delete('/api/pending-members/history', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            DELETE FROM pending_members
+            WHERE status <> 'Pending'
+            RETURNING id
+        `);
+
+        res.locals.activityAction = 'clear_pending_member_history';
+        res.locals.activityEntityType = 'pending_member';
+        res.locals.activityDescription = `${req.session.user} cleared ${result.rowCount} induction history record${result.rowCount === 1 ? '' : 's'}`;
+        res.locals.activityMetadata = { deletedCount: result.rowCount };
+
+        res.json({
+            message: 'Induction history cleared',
+            deleted_count: result.rowCount
+        });
+    } catch (err) {
+        console.error('Error clearing induction history:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 app.delete('/api/pending-members/:id', async (req, res) => {
     try {
         const result = await pool.query(`
