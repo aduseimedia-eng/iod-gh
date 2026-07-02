@@ -815,6 +815,95 @@
             min-width: 560px;
         }
 
+        .revenue-stat-card {
+            background: #ffffff;
+            border: 1px solid #e8eef5;
+            border-radius: 8px;
+            padding: 1.1rem 1.2rem 1rem;
+            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+        }
+
+        .revenue-stat-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.85rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .revenue-stat-title {
+            color: #111827;
+            font-size: 1rem;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .revenue-range-tabs {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .revenue-range-tab {
+            min-height: 30px !important;
+            padding: 0.35rem 0.65rem !important;
+            border-radius: 8px !important;
+            border: 1px solid transparent !important;
+            background: transparent !important;
+            color: #6b7280 !important;
+            box-shadow: none !important;
+            font-size: 0.72rem !important;
+            font-weight: 700 !important;
+            cursor: default !important;
+        }
+
+        .revenue-range-tab.active {
+            background: #ffffff !important;
+            border-color: #79b7dc !important;
+            color: #2577a7 !important;
+            box-shadow: 0 4px 12px rgba(37, 119, 167, 0.12) !important;
+        }
+
+        .revenue-chart-wrap {
+            position: relative;
+            height: 330px;
+        }
+
+        .revenue-stat-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.65rem;
+            margin-top: 0.9rem;
+        }
+
+        .revenue-mini-stat {
+            background: #f8fafc;
+            border: 1px solid #edf2f7;
+            border-radius: 8px;
+            padding: 0.65rem 0.75rem;
+            min-width: 0;
+        }
+
+        .revenue-mini-label {
+            color: #64748b;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.2rem;
+        }
+
+        .revenue-mini-value {
+            color: #0f172a;
+            font-size: 0.92rem;
+            font-weight: 800;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .insight-stat-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1241,6 +1330,20 @@
             .chart-card[style*="grid-column"] {
                 grid-column: auto !important;
             }
+
+            .revenue-stat-head,
+            .revenue-stat-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .revenue-stat-head {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .revenue-range-tabs {
+                justify-content: flex-start;
+            }
         }
     </style>
 </head>
@@ -1601,6 +1704,14 @@
             }).format(num);
         }
 
+        function formatCompactCurrency(value) {
+            const num = parseFloat(value) || 0;
+            return 'GHS ' + new Intl.NumberFormat('en-GH', {
+                notation: 'compact',
+                maximumFractionDigits: 1
+            }).format(num);
+        }
+
         function formatPercent(value) {
             const num = parseFloat(value) || 0;
             return num.toFixed(2) + '%';
@@ -1924,8 +2035,39 @@
 
                 if (data && data.length > 0) {
                     const ordered = [...data].sort((a, b) => parseInt(a.subscription_year, 10) - parseInt(b.subscription_year, 10));
+                    const latestRow = ordered[ordered.length - 1] || {};
+                    const bestRow = ordered.reduce((best, row) => {
+                        const bestRevenue = parseFloat(best.total_revenue || 0);
+                        const rowRevenue = parseFloat(row.total_revenue || 0);
+                        return rowRevenue > bestRevenue ? row : best;
+                    }, ordered[0] || {});
+                    const averageRevenue = ordered.reduce((sum, row) => sum + parseFloat(row.total_revenue || 0), 0) / ordered.length;
                     const html = `
-                        <div class="chart-canvas-wrap tall"><canvas id="yearlyTrendsChart"></canvas></div>
+                        <div class="revenue-stat-card">
+                            <div class="revenue-stat-head">
+                                <h3 class="revenue-stat-title">Revenue Statistics</h3>
+                                <div class="revenue-range-tabs" aria-label="Revenue trend range">
+                                    <button type="button" class="revenue-range-tab active">Last 10 Years</button>
+                                    <button type="button" class="revenue-range-tab">Revenue</button>
+                                    <button type="button" class="revenue-range-tab">Payment Rate</button>
+                                </div>
+                            </div>
+                            <div class="revenue-chart-wrap"><canvas id="yearlyTrendsChart"></canvas></div>
+                            <div class="revenue-stat-summary">
+                                <div class="revenue-mini-stat">
+                                    <div class="revenue-mini-label">Latest Revenue</div>
+                                    <div class="revenue-mini-value">${formatCurrency(latestRow.total_revenue || 0)}</div>
+                                </div>
+                                <div class="revenue-mini-stat">
+                                    <div class="revenue-mini-label">Best Year</div>
+                                    <div class="revenue-mini-value">${bestRow.subscription_year || '-'} - ${formatCurrency(bestRow.total_revenue || 0)}</div>
+                                </div>
+                                <div class="revenue-mini-stat">
+                                    <div class="revenue-mini-label">Average Revenue</div>
+                                    <div class="revenue-mini-value">${formatCurrency(averageRevenue || 0)}</div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="chart-support-table">
                             <table>
                                 <thead>
@@ -1953,46 +2095,99 @@
                     `;
                     document.getElementById('yearlyTrendsContent').innerHTML = html;
                     yearlyTrendsChartInstance = destroyChart(yearlyTrendsChartInstance);
-                    yearlyTrendsChartInstance = new Chart(document.getElementById('yearlyTrendsChart'), {
-                        type: 'bar',
+                    const yearlyCanvas = document.getElementById('yearlyTrendsChart');
+                    const yearlyCtx = yearlyCanvas.getContext('2d');
+                    const revenueGradient = yearlyCtx.createLinearGradient(0, 0, 0, 320);
+                    revenueGradient.addColorStop(0, 'rgba(43, 132, 181, 0.18)');
+                    revenueGradient.addColorStop(0.58, 'rgba(43, 132, 181, 0.08)');
+                    revenueGradient.addColorStop(1, 'rgba(43, 132, 181, 0)');
+                    yearlyTrendsChartInstance = new Chart(yearlyCanvas, {
+                        type: 'line',
                         data: {
                             labels: ordered.map(row => row.subscription_year),
                             datasets: [
                                 {
-                                    type: 'bar',
                                     label: 'Revenue',
                                     data: ordered.map(row => parseFloat(row.total_revenue || 0)),
-                                    backgroundColor: 'rgba(18, 8, 111, 0.72)',
-                                    borderColor: CHART_COLORS.primary,
-                                    borderWidth: 1,
-                                    borderRadius: 6,
+                                    borderColor: '#2b84b5',
+                                    backgroundColor: revenueGradient,
+                                    borderWidth: 2,
+                                    fill: true,
+                                    tension: 0.38,
+                                    pointRadius: context => context.dataIndex === ordered.length - 1 ? 5 : 0,
+                                    pointHoverRadius: 6,
+                                    pointBackgroundColor: '#ffffff',
+                                    pointBorderColor: '#0f172a',
+                                    pointBorderWidth: 3,
                                     yAxisID: 'y'
                                 },
                                 {
-                                    type: 'line',
                                     label: 'Payment Rate',
                                     data: ordered.map(row => parseFloat(row.payment_rate || 0)),
-                                    borderColor: CHART_COLORS.teal,
-                                    backgroundColor: 'rgba(44, 165, 141, 0.12)',
-                                    borderWidth: 3,
-                                    tension: 0.35,
-                                    pointRadius: 4,
+                                    borderColor: 'rgba(148, 196, 207, 0.55)',
+                                    backgroundColor: 'rgba(148, 196, 207, 0.08)',
+                                    borderWidth: 2,
+                                    fill: true,
+                                    tension: 0.38,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 4,
                                     yAxisID: 'y1'
                                 }
                             ]
                         },
                         options: defaultChartOptions({
+                            interaction: {
+                                mode: 'nearest',
+                                intersect: false
+                            },
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    backgroundColor: '#111827',
+                                    titleColor: '#ffffff',
+                                    bodyColor: '#ffffff',
+                                    padding: 10,
+                                    cornerRadius: 6,
+                                    displayColors: false,
+                                    callbacks: {
+                                        label: context => context.dataset.label === 'Revenue'
+                                            ? formatCurrency(context.parsed.y)
+                                            : `${context.parsed.y.toFixed(1)}% payment rate`
+                                    }
+                                }
+                            },
                             scales: {
+                                x: {
+                                    grid: {
+                                        color: 'rgba(148, 163, 184, 0.16)',
+                                        borderDash: [3, 4]
+                                    },
+                                    ticks: {
+                                        color: '#64748b',
+                                        maxRotation: 0
+                                    },
+                                    border: { display: false }
+                                },
                                 y: {
                                     beginAtZero: true,
-                                    ticks: { callback: value => formatCurrency(value) }
+                                    grid: {
+                                        color: 'rgba(148, 163, 184, 0.18)'
+                                    },
+                                    ticks: {
+                                        color: '#475569',
+                                        callback: value => formatCompactCurrency(value)
+                                    },
+                                    border: { display: false }
                                 },
                                 y1: {
                                     beginAtZero: true,
                                     max: 100,
                                     position: 'right',
-                                    grid: { drawOnChartArea: false },
-                                    ticks: { callback: value => `${value}%` }
+                                    grid: { display: false },
+                                    ticks: {
+                                        display: false
+                                    },
+                                    border: { display: false }
                                 }
                             }
                         })
