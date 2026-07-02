@@ -2455,44 +2455,162 @@
             font-size: 0.95rem; border-bottom: 1px solid #e5e7eb;
             background: #f9fafb;
         }
-        .mp-history table {
-            width: 100%; border-collapse: collapse; font-size: 0.85rem;
+        .mp-history-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: #ffffff;
+            border-bottom: 1px solid #eef2f7;
         }
-        .mp-history thead tr {
-            background: linear-gradient(135deg, #12086f, #2d1b8f);
-            color: white;
+        .mp-history-stat {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+            padding: 0.75rem 0.85rem;
+            min-width: 0;
         }
-        .mp-history thead th {
-            padding: 0.7rem 0.85rem; text-align: left; font-weight: 600;
-            font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px;
+        .mp-history-stat span {
+            display: block;
+            color: #6b7280;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.25rem;
         }
-        .mp-history thead th:nth-child(2),
-        .mp-history thead th:nth-child(3),
-        .mp-history thead th:nth-child(4) { text-align: right; }
-        .mp-history thead th:nth-child(5) { text-align: center; }
-        .mp-history thead th:last-child { text-align: center; }
-
-        .mp-history tbody tr {
-            border-bottom: 1px solid #f3f4f6;
-            transition: background 0.2s;
+        .mp-history-stat strong {
+            display: block;
+            color: #12086f;
+            font-size: 0.98rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
-        .mp-history tbody tr:hover { background: #f5f3ff; }
-        .mp-history tbody td {
-            padding: 0.7rem 0.85rem; color: #374151;
+        .mp-ledger {
+            display: grid;
+            padding: 0.35rem 0;
         }
-        .mp-history tbody td:nth-child(2),
-        .mp-history tbody td:nth-child(3),
-        .mp-history tbody td:nth-child(4) { text-align: right; }
-        .mp-history tbody td:nth-child(5) { text-align: center; }
-        .mp-history tbody td:last-child { text-align: center; }
-
+        .mp-ledger-row {
+            display: grid;
+            grid-template-columns: minmax(150px, 0.9fr) minmax(260px, 1.4fr) minmax(145px, auto);
+            gap: 0.85rem;
+            align-items: center;
+            padding: 0.85rem 1.25rem;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background 0.2s ease;
+        }
+        .mp-ledger-row:last-child {
+            border-bottom: 0;
+        }
+        .mp-ledger-row:hover {
+            background: #f8fafc;
+        }
+        .mp-ledger-year {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.65rem;
+            min-width: 0;
+        }
+        .mp-ledger-dot {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            background: #eef3ff;
+            color: #12086f;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            margin-top: 0.1rem;
+        }
+        .mp-ledger-year strong {
+            display: block;
+            color: #111827;
+            font-size: 0.92rem;
+            line-height: 1.2;
+        }
+        .mp-ledger-note {
+            color: #6b7280;
+            font-size: 0.72rem;
+            margin-top: 0.18rem;
+            line-height: 1.35;
+        }
+        .mp-ledger-amounts {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.55rem;
+            min-width: 0;
+        }
+        .mp-ledger-amount {
+            min-width: 0;
+        }
+        .mp-ledger-amount span {
+            display: block;
+            color: #6b7280;
+            font-size: 0.66rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.18rem;
+        }
+        .mp-ledger-amount strong {
+            display: block;
+            color: #1f2937;
+            font-size: 0.82rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .mp-ledger-meta {
+            color: #64748b;
+            font-size: 0.72rem;
+            margin-top: 0.35rem;
+            line-height: 1.4;
+        }
+        .mp-ledger-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
         .mp-pill {
-            display: inline-block; padding: 0.2rem 0.6rem; border-radius: 10px;
-            font-size: 0.75rem; font-weight: 600; color: #fff;
+            display: inline-flex; align-items: center; gap: 0.28rem;
+            padding: 0.26rem 0.58rem; border-radius: 999px;
+            font-size: 0.72rem; font-weight: 700;
+            border: 1px solid transparent;
+        }
+        .mp-pill.paid { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+        .mp-pill.partial { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+        .mp-pill.waived { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+        .mp-pill.unpaid { background: #fff5f5; color: #dc2626; border-color: #fecaca; }
+        .mp-pill.neutral { background: #f8fafc; color: #64748b; border-color: #e2e8f0; }
+        .mp-pill[style*="background"] { color: #fff; }
+        .mp-credit-line {
+            font-size: 0.72rem;
+            margin-top: 0.2rem;
+            line-height: 1.35;
+        }
+        .mp-credit-line.in { color: #059669; }
+        .mp-credit-line.out { color: #2563eb; }
+        .mp-balance-due { color: #dc2626 !important; }
+        .mp-balance-clear { color: #047857 !important; }
+        .mp-muted-value { color: #9ca3af !important; }
+        .mp-history-empty {
+            padding: 1.5rem;
+            color: #6b7280;
+            text-align: center;
+            font-size: 0.86rem;
         }
         .mp-history-btn {
-            background: none; border: 1.5px solid; padding: 0.3rem 0.55rem;
-            border-radius: 7px; cursor: pointer; font-size: 0.78rem;
+            width: 34px;
+            height: 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #ffffff; border: 1px solid; padding: 0;
+            border-radius: 8px; cursor: pointer; font-size: 0.78rem;
             transition: all 0.2s ease;
         }
         .mp-history-btn.edit { color: #3b82f6; border-color: #93c5fd; }
@@ -3335,7 +3453,21 @@
             }
             .mp-footer { flex-direction: column; }
             .mp-action-btn { justify-content: center; }
-            .mp-history table { font-size: 0.78rem; }
+            .mp-history-summary {
+                grid-template-columns: 1fr;
+                padding: 0.85rem;
+            }
+            .mp-ledger-row {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+                padding: 0.9rem;
+            }
+            .mp-ledger-amounts {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .mp-ledger-actions {
+                justify-content: flex-start;
+            }
         }
 
         /* Profile card legacy support */
@@ -6334,6 +6466,8 @@
                 }
 
                 // ── Assemble Final HTML ──
+                historyHtml = buildPaymentHistoryLedger(member, paymentSummary, isLegacyPaidYear) || historyHtml;
+
                 const profileEmail = member.email || member.contact_email || 'No email on record';
                 const joinedDate = member.date_of_admission || member.registration_date || 'N/A';
                 const profileStatusText = isCurrentYearWaived
@@ -6880,8 +7014,134 @@
         // ==========================================
         let currentPaymentEdit = null;
 
+        function buildPaymentHistoryLedger(member, paymentSummary, isLegacyPaidYear) {
+            if (!paymentSummary || !Array.isArray(paymentSummary.subscriptions) || paymentSummary.subscriptions.length === 0) {
+                return '';
+            }
+
+            let totalPaid = 0;
+            let totalOutstanding = 0;
+            let lastPaymentDate = null;
+
+            const rows = paymentSummary.subscriptions.map(sub => {
+                const effectiveStatus = getDisplaySubscriptionStatus(sub);
+                const isVirtual = sub.is_virtual === true;
+                const isInductionYear = sub.is_induction_year === true;
+                const expectedAmt = parseFloat(sub.rate_expected_amount || sub.expected_amount || 0);
+                const paidAmt = parseFloat(sub.amount_paid || 0);
+                const creditApplied = parseFloat(sub.credit_applied || 0);
+                const creditBalance = parseFloat(sub.credit_balance || 0);
+                const totalApplied = paidAmt + creditApplied - creditBalance;
+                const balanceDue = isInductionYear ? null : (isLegacyPaidYear(sub) ? 0 : Math.max(0, expectedAmt - totalApplied));
+                const subData = encodeURIComponent(JSON.stringify({
+                    id: sub.id,
+                    year: sub.subscription_year,
+                    amount_paid: sub.amount_paid || 0,
+                    status: effectiveStatus,
+                    payment_method: sub.payment_method || '',
+                    receipt_number: sub.receipt_number || '',
+                    payment_date: sub.payment_date || '',
+                    is_virtual: isVirtual,
+                    expected_amount: sub.rate_expected_amount || 0,
+                    credit_applied: creditApplied,
+                    credit_balance: creditBalance,
+                    is_induction_year: isInductionYear
+                }));
+
+                totalPaid += paidAmt;
+                if (!isInductionYear) totalOutstanding += balanceDue || 0;
+                if (sub.payment_date) {
+                    const parsedDate = new Date(sub.payment_date);
+                    if (!Number.isNaN(parsedDate.getTime()) && (!lastPaymentDate || parsedDate > lastPaymentDate)) {
+                        lastPaymentDate = parsedDate;
+                    }
+                }
+
+                const statusClass = effectiveStatus === 'Paid'
+                    ? 'paid'
+                    : effectiveStatus === 'Waived'
+                    ? 'waived'
+                    : effectiveStatus === 'Partial'
+                    ? 'partial'
+                    : 'unpaid';
+                const statusIcon = effectiveStatus === 'Paid'
+                    ? 'fa-check'
+                    : effectiveStatus === 'Waived'
+                    ? 'fa-circle-check'
+                    : effectiveStatus === 'Partial'
+                    ? 'fa-clock'
+                    : 'fa-triangle-exclamation';
+                const yearNote = isInductionYear
+                    ? 'Inducted this year'
+                    : isVirtual
+                    ? (effectiveStatus === 'Paid' ? 'Covered by credit' : effectiveStatus === 'Partial' ? 'Partial credit' : 'Unpaid subscription')
+                    : '';
+                const paidHtml = paidAmt > 0 ? '&#8373;' + paidAmt.toFixed(2) : '<span class="mp-muted-value">&#8373;0.00</span>';
+                const appliedHtml = isInductionYear
+                    ? '<span class="mp-balance-clear">Inducted this year</span>'
+                    : (totalApplied > 0 ? '&#8373;' + totalApplied.toFixed(2) : '<span class="mp-muted-value">&#8373;0.00</span>');
+                const balanceHtml = isInductionYear
+                    ? '<span class="mp-muted-value">-</span>'
+                    : (balanceDue > 0 ? '<span class="mp-balance-due">&#8373;' + balanceDue.toFixed(2) + '</span>' : '<span class="mp-balance-clear">&#8373;0.00</span>');
+                const creditTags = [
+                    creditApplied > 0 ? '<div class="mp-credit-line in"><i class="fas fa-arrow-down" style="font-size:0.6rem"></i> +&#8373;' + creditApplied.toFixed(2) + ' credit from ' + (Number(sub.subscription_year) - 1) + '</div>' : '',
+                    creditBalance > 0 ? '<div class="mp-credit-line out"><i class="fas fa-arrow-right" style="font-size:0.6rem"></i> &#8373;' + creditBalance.toFixed(2) + ' excess to ' + (Number(sub.subscription_year) + 1) + '</div>' : ''
+                ].join('');
+                const meta = [
+                    sub.payment_date ? new Date(sub.payment_date).toLocaleDateString('en-GB') : null,
+                    sub.payment_method || null,
+                    sub.recorded_by ? 'Recorded by ' + escapeHtml(sub.recorded_by) : null
+                ].filter(Boolean).join(' | ');
+
+                return `
+                    <div class="mp-ledger-row">
+                        <div class="mp-ledger-year">
+                            <span class="mp-ledger-dot"><i class="fas fa-calendar-check"></i></span>
+                            <div>
+                                <strong>${escapeHtml(sub.subscription_year)}</strong>
+                                ${yearNote ? `<div class="mp-ledger-note">${escapeHtml(yearNote)}</div>` : ''}
+                                <div style="margin-top:0.35rem;"><span class="mp-pill ${statusClass}"><i class="fas ${statusIcon}"></i> ${escapeHtml(effectiveStatus)}</span></div>
+                                ${creditTags}
+                            </div>
+                        </div>
+                        <div>
+                            <div class="mp-ledger-amounts">
+                                <div class="mp-ledger-amount"><span>Expected</span><strong>&#8373;${expectedAmt.toFixed(2)}</strong></div>
+                                <div class="mp-ledger-amount"><span>Paid</span><strong>${paidHtml}</strong></div>
+                                <div class="mp-ledger-amount"><span>Applied</span><strong>${appliedHtml}</strong></div>
+                                <div class="mp-ledger-amount"><span>Balance</span><strong>${balanceHtml}</strong></div>
+                            </div>
+                            ${meta ? `<div class="mp-ledger-meta">${meta}</div>` : ''}
+                        </div>
+                        <div class="mp-ledger-actions print-hide">
+                            <button onclick="editPaymentHistory(${Number(member.id)}, '${subData}')" class="mp-history-btn edit" title="${isVirtual ? 'Record Payment' : 'Edit Payment'}"><i class="fas fa-${isVirtual ? 'plus' : 'edit'}"></i></button>
+                            ${isVirtual ? '' : `<button onclick="deletePaymentHistory(${Number(member.id)}, ${Number(sub.id)}, ${Number(sub.subscription_year)})" class="mp-history-btn delete" title="Delete Payment"><i class="fas fa-trash"></i></button>`}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="mp-history">
+                    <div class="mp-history-title"><i class="fas fa-history"></i> Payment History</div>
+                    <div class="mp-history-summary">
+                        <div class="mp-history-stat"><span>Total Paid</span><strong>&#8373;${totalPaid.toFixed(2)}</strong></div>
+                        <div class="mp-history-stat"><span>Outstanding</span><strong>&#8373;${totalOutstanding.toFixed(2)}</strong></div>
+                        <div class="mp-history-stat"><span>Last Payment</span><strong>${lastPaymentDate ? lastPaymentDate.toLocaleDateString('en-GB') : 'No date'}</strong></div>
+                    </div>
+                    <div class="mp-ledger">${rows}</div>
+                </div>
+            `;
+        }
+
         function editPaymentHistory(memberId, subDataString) {
-            const subData = JSON.parse(subDataString.replace(/&quot;/g, '"'));
+            let parsedDataString = subDataString;
+            try {
+                parsedDataString = decodeURIComponent(subDataString);
+            } catch (err) {
+                parsedDataString = subDataString;
+            }
+            const subData = JSON.parse(parsedDataString.replace(/&quot;/g, '"'));
             currentPaymentEdit = { memberId, subData };
             
             const expectedAmt = parseFloat(subData.expected_amount || 0);
