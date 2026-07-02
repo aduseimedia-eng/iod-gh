@@ -3704,16 +3704,13 @@
     <div class="container">
         <!-- Control Panel -->
         <div class="button-group">
-            <button class="btn-primary" onclick="openAddMemberModal()">
-                <i class="fas fa-user-plus"></i> Add New Member
-            </button>
             <button class="btn-import" onclick="openImportModal()">
                 <i class="fas fa-file-upload"></i> Import CSV
             </button>
             <button class="btn-export" onclick="exportToCSV()">
                 <i class="fas fa-download"></i> Export to CSV
             </button>
-            <button class="btn-refresh" onclick="refreshData()">
+            <button class="btn-refresh" onclick="refreshData(this)">
                 <i class="fas fa-sync-alt"></i> Refresh Data
             </button>
         </div>
@@ -5226,8 +5223,24 @@
             }
         }
 
-        function refreshData() {
-            loadAllData();
+        async function refreshData(button) {
+            const refreshButton = button || document.querySelector('.btn-refresh');
+            const originalContent = refreshButton ? refreshButton.innerHTML : '';
+
+            if (refreshButton) {
+                refreshButton.disabled = true;
+                refreshButton.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> Refreshing...';
+            }
+
+            try {
+                currentPage = 1;
+                await loadAllData();
+            } finally {
+                if (refreshButton) {
+                    refreshButton.disabled = false;
+                    refreshButton.innerHTML = originalContent || '<i class="fas fa-sync-alt"></i> Refresh Data';
+                }
+            }
         }
 
         // Populate admission year filter dropdown with unique years
@@ -5462,6 +5475,9 @@
         // ==========================================
         function renderTable() {
             const data = getFilteredAndSortedData();
+            const totalPages = Math.max(1, Math.ceil(data.length / itemsPerPage));
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
             const startIndex = (currentPage - 1) * itemsPerPage;
             const pageData = data.slice(startIndex, startIndex + itemsPerPage);
 
