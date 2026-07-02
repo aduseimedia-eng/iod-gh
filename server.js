@@ -1921,15 +1921,11 @@ app.post('/api/pending-members/:id/promote', async (req, res) => {
             `, [member.id, inductionYear, inductionDate, recorder.adminUserId, recorder.adminUsername]);
         }
 
-        const updatedPending = await client.query(`
-            UPDATE pending_members
-            SET status = 'Inducted',
-                promoted_member_id = $1,
-                promoted_at = CURRENT_TIMESTAMP,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = $2
+        const deletedPending = await client.query(`
+            DELETE FROM pending_members
+            WHERE id = $1
             RETURNING *
-        `, [member.id, pending.id]);
+        `, [pending.id]);
 
         await client.query('COMMIT');
 
@@ -1937,7 +1933,7 @@ app.post('/api/pending-members/:id/promote', async (req, res) => {
         res.locals.activityEntityType = 'pending_member';
         res.locals.activityEntityId = pending.id;
         res.locals.activityDescription = `${req.session.user} promoted ${pending.candidate_code || pending.id} to ${membershipNumber}`;
-        res.json({ member, pending_member: updatedPending.rows[0] });
+        res.json({ member, pending_member: deletedPending.rows[0] });
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('Error promoting pending member:', err);
