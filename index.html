@@ -4496,6 +4496,14 @@
             return div.innerHTML;
         }
 
+        function getDisplaySubscriptionStatus(sub) {
+            if (!sub) return 'Pending';
+            if (sub.status === 'Paid' || sub.status === 'Waived') {
+                return sub.status;
+            }
+            return sub.computed_status || sub.status || 'Pending';
+        }
+
         async function loadAuthContext() {
             try {
                 const response = await fetch('/api/auth-status');
@@ -6226,6 +6234,24 @@
                 } catch (e) {
                     console.log('Payment summary not available:', e);
                 }
+
+                if (!paymentSummary || !Array.isArray(paymentSummary.subscriptions)) {
+                    try {
+                        const balanceResponse = await fetch(`/api/member-balance/${id}`);
+                        if (balanceResponse.ok) {
+                            const balanceData = await balanceResponse.json();
+                            paymentSummary = {
+                                member,
+                                subscriptions: Array.isArray(balanceData.subscriptions) ? balanceData.subscriptions : [],
+                                current_credit_balance: balanceData.current_balance || 0,
+                                projected_credit_balance: balanceData.projected_balance || 0,
+                                max_rate_year: balanceData.max_rate_year
+                            };
+                        }
+                    } catch (e) {
+                        console.log('Payment balance fallback not available:', e);
+                    }
+                }
                 
                 // Also update the local database cache
                 const index = database.findIndex(m => m.id === id);
@@ -6273,14 +6299,6 @@
             if (paymentSummary && paymentSummary.subscriptions) {
                 currentYearSub = paymentSummary.subscriptions.find(s => s.subscription_year === currentYear);
             }
-
-            const getDisplaySubscriptionStatus = (sub) => {
-                if (!sub) return 'Pending';
-                if (sub.status === 'Paid' || sub.status === 'Waived') {
-                    return sub.status;
-                }
-                return sub.computed_status || sub.status || 'Pending';
-            };
 
             const isLegacyPaidYear = (sub) => {
                 if (!sub) return false;
