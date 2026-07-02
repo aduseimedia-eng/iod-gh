@@ -1880,7 +1880,16 @@ app.post('/api/pending-members/:id/promote', async (req, res) => {
             return res.status(400).json({ error: 'Candidate has already been processed' });
         }
 
-        const membershipNumber = await generateMembershipNumber(client, pending.member_type);
+        const selectedMemberType = sanitizeString(req.body.member_type || '');
+        if (!validateMemberType(selectedMemberType)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Select a valid member type before promoting' });
+        }
+
+        const selectedMembershipCategory = selectedMemberType === 'Corporate'
+            ? sanitizeString(req.body.membership_category || pending.membership_category || 'Gold')
+            : null;
+        const membershipNumber = await generateMembershipNumber(client, selectedMemberType);
         const inductionDate = req.body.induction_date || pending.proposed_induction_date || new Date().toISOString().slice(0, 10);
         const recorder = getSessionAdminRecorder(req);
 
@@ -1899,11 +1908,11 @@ app.post('/api/pending-members/:id/promote', async (req, res) => {
             )
             RETURNING *
         `, [
-            membershipNumber, pending.member_type, pending.title, pending.first_name, pending.surname,
-            pending.last_name, pending.other_names, pending.membership_category, pending.gender,
+            membershipNumber, selectedMemberType, pending.title, pending.first_name, pending.surname,
+            pending.last_name, pending.other_names, selectedMembershipCategory, pending.gender,
             pending.organization, pending.designation, pending.position, pending.sector, pending.region,
-            pending.postal_address, pending.member_type === 'Corporate' ? null : inductionDate,
-            pending.member_type === 'Corporate' ? inductionDate : null, pending.phone_number, pending.email,
+            pending.postal_address, selectedMemberType === 'Corporate' ? null : inductionDate,
+            selectedMemberType === 'Corporate' ? inductionDate : null, pending.phone_number, pending.email,
             pending.feedback_on_calls, pending.expertise, pending.years_served_on_boards || 0,
             pending.srl_no, pending.reg_no, pending.contact_person, pending.contact_phone, pending.contact_email
         ]);
