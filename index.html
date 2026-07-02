@@ -4390,7 +4390,10 @@
         }
 
         function updateWelcomeBanner() {
-            // Welcome heading stays static by design.
+            const heading = document.getElementById('welcome-admin-heading');
+            if (!heading) return;
+            const username = String(currentAuthContext.user || '').trim();
+            heading.textContent = `Howdy, ${username || 'Admin'}`;
         }
 
         async function logout() {
@@ -4573,6 +4576,8 @@
                 const data = await res.json();
                 if (res.ok) {
                     showSettingsAlert('Username updated to "' + data.user + '"!', 'success');
+                    currentAuthContext.user = data.user;
+                    updateWelcomeBanner();
                     document.getElementById('settings-current-user').value = data.user;
                     document.getElementById('settings-current-user-display').textContent = data.user;
                     document.getElementById('settings-new-username').value = '';
