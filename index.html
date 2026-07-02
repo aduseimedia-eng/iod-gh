@@ -5077,11 +5077,39 @@
             }
         }
 
+        function getMembershipNumberSortKey(value) {
+            const text = String(value || '').trim().toLowerCase();
+            const prefix = (text.match(/^[^0-9]*/) || [''])[0];
+            const numberMatch = text.match(/\d+/);
+            const numericPart = numberMatch ? parseInt(numberMatch[0], 10) : 0;
+            return { prefix, numericPart, text };
+        }
+
+        function compareMembershipNumbers(aValue, bValue) {
+            const aKey = getMembershipNumberSortKey(aValue);
+            const bKey = getMembershipNumberSortKey(bValue);
+
+            if (aKey.prefix !== bKey.prefix) {
+                return aKey.prefix.localeCompare(bKey.prefix);
+            }
+
+            if (aKey.numericPart !== bKey.numericPart) {
+                return aKey.numericPart - bKey.numericPart;
+            }
+
+            return aKey.text.localeCompare(bKey.text);
+        }
+
         function getFilteredAndSortedData() {
             let data = getFilteredData();
 
             if (sortState.column) {
                 data.sort((a, b) => {
+                    if (sortState.column === 'membership_number') {
+                        const result = compareMembershipNumbers(a.membership_number, b.membership_number);
+                        return sortState.direction === 'asc' ? result : -result;
+                    }
+
                     let aVal = a[sortState.column];
                     let bVal = b[sortState.column];
 

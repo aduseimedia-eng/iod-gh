@@ -520,10 +520,10 @@ app.get('/api/staff/members', async (req, res) => {
         let result;
         if (member_type) {
             query += ` WHERE m.member_type = $1`;
-            query += ` GROUP BY m.id ORDER BY m.membership_number`;
+            query += ` GROUP BY m.id ORDER BY ${membershipNumberOrderSql}`;
             result = await pool.query(query, [member_type]);
         } else {
-            query += ` GROUP BY m.id ORDER BY m.membership_number`;
+            query += ` GROUP BY m.id ORDER BY ${membershipNumberOrderSql}`;
             result = await pool.query(query);
         }
 
@@ -972,6 +972,12 @@ function createDatabasePoolConfig() {
 }
 
 const pool = new Pool(createDatabasePoolConfig());
+
+const membershipNumberOrderSql = `
+    NULLIF(SUBSTRING(m.membership_number FROM '^[^0-9]*'), ''),
+    COALESCE(NULLIF(SUBSTRING(m.membership_number FROM '[0-9]+'), '')::INTEGER, 0),
+    m.membership_number
+`;
 
 // Test database connection
 pool.query('SELECT NOW()', (err, res) => {
@@ -2003,10 +2009,10 @@ app.get('/api/members', async (req, res) => {
         let result;
         if (member_type) {
             query += ` WHERE m.member_type = $1`;
-            query += ` GROUP BY m.id ORDER BY m.membership_number`;
+            query += ` GROUP BY m.id ORDER BY ${membershipNumberOrderSql}`;
             result = await pool.query(query, [member_type]);
         } else {
-            query += ` GROUP BY m.id ORDER BY m.membership_number`;
+            query += ` GROUP BY m.id ORDER BY ${membershipNumberOrderSql}`;
             result = await pool.query(query);
         }
 

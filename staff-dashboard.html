@@ -1650,6 +1650,29 @@
             renderTable();
         }
 
+        function getMembershipNumberSortKey(value) {
+            const text = String(value || '').trim().toLowerCase();
+            const prefix = (text.match(/^[^0-9]*/) || [''])[0];
+            const numberMatch = text.match(/\d+/);
+            const numericPart = numberMatch ? parseInt(numberMatch[0], 10) : 0;
+            return { prefix, numericPart, text };
+        }
+
+        function compareMembershipNumbers(aValue, bValue) {
+            const aKey = getMembershipNumberSortKey(aValue);
+            const bKey = getMembershipNumberSortKey(bValue);
+
+            if (aKey.prefix !== bKey.prefix) {
+                return aKey.prefix.localeCompare(bKey.prefix);
+            }
+
+            if (aKey.numericPart !== bKey.numericPart) {
+                return aKey.numericPart - bKey.numericPart;
+            }
+
+            return aKey.text.localeCompare(bKey.text);
+        }
+
         function sortMembers() {
             const year = parseInt(document.getElementById('year-filter').value) || currentYear;
 
@@ -1659,6 +1682,9 @@
                 if (sortState.column === 'fullName') {
                     aVal = getFullName(a).toLowerCase();
                     bVal = getFullName(b).toLowerCase();
+                } else if (sortState.column === 'membership_number') {
+                    const result = compareMembershipNumbers(a.membership_number, b.membership_number);
+                    return sortState.direction === 'asc' ? result : -result;
                 } else if (sortState.column === 'paymentStatus') {
                     aVal = (a.paid_years && a.paid_years.includes(year)) ? 0 : 1;
                     bVal = (b.paid_years && b.paid_years.includes(year)) ? 0 : 1;
