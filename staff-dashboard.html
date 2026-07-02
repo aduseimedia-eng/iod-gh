@@ -631,6 +631,62 @@
             border-radius: 2px;
         }
 
+        .profile-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #ffffff;
+        }
+
+        .profile-list-row {
+            display: grid;
+            grid-template-columns: minmax(160px, 240px) minmax(0, 1fr);
+            gap: 1rem;
+            align-items: start;
+            padding: 0.78rem 0.95rem;
+            border-bottom: 1px solid #edf1f6;
+        }
+
+        .profile-list-row:last-child {
+            border-bottom: 0;
+        }
+
+        .profile-list-label {
+            color: var(--text-light);
+            font-size: 0.74rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .profile-list-value {
+            color: var(--text-dark);
+            font-size: 0.9rem;
+            font-weight: 500;
+            line-height: 1.45;
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .profile-list-section {
+            background: #f8fafc;
+            color: var(--primary);
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 0.68rem 0.95rem;
+            border-top: 1px solid #edf1f6;
+            border-bottom: 1px solid #edf1f6;
+        }
+
+        .profile-list-section:first-child {
+            border-top: 0;
+        }
+
         .subscription-history {
             grid-column: 1 / -1;
             margin-top: 0.5rem;
@@ -1185,6 +1241,13 @@
 
         .modal-footer {
             border-top: 1px solid var(--border);
+        }
+
+        @media (max-width: 640px) {
+            .profile-list-row {
+                grid-template-columns: 1fr;
+                gap: 0.28rem;
+            }
         }
 
         @media (max-width: 1024px) {
@@ -1814,74 +1877,49 @@
                     yearBadgesHtml = '<span style="color: var(--text-light); font-size: 0.85rem;">No subscription records</span>';
                 }
 
+                const memberTypeLabel = member.member_type === 'AIOD'
+                    ? 'Associate, Institute of Directors'
+                    : member.member_type === 'MIOD'
+                    ? 'Member, Institute of Directors'
+                    : member.member_type === 'FIOD'
+                    ? 'Fellow, Institute of Directors'
+                    : member.member_type === 'Honorary'
+                    ? 'Honorary Fellows'
+                    : member.member_type === 'Corporate'
+                    ? 'Corporate Members'
+                    : member.member_type;
+
+                const listRow = (label, value) => `
+                    <div class="profile-list-row">
+                        <div class="profile-list-label">${label}</div>
+                        <div class="profile-list-value">${value || '-'}</div>
+                    </div>
+                `;
+
                 document.getElementById('modal-body').innerHTML = `
-                    <div class="detail-grid">
-                        <div class="detail-item">
-                            <span class="detail-label">Membership Number</span>
-                            <span class="detail-value">${member.membership_number || '-'}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Member Type</span>
-                            <span class="detail-value"><span class="badge badge-type" style="text-transform: none;">${member.member_type === 'AIOD' ? 'Associate, Institute of Directors' : member.member_type === 'MIOD' ? 'Member, Institute of Directors' : member.member_type === 'FIOD' ? 'Fellow, Institute of Directors' : member.member_type === 'Honorary' ? 'Honorary Fellows' : member.member_type === 'Corporate' ? 'Corporate Members' : member.member_type}</span></span>
-                        </div>
-                        ${member.member_type !== 'Corporate' ? `
-                        <div class="detail-item">
-                            <span class="detail-label">Title</span>
-                            <span class="detail-value">${member.title || '-'}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Gender</span>
-                            <span class="detail-value">${member.gender || '-'}</span>
-                        </div>
-                        ` : ''}
-                        <div class="detail-item">
-                            <span class="detail-label">Organization</span>
-                            <span class="detail-value">${member.organization || '-'}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">${member.member_type === 'Corporate' ? 'Contact Person' : 'Designation'}</span>
-                            <span class="detail-value">${member.designation || member.contact_person || '-'}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Region</span>
-                            <span class="detail-value">${member.region || '-'}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Sector</span>
-                            <span class="detail-value">${member.sector || '-'}</span>
-                        </div>
-                        ${member.expertise ? `
-                        <div class="detail-item full-width">
-                            <span class="detail-label">Expertise</span>
-                            <span class="detail-value">${member.expertise}</span>
-                        </div>` : ''}
+                    <div class="profile-list">
+                        <div class="profile-list-section">Membership</div>
+                        ${listRow('Membership Number', member.membership_number)}
+                        ${listRow('Member Type', `<span class="badge badge-type" style="text-transform: none;">${memberTypeLabel || '-'}</span>`)}
+                        ${member.member_type !== 'Corporate' ? listRow('Title', member.title) : ''}
+                        ${member.member_type !== 'Corporate' ? listRow('Gender', member.gender) : ''}
 
-                        <div class="detail-divider"></div>
+                        <div class="profile-list-section">Organization</div>
+                        ${listRow('Organization', member.organization)}
+                        ${listRow(member.member_type === 'Corporate' ? 'Contact Person' : 'Designation', member.designation || member.contact_person)}
+                        ${listRow('Region', member.region)}
+                        ${listRow('Sector', member.sector)}
+                        ${member.expertise ? listRow('Expertise', member.expertise) : ''}
 
-                        <div class="detail-item full-width">
-                            <span class="detail-label">Postal Address</span>
-                            <span class="detail-value">${member.postal_address || '-'}</span>
-                        </div>
+                        <div class="profile-list-section">Contact</div>
+                        ${listRow('Phone Number', member.phone_number)}
+                        ${listRow('Email', member.email)}
+                        ${listRow('Postal Address', member.postal_address)}
 
-                        <div class="detail-divider"></div>
-
-                        <div class="detail-item">
-                            <span class="detail-label">Date of Admission</span>
-                            <span class="detail-value">${member.date_of_admission || '-'}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Current Year Status</span>
-                            <span class="detail-value">${getPaymentBadge(member, year)}</span>
-                        </div>
-
-                        <div class="detail-divider"></div>
-
-                        <div class="subscription-history">
-                            <h4><i class="fas fa-calendar-alt"></i> Subscription History</h4>
-                            <div class="year-badges">
-                                ${yearBadgesHtml}
-                            </div>
-                        </div>
+                        <div class="profile-list-section">Subscription</div>
+                        ${listRow('Date of Admission', member.date_of_admission)}
+                        ${listRow('Current Year Status', getPaymentBadge(member, year))}
+                        ${listRow('Subscription History', `<div class="year-badges">${yearBadgesHtml}</div>`)}
                     </div>
                 `;
 
