@@ -614,168 +614,12 @@ function toStaffGoodStandingMember(member, year) {
 // Staff: Good Standing report (read-only, no auth required, no payment details exposed)
 app.get('/api/staff/good-standing/:year', async (req, res) => {
     try {
-        const year = parseInt(req.params.year);
-        
-        const allMembersResult = await pool.query(`
-            SELECT DISTINCT m.id, m.membership_number, m.member_type, m.membership_category,
-                   m.title, m.first_name, m.surname, m.last_name, m.other_names,
-                   m.organization, m.expertise, m.designation, m.position, m.region, m.email, m.phone_number,
-                   TO_CHAR(m.date_of_admission, 'DD/MM/YYYY') as date_of_admission
-            FROM members m
-            WHERE m.member_type IN ('FIOD', 'MIOD', 'AIOD', 'Corporate', 'Honorary')
-        `);
-        
-        const goodStandingMembers = [];
-        
-        for (const member of allMembersResult.rows) {
-            if (member.member_type === 'Honorary') {
-                goodStandingMembers.push(toStaffGoodStandingMember(member, year));
-                continue;
-            }
-            
-            const subsResult = await pool.query(`
-                SELECT s.*, COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) as rate_expected_amount
-                FROM subscriptions s
-                LEFT JOIN subscription_rates sr ON sr.member_type = $2 
-                    AND sr.subscription_year = s.subscription_year
-                    AND (
-                        ($2 != 'Corporate' AND sr.membership_category IS NULL)
-                        OR ($2 = 'Corporate' AND sr.membership_category = $3)
-                    )
-                WHERE s.member_id = $1 AND s.subscription_year <= $4
-                ORDER BY s.subscription_year ASC
-            `, [member.id, member.member_type, member.membership_category, year]);
-            
-            if (subsResult.rows.length === 0) continue;
-            
-            let carryForwardCredit = 0;
-            let targetYearData = null;
-            
-            // Pre-fetch rates for gap year chaining
-            const memberRateResult = await pool.query(`
-                SELECT subscription_year, expected_amount FROM subscription_rates 
-                WHERE member_type = $1
-                AND (
-                    ($1 != 'Corporate' AND membership_category IS NULL)
-                    OR ($1 = 'Corporate' AND membership_category = $2)
-                )
-            `, [member.member_type, member.membership_category]);
-            const memberRatesMap = {};
-            for (const r of memberRateResult.rows) {
-                memberRatesMap[r.subscription_year] = parseFloat(r.expected_amount || 0);
-            }
-            
-            for (let i = 0; i < subsResult.rows.length; i++) {
-                const sub = subsResult.rows[i];
-                
-                // Chain credit through gap years between subscriptions
-                if (i > 0 && carryForwardCredit > 0) {
-                    const prevSubYear = subsResult.rows[i - 1].subscription_year;
-                    for (let gapYear = prevSubYear + 1; gapYear < sub.subscription_year; gapYear++) {
-                        if (carryForwardCredit <= 0) break;
-                        const gapRate = memberRatesMap[gapYear] || 0;
-                        const gapOutcome = calculateCreditOutcome({
-                            subscriptionYear: gapYear,
-                            memberType: member.member_type,
-                            explicitStatus: 'Pending',
-                            amountPaid: 0,
-                            expectedAmount: gapRate,
-                            availableCredit: carryForwardCredit
-                        });
-
-                        if (gapYear === year) {
-                            targetYearData = {
-                                amountPaid: 0,
-                                creditApplied: gapOutcome.creditApplied,
-                                totalAvailable: gapOutcome.totalApplied,
-                                rateExpected: gapRate,
-                                creditBalance: gapOutcome.creditBalance,
-                                isWaived: gapOutcome.isWaived,
-                                isLegacyPaid: gapOutcome.isLegacyPaid,
-                                status: gapOutcome.status
-                            };
-                        }
-                        carryForwardCredit = gapOutcome.creditBalance;
-                    }
-                }
-                
-                const rateExpected = parseFloat(sub.rate_expected_amount || 0);
-                const outcome = calculateCreditOutcome({
-                    subscriptionYear: sub.subscription_year,
-                    memberType: member.member_type,
-                    explicitStatus: sub.status,
-                    amountPaid: sub.amount_paid,
-                    expectedAmount: rateExpected,
-                    availableCredit: carryForwardCredit,
-                    isInductionYear: isInductionYearSubscription(member, sub.subscription_year, sub.status, sub.amount_paid)
-                });
-                
-                if (sub.subscription_year === year) {
-                    targetYearData = {
-                        amountPaid: outcome.amountPaid,
-                        creditApplied: outcome.creditApplied,
-                        totalAvailable: outcome.totalApplied,
-                        rateExpected,
-                        creditBalance: outcome.creditBalance,
-                        isWaived: outcome.isWaived,
-                        isLegacyPaid: outcome.isLegacyPaid,
-                        isInductionYear: outcome.isInductionYear,
-                        status: outcome.status
-                    };
-                }
-                
-                carryForwardCredit = outcome.creditBalance;
-            }
-            
-            if (!targetYearData) {
-                // Chain credit through gap years from last subscription to target year
-                const lastSubYear = subsResult.rows.length > 0 
-                    ? subsResult.rows[subsResult.rows.length - 1].subscription_year : 0;
-                
-                for (let gapYear = lastSubYear + 1; gapYear <= year; gapYear++) {
-                    if (carryForwardCredit <= 0) break;
-                    const gapRate = memberRatesMap[gapYear] || 0;
-                    const gapOutcome = calculateCreditOutcome({
-                        subscriptionYear: gapYear,
-                        memberType: member.member_type,
-                        explicitStatus: 'Pending',
-                        amountPaid: 0,
-                        expectedAmount: gapRate,
-                        availableCredit: carryForwardCredit
-                    });
-                    
-                    if (gapYear === year) {
-                        targetYearData = {
-                            amountPaid: 0,
-                            creditApplied: gapOutcome.creditApplied,
-                            totalAvailable: gapOutcome.totalApplied,
-                            rateExpected: gapRate,
-                            creditBalance: gapOutcome.creditBalance,
-                            isWaived: gapOutcome.isWaived,
-                            isLegacyPaid: gapOutcome.isLegacyPaid,
-                            status: gapOutcome.status
-                        };
-                    }
-                    carryForwardCredit = gapOutcome.creditBalance;
-                }
-            }
-            
-            const isGoodStanding = targetYearData && (
-                targetYearData.status === 'Paid' ||
-                targetYearData.status === 'Waived'
-            );
-            
-            if (isGoodStanding) {
-                goodStandingMembers.push(toStaffGoodStandingMember(member, year));
-            }
+        const year = parseInt(req.params.year, 10);
+        if (!Number.isFinite(year)) {
+            return res.status(400).json({ error: 'Invalid year' });
         }
-        
-        goodStandingMembers.sort((a, b) => {
-            if (a.member_type !== b.member_type) return a.member_type.localeCompare(b.member_type);
-            return (a.membership_number || '').localeCompare(b.membership_number || '');
-        });
-        
-        res.json(goodStandingMembers);
+        const goodStandingMembers = await getGoodStandingMembersForYear(year, { includePaymentDetails: false });
+        res.json(goodStandingMembers.map(member => toStaffGoodStandingMember(member, year)));
     } catch (err) {
         console.error('Error fetching good standing for staff:', err);
         res.status(500).json({ error: 'Database error' });
@@ -2879,6 +2723,215 @@ function calculateCreditOutcome({
         isWaived: false,
         isInductionYear: false
     };
+}
+
+async function getGoodStandingMembersForYear(year, { includePaymentDetails = false } = {}) {
+    const allMembersResult = await pool.query(`
+        SELECT DISTINCT m.id, m.membership_number, m.member_type, m.membership_category,
+               m.title, m.first_name, m.surname, m.last_name, m.other_names,
+               m.organization, m.expertise, m.designation, m.position, m.region, m.email, m.phone_number,
+               TO_CHAR(m.date_of_admission, 'DD/MM/YYYY') as date_of_admission,
+               TO_CHAR(m.registration_date, 'DD/MM/YYYY') as registration_date,
+               m.created_at
+        FROM members m
+        WHERE m.member_type IN ('FIOD', 'MIOD', 'AIOD', 'Corporate', 'Honorary')
+    `);
+
+    const subscriptionsResult = await pool.query(`
+        SELECT s.*,
+               COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) as rate_expected_amount,
+               COALESCE(rau.username, s.recorded_by_admin_username, s.receipt_number) as recorded_by,
+               TO_CHAR(s.payment_date, 'DD/MM/YYYY') as payment_date_fmt
+        FROM subscriptions s
+        JOIN members m ON m.id = s.member_id
+        LEFT JOIN subscription_rates sr ON sr.member_type = m.member_type
+            AND sr.subscription_year = s.subscription_year
+            AND (
+                (m.member_type != 'Corporate' AND sr.membership_category IS NULL)
+                OR (m.member_type = 'Corporate' AND sr.membership_category = m.membership_category)
+            )
+        LEFT JOIN admin_users rau ON rau.id = s.recorded_by_admin_user_id
+        WHERE s.subscription_year <= $1
+        ORDER BY s.member_id ASC, s.subscription_year ASC
+    `, [year]);
+
+    const ratesResult = await pool.query(`
+        SELECT member_type, membership_category, subscription_year, expected_amount
+        FROM subscription_rates
+    `);
+
+    const subscriptionsByMember = new Map();
+    for (const subscription of subscriptionsResult.rows) {
+        if (!subscriptionsByMember.has(subscription.member_id)) {
+            subscriptionsByMember.set(subscription.member_id, []);
+        }
+        subscriptionsByMember.get(subscription.member_id).push(subscription);
+    }
+
+    const rateKey = (memberType, category) => `${memberType || ''}::${category || ''}`;
+    const ratesByMemberType = new Map();
+    for (const rate of ratesResult.rows) {
+        const key = rateKey(rate.member_type, rate.member_type === 'Corporate' ? rate.membership_category : '');
+        if (!ratesByMemberType.has(key)) {
+            ratesByMemberType.set(key, {});
+        }
+        ratesByMemberType.get(key)[rate.subscription_year] = parseFloat(rate.expected_amount || 0);
+    }
+
+    const goodStandingMembers = [];
+
+    for (const member of allMembersResult.rows) {
+        if (member.member_type === 'Honorary') {
+            goodStandingMembers.push({
+                ...member,
+                subscription_year: year,
+                status: 'Waived',
+                amount_paid: 0,
+                credit_applied: 0,
+                expected_amount: 0,
+                is_induction_year: false,
+                induction_note: null,
+                recorded_by: null,
+                payment_date: null
+            });
+            continue;
+        }
+
+        const memberSubscriptions = subscriptionsByMember.get(member.id) || [];
+        if (memberSubscriptions.length === 0) continue;
+
+        const memberRatesMap = ratesByMemberType.get(
+            rateKey(member.member_type, member.member_type === 'Corporate' ? member.membership_category : '')
+        ) || {};
+        let carryForwardCredit = 0;
+        let targetYearData = null;
+
+        for (let i = 0; i < memberSubscriptions.length; i++) {
+            const sub = memberSubscriptions[i];
+
+            if (i > 0 && carryForwardCredit > 0) {
+                const prevSubYear = memberSubscriptions[i - 1].subscription_year;
+                for (let gapYear = prevSubYear + 1; gapYear < sub.subscription_year; gapYear++) {
+                    if (carryForwardCredit <= 0) break;
+                    const gapRate = memberRatesMap[gapYear] || 0;
+                    const gapOutcome = calculateCreditOutcome({
+                        subscriptionYear: gapYear,
+                        memberType: member.member_type,
+                        explicitStatus: 'Pending',
+                        amountPaid: 0,
+                        expectedAmount: gapRate,
+                        availableCredit: carryForwardCredit
+                    });
+
+                    if (gapYear === year) {
+                        targetYearData = {
+                            amountPaid: 0,
+                            creditApplied: gapOutcome.creditApplied,
+                            rateExpected: gapRate,
+                            creditBalance: gapOutcome.creditBalance,
+                            recorded_by: null,
+                            payment_date: null,
+                            isWaived: gapOutcome.isWaived,
+                            isLegacyPaid: gapOutcome.isLegacyPaid,
+                            isInductionYear: gapOutcome.isInductionYear,
+                            status: gapOutcome.status
+                        };
+                    }
+                    carryForwardCredit = gapOutcome.creditBalance;
+                }
+            }
+
+            const rateExpected = parseFloat(sub.rate_expected_amount || 0);
+            const outcome = calculateCreditOutcome({
+                subscriptionYear: sub.subscription_year,
+                memberType: member.member_type,
+                explicitStatus: sub.status,
+                amountPaid: sub.amount_paid,
+                expectedAmount: rateExpected,
+                availableCredit: carryForwardCredit,
+                isInductionYear: isInductionYearSubscription(member, sub.subscription_year, sub.status, sub.amount_paid)
+            });
+
+            if (sub.subscription_year === year) {
+                targetYearData = {
+                    amountPaid: outcome.amountPaid,
+                    creditApplied: outcome.creditApplied,
+                    rateExpected,
+                    creditBalance: outcome.creditBalance,
+                    recorded_by: sub.recorded_by,
+                    payment_date: sub.payment_date_fmt,
+                    isWaived: outcome.isWaived,
+                    isLegacyPaid: outcome.isLegacyPaid,
+                    isInductionYear: outcome.isInductionYear,
+                    status: outcome.status
+                };
+            }
+
+            carryForwardCredit = outcome.creditBalance;
+        }
+
+        if (!targetYearData) {
+            const lastSubYear = memberSubscriptions.length > 0
+                ? memberSubscriptions[memberSubscriptions.length - 1].subscription_year
+                : 0;
+
+            for (let gapYear = lastSubYear + 1; gapYear <= year; gapYear++) {
+                if (carryForwardCredit <= 0) break;
+                const gapRate = memberRatesMap[gapYear] || 0;
+                const gapOutcome = calculateCreditOutcome({
+                    subscriptionYear: gapYear,
+                    memberType: member.member_type,
+                    explicitStatus: 'Pending',
+                    amountPaid: 0,
+                    expectedAmount: gapRate,
+                    availableCredit: carryForwardCredit
+                });
+
+                if (gapYear === year) {
+                    targetYearData = {
+                        amountPaid: 0,
+                        creditApplied: gapOutcome.creditApplied,
+                        rateExpected: gapRate,
+                        creditBalance: gapOutcome.creditBalance,
+                        recorded_by: null,
+                        payment_date: null,
+                        isWaived: gapOutcome.isWaived,
+                        isLegacyPaid: gapOutcome.isLegacyPaid,
+                        isInductionYear: gapOutcome.isInductionYear,
+                        status: gapOutcome.status
+                    };
+                }
+                carryForwardCredit = gapOutcome.creditBalance;
+            }
+        }
+
+        const isGoodStanding = targetYearData && (
+            targetYearData.status === 'Paid' ||
+            targetYearData.status === 'Waived'
+        );
+
+        if (isGoodStanding) {
+            goodStandingMembers.push({
+                ...member,
+                subscription_year: year,
+                status: targetYearData.status,
+                amount_paid: includePaymentDetails ? targetYearData.amountPaid : 0,
+                credit_applied: includePaymentDetails ? targetYearData.creditApplied : 0,
+                expected_amount: includePaymentDetails ? targetYearData.rateExpected : 0,
+                is_induction_year: targetYearData.isInductionYear === true,
+                induction_note: targetYearData.isInductionYear ? 'Inducted this year' : null,
+                recorded_by: includePaymentDetails ? targetYearData.recorded_by : null,
+                payment_date: includePaymentDetails ? targetYearData.payment_date : null
+            });
+        }
+    }
+
+    goodStandingMembers.sort((a, b) => {
+        if (a.member_type !== b.member_type) return a.member_type.localeCompare(b.member_type);
+        return (a.membership_number || '').localeCompare(b.membership_number || '');
+    });
+
+    return goodStandingMembers;
 }
 
 function moneyValue(value) {
@@ -5511,204 +5564,11 @@ app.get('/api/subscription-years', async (req, res) => {
 // Excludes: Honorary Fellows are always included (Waived)
 app.get('/api/good-standing/:year', async (req, res) => {
     try {
-        const year = parseInt(req.params.year);
-        
-        // Step 1: Get ALL members (non-Honorary) who have any subscription history
-        //         plus all Honorary members
-        const allMembersResult = await pool.query(`
-            SELECT DISTINCT m.id, m.membership_number, m.member_type, m.membership_category,
-                   m.title, m.first_name, m.surname, m.last_name, m.other_names,
-                   m.organization, m.designation, m.position, m.region, m.email, m.phone_number,
-                   TO_CHAR(m.date_of_admission, 'DD/MM/YYYY') as date_of_admission
-            FROM members m
-            WHERE m.member_type IN ('FIOD', 'MIOD', 'AIOD', 'Corporate', 'Honorary')
-        `);
-        
-        const goodStandingMembers = [];
-        
-        for (const member of allMembersResult.rows) {
-            // Honorary members are always in good standing
-            if (member.member_type === 'Honorary') {
-                goodStandingMembers.push({
-                    ...member,
-                    subscription_year: year,
-                    status: 'Waived',
-                    amount_paid: 0,
-                    credit_applied: 0,
-                    expected_amount: 0,
-                    recorded_by: null,
-                    payment_date: null
-                });
-                continue;
-            }
-            
-            // Get all subscriptions for this member up to the requested year
-            const subsResult = await pool.query(`
-                SELECT s.*, COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) as rate_expected_amount,
-                       COALESCE(rau.username, s.recorded_by_admin_username, s.receipt_number) as recorded_by,
-                       TO_CHAR(s.payment_date, 'DD/MM/YYYY') as payment_date_fmt
-                FROM subscriptions s
-                LEFT JOIN subscription_rates sr ON sr.member_type = $2 
-                    AND sr.subscription_year = s.subscription_year
-                    AND (
-                        ($2 != 'Corporate' AND sr.membership_category IS NULL)
-                        OR ($2 = 'Corporate' AND sr.membership_category = $3)
-                    )
-                LEFT JOIN admin_users rau ON rau.id = s.recorded_by_admin_user_id
-                WHERE s.member_id = $1 AND s.subscription_year <= $4
-                ORDER BY s.subscription_year ASC
-            `, [member.id, member.member_type, member.membership_category, year]);
-            
-            if (subsResult.rows.length === 0) continue; // No subscription history at all
-            
-            // Recalculate credit chain through all years (including gap-year carry forward)
-            let carryForwardCredit = 0;
-            let targetYearData = null;
-
-            // Pre-fetch rates for gap year chaining
-            const memberRateResult = await pool.query(`
-                SELECT subscription_year, expected_amount FROM subscription_rates 
-                WHERE member_type = $1
-                AND (
-                    ($1 != 'Corporate' AND membership_category IS NULL)
-                    OR ($1 = 'Corporate' AND membership_category = $2)
-                )
-            `, [member.member_type, member.membership_category]);
-            const memberRatesMap = {};
-            for (const r of memberRateResult.rows) {
-                memberRatesMap[r.subscription_year] = parseFloat(r.expected_amount || 0);
-            }
-            
-            for (let i = 0; i < subsResult.rows.length; i++) {
-                const sub = subsResult.rows[i];
-
-                // Chain credit through gap years between subscriptions
-                if (i > 0 && carryForwardCredit > 0) {
-                    const prevSubYear = subsResult.rows[i - 1].subscription_year;
-                    for (let gapYear = prevSubYear + 1; gapYear < sub.subscription_year; gapYear++) {
-                        if (carryForwardCredit <= 0) break;
-                        const gapRate = memberRatesMap[gapYear] || 0;
-                        const gapOutcome = calculateCreditOutcome({
-                            subscriptionYear: gapYear,
-                            memberType: member.member_type,
-                            explicitStatus: 'Pending',
-                            amountPaid: 0,
-                            expectedAmount: gapRate,
-                            availableCredit: carryForwardCredit
-                        });
-
-                        if (gapYear === year) {
-                            targetYearData = {
-                                amountPaid: 0,
-                                creditApplied: gapOutcome.creditApplied,
-                                totalAvailable: gapOutcome.totalApplied,
-                                rateExpected: gapRate,
-                                creditBalance: gapOutcome.creditBalance,
-                                recorded_by: null,
-                                payment_date: null,
-                                isWaived: gapOutcome.isWaived,
-                                isLegacyPaid: gapOutcome.isLegacyPaid,
-                                status: gapOutcome.status
-                            };
-                        }
-                        carryForwardCredit = gapOutcome.creditBalance;
-                    }
-                }
-
-                const rateExpected = parseFloat(sub.rate_expected_amount || 0);
-                const outcome = calculateCreditOutcome({
-                    subscriptionYear: sub.subscription_year,
-                    memberType: member.member_type,
-                    explicitStatus: sub.status,
-                    amountPaid: sub.amount_paid,
-                    expectedAmount: rateExpected,
-                    availableCredit: carryForwardCredit,
-                    isInductionYear: isInductionYearSubscription(member, sub.subscription_year, sub.status, sub.amount_paid)
-                });
-                
-                if (sub.subscription_year === year) {
-                    targetYearData = {
-                        amountPaid: outcome.amountPaid,
-                        creditApplied: outcome.creditApplied,
-                        totalAvailable: outcome.totalApplied,
-                        rateExpected,
-                        creditBalance: outcome.creditBalance,
-                        recorded_by: sub.recorded_by,
-                        payment_date: sub.payment_date_fmt,
-                        isWaived: outcome.isWaived,
-                        isLegacyPaid: outcome.isLegacyPaid,
-                        isInductionYear: outcome.isInductionYear,
-                        status: outcome.status
-                    };
-                }
-                
-                carryForwardCredit = outcome.creditBalance;
-            }
-            
-            // If no subscription for the target year, check if carry-forward covers it
-            if (!targetYearData) {
-                // Chain credit through gap years from last subscription year to target year
-                const lastSubYear = subsResult.rows.length > 0
-                    ? subsResult.rows[subsResult.rows.length - 1].subscription_year : 0;
-
-                for (let gapYear = lastSubYear + 1; gapYear <= year; gapYear++) {
-                    if (carryForwardCredit <= 0) break;
-                    const gapRate = memberRatesMap[gapYear] || 0;
-                    const gapOutcome = calculateCreditOutcome({
-                        subscriptionYear: gapYear,
-                        memberType: member.member_type,
-                        explicitStatus: 'Pending',
-                        amountPaid: 0,
-                        expectedAmount: gapRate,
-                        availableCredit: carryForwardCredit
-                    });
-
-                    if (gapYear === year) {
-                        targetYearData = {
-                            amountPaid: 0,
-                            creditApplied: gapOutcome.creditApplied,
-                            totalAvailable: gapOutcome.totalApplied,
-                            rateExpected: gapRate,
-                            creditBalance: gapOutcome.creditBalance,
-                            recorded_by: null,
-                            payment_date: null,
-                            isWaived: gapOutcome.isWaived,
-                            isLegacyPaid: gapOutcome.isLegacyPaid,
-                            status: gapOutcome.status
-                        };
-                    }
-                    carryForwardCredit = gapOutcome.creditBalance;
-                }
-            }
-            
-            // Check if member qualifies for good standing
-            const isGoodStanding = targetYearData && (
-                targetYearData.status === 'Paid' ||
-                targetYearData.status === 'Waived'
-            );
-            
-            if (isGoodStanding) {
-                goodStandingMembers.push({
-                    ...member,
-                    subscription_year: year,
-                    status: targetYearData.status,
-                    amount_paid: targetYearData.amountPaid,
-                    credit_applied: targetYearData.creditApplied,
-                    expected_amount: targetYearData.rateExpected,
-                    is_induction_year: targetYearData.isInductionYear === true,
-                    induction_note: targetYearData.isInductionYear ? 'Inducted this year' : null,
-                    recorded_by: targetYearData.recorded_by,
-                    payment_date: targetYearData.payment_date
-                });
-            }
+        const year = parseInt(req.params.year, 10);
+        if (!Number.isFinite(year)) {
+            return res.status(400).json({ error: 'Invalid year' });
         }
-        
-        // Sort by member_type, then membership_number
-        goodStandingMembers.sort((a, b) => {
-            if (a.member_type !== b.member_type) return a.member_type.localeCompare(b.member_type);
-            return (a.membership_number || '').localeCompare(b.membership_number || '');
-        });
-        
+        const goodStandingMembers = await getGoodStandingMembersForYear(year, { includePaymentDetails: true });
         res.json(goodStandingMembers);
     } catch (err) {
         console.error('Error fetching good standing members:', err);
