@@ -1262,7 +1262,7 @@
                     <a href="pending-members.html" class="sidebar-link"><i class="fas fa-user-clock"></i> Induction List</a>
                     <a href="dashboard-analytics.html" class="sidebar-link active"><i class="fas fa-chart-line"></i> Analytics</a>
                     <a href="good_standing.html" class="sidebar-link"><i class="fas fa-circle-check"></i> Good Standing</a>
-                    <a href="staff-dashboard.html" class="sidebar-link"><i class="fas fa-users-viewfinder"></i> Staff View</a>
+                    <a href="staff-dashboard.html" class="sidebar-link"><i class="fas fa-users"></i> Staff View</a>
                 </nav>
             </div>
 
@@ -1510,7 +1510,7 @@
 
                 <div class="chart-card">
                     <div class="chart-title" style="display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem;">
-                        <span><i class="fas fa-users-viewfinder"></i> Cohort Performance</span>
+                        <span><i class="fas fa-users"></i> Cohort Performance</span>
                         <select id="cohortYearFilter" onchange="renderCohortAnalysis()" style="padding: 0.35rem 0.7rem; border-radius: 6px; border: 1px solid #dee2e6; font-size: 0.78rem; cursor: pointer;">
                             <option value="all">All Years</option>
                         </select>
@@ -2558,7 +2558,7 @@
                     if (select) {
                         select.innerHTML = '<option value="all">All Years</option>';
                     }
-                    document.getElementById('cohortAnalysisContent').innerHTML = '<div class="empty-state"><i class="fas fa-users-viewfinder"></i><p>No cohort data available.</p></div>';
+                    document.getElementById('cohortAnalysisContent').innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><p>No cohort data available.</p></div>';
                     return;
                 }
 
@@ -2619,7 +2619,7 @@
 
             if (!cohortAnalysisData.length) {
                 cohortAnalysisChartInstance = destroyChart(cohortAnalysisChartInstance);
-                content.innerHTML = '<div class="empty-state"><i class="fas fa-users-viewfinder"></i><p>No cohort data available.</p></div>';
+                content.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><p>No cohort data available.</p></div>';
                 return;
             }
 
@@ -3053,7 +3053,6 @@
                     loadChurnAnalysis()
                 ]);
                 updateTopInsightsSummary();
-                showAlert('Dashboard updated successfully', 'success');
             } catch (err) {
                 console.error('Error refreshing dashboard:', err);
                 showAlert('Error refreshing dashboard', 'error');
