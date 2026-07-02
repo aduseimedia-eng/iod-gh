@@ -429,44 +429,396 @@
         }
     </style>
     <link href="minimal-ui.css" rel="stylesheet">
+    <style>
+        .dashboard-shell {
+            display: grid;
+            grid-template-columns: 248px minmax(0, 1fr);
+            min-height: 100vh;
+            background: var(--bg-light);
+        }
+
+        .app-sidebar {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            background: #fbfcff;
+            border-right: 1px solid var(--border);
+            padding: 1.35rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            overflow-y: auto;
+        }
+
+        .sidebar-brand {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.15rem 0.35rem 1rem;
+            border-bottom: 1px solid #edf1f6;
+            text-align: center;
+        }
+
+        .sidebar-brand img {
+            width: 92px;
+            height: 92px;
+            object-fit: contain;
+        }
+
+        .sidebar-brand strong {
+            display: block;
+            color: var(--text-dark);
+            font-size: 0.92rem;
+            line-height: 1.2;
+        }
+
+        .sidebar-brand span {
+            display: block;
+            color: var(--text-light);
+            font-size: 0.72rem;
+            margin-top: 0.15rem;
+        }
+
+        .sidebar-section-label {
+            margin: 0.5rem 0 0.35rem;
+            padding: 0 0.45rem;
+            color: #9aa3b2;
+            font-size: 0.64rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .sidebar-link {
+            color: #4b5563;
+            text-decoration: none;
+            min-height: 38px;
+            padding: 0.55rem 0.65rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: 1px solid transparent;
+            transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+        }
+
+        .sidebar-link i {
+            width: 16px;
+            color: #8b95a5;
+            text-align: center;
+        }
+
+        .sidebar-link:hover,
+        .sidebar-link.active {
+            background: #eef3ff;
+            color: var(--primary);
+            border-color: #dce6ff;
+        }
+
+        .sidebar-link:hover i,
+        .sidebar-link.active i {
+            color: var(--primary);
+        }
+
+        .main-workspace {
+            min-width: 0;
+            padding: 1.35rem;
+        }
+
+        .container {
+            max-width: 1600px !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .page-title h1 {
+            color: var(--text-dark);
+            font-size: 1.35rem;
+            line-height: 1.2;
+            margin: 0;
+        }
+
+        .page-title p {
+            color: var(--text-light);
+            font-size: 0.84rem;
+            margin-top: 0.2rem;
+        }
+
+        .page-actions,
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.65rem !important;
+            flex-wrap: wrap;
+        }
+
+        .controls-card,
+        .member-card {
+            border-radius: 8px !important;
+            border: 1px solid #edf1f6 !important;
+            box-shadow: var(--shadow-sm) !important;
+        }
+
+        .controls-card {
+            padding: 1rem 1.1rem !important;
+            margin-bottom: 1rem !important;
+        }
+
+        .member-card {
+            padding: 1rem 1.1rem !important;
+            margin-bottom: 1rem !important;
+        }
+
+        .rates-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.85rem;
+        }
+
+        .rates-card-header h3,
+        .card-title,
+        h2 {
+            color: var(--primary) !important;
+            font-size: 0.98rem !important;
+            font-weight: 700 !important;
+            margin: 0 !important;
+        }
+
+        #good-standing-content > h2 {
+            margin: 0 0 0.75rem !important;
+        }
+
+        .card-title {
+            padding-bottom: 0.75rem !important;
+            margin-bottom: 0.85rem !important;
+        }
+
+        .report-controls {
+            justify-content: flex-start;
+        }
+
+        label {
+            font-size: 0.82rem;
+            color: var(--text-light);
+        }
+
+        select,
+        input[type="date"],
+        button {
+            min-height: 38px !important;
+            padding: 0.55rem 0.8rem !important;
+            border-radius: 8px !important;
+            font-size: 0.82rem !important;
+        }
+
+        button {
+            background: var(--primary) !important;
+            color: #ffffff !important;
+            border: 1px solid transparent !important;
+            box-shadow: var(--shadow-sm) !important;
+        }
+
+        button:hover {
+            background: var(--primary-light) !important;
+            transform: translateY(-1px) !important;
+        }
+
+        button.export-btn {
+            background: var(--secondary) !important;
+        }
+
+        .summary-section {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+            gap: 0.75rem !important;
+            margin-bottom: 1rem !important;
+        }
+
+        .summary-card {
+            background: #ffffff !important;
+            color: var(--text-dark) !important;
+            border: 1px solid #edf1f6 !important;
+            border-radius: 8px !important;
+            box-shadow: var(--shadow-sm) !important;
+            padding: 0.9rem 1rem !important;
+        }
+
+        .summary-card:hover,
+        .member-card:hover {
+            transform: translateY(-1px) !important;
+            box-shadow: var(--shadow-md) !important;
+        }
+
+        .summary-card-text {
+            color: var(--text-light) !important;
+            font-size: 0.68rem !important;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            opacity: 1 !important;
+        }
+
+        .summary-card-value {
+            color: var(--primary) !important;
+            font-size: 1.55rem !important;
+        }
+
+        .summary-card-icon {
+            color: var(--primary) !important;
+            opacity: 0.18 !important;
+            font-size: 2rem !important;
+        }
+
+        .member-count {
+            background: #eef3ff !important;
+            color: var(--primary) !important;
+            border-radius: 8px !important;
+        }
+
+        .table-scroll-wrap {
+            border-radius: 8px !important;
+            max-height: 480px !important;
+        }
+
+        table {
+            font-size: 0.8rem !important;
+        }
+
+        th {
+            padding: 0.75rem !important;
+            font-size: 0.72rem !important;
+        }
+
+        td {
+            padding: 0.6rem 0.75rem !important;
+        }
+
+        .no-data,
+        .loading-state {
+            background: #ffffff !important;
+            border: 1px solid #edf1f6 !important;
+            border-radius: 8px !important;
+        }
+
+        @media (max-width: 980px) {
+            .dashboard-shell {
+                grid-template-columns: 1fr;
+            }
+
+            .app-sidebar {
+                position: static;
+                height: auto;
+                padding: 1rem;
+            }
+
+            .sidebar-brand {
+                flex-direction: row;
+                justify-content: center;
+            }
+
+            .sidebar-brand img {
+                width: 68px;
+                height: 68px;
+            }
+
+            .sidebar-nav {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .sidebar-section-label {
+                display: none;
+            }
+
+            .main-workspace {
+                padding: 1rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .page-header,
+            .rates-card-header,
+            .controls {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .page-actions,
+            .controls button,
+            .controls select,
+            .controls input,
+            label {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <div class="header-left">
-            <div class="logo-section">
-                <img src="IoD_Logo_png.png" width="60px" alt="IoD-Ghana Logo" height="60px">
+    <div class="dashboard-shell">
+        <aside class="app-sidebar">
+            <div class="sidebar-brand">
+                <img src="IoD_Logo_png.png" alt="IoD-Ghana Logo">
+                <div>
+                    <strong>IoD Ghana</strong>
+                    <span>Member Registry</span>
+                </div>
             </div>
-            <div class="header-text">
+
+            <div>
+                <div class="sidebar-section-label">Main</div>
+                <nav class="sidebar-nav">
+                    <a href="index.html" class="sidebar-link"><i class="fas fa-table-columns"></i> Dashboard</a>
+                    <a href="pending-members.html" class="sidebar-link"><i class="fas fa-user-clock"></i> Induction List</a>
+                    <a href="dashboard-analytics.html" class="sidebar-link"><i class="fas fa-chart-line"></i> Analytics</a>
+                    <a href="good_standing.html" class="sidebar-link active"><i class="fas fa-circle-check"></i> Good Standing</a>
+                    <a href="staff-dashboard.html" class="sidebar-link"><i class="fas fa-users-viewfinder"></i> Staff View</a>
+                </nav>
+            </div>
+
+            <div>
+                <div class="sidebar-section-label">Account</div>
+                <nav class="sidebar-nav">
+                    <a href="index.html#settings" class="sidebar-link"><i class="fas fa-gear"></i> Settings</a>
+                    <a href="#" onclick="logout(); return false;" class="sidebar-link"><i class="fas fa-right-from-bracket"></i> Logout</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="main-workspace">
+            <div class="container">
+        <div class="page-header">
+            <div class="page-title">
                 <h1>Members in Good Standing</h1>
-                <p>IOD Ghana - Paid Members by Year & Category</p>
+                <p>Paid members by year and category.</p>
+            </div>
+            <div class="page-actions">
+                <button onclick="exportGoodStandingCSV()" class="export-btn"><i class="fas fa-file-csv"></i> Export CSV</button>
             </div>
         </div>
-        <div class="nav-right">
-            <a href="index.html" class="nav-btn" title="Back to Dashboard">
-                <i class="fas fa-arrow-left"></i> Dashboard
-            </a>
-            <a href="pending-members.html" class="nav-btn" title="Induction List">
-                <i class="fas fa-user-clock"></i> Induction
-            </a>
-            <a href="good_standing.html" class="nav-btn active">
-                <i class="fas fa-check-circle"></i> Good Standing
-            </a>
-            <a href="dashboard-analytics.html" class="nav-btn">
-                <i class="fas fa-chart-line"></i> Analytics
-            </a>
-            <a href="index.html#settings" class="nav-btn" title="Account Settings" style="cursor: pointer;">
-                <i class="fas fa-cog"></i>
-            </a>
-            <button onclick="logout()" class="nav-btn" title="Sign Out" style="background: rgba(220,38,38,0.15); color: #fca5a5; border: 1px solid rgba(220,38,38,0.3); cursor: pointer;">
-                <i class="fas fa-sign-out-alt"></i> Logout
-            </button>
-        </div>
-    </header>
-    <div class="container">
+
         <!-- Subscription Rates Configuration Section -->
         <div class="controls-card" id="rates-config-section">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <h3 style="margin: 0; color: var(--primary); font-size: 1.1rem;">
+            <div class="rates-card-header">
+                <h3>
                     <i class="fas fa-cog"></i> Subscription Rates Configuration
                 </h3>
                 <button onclick="toggleRatesSection()" id="toggle-rates-btn" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
@@ -507,14 +859,15 @@
         </div>
 
         <div class="controls-card">
-            <div class="controls">
+            <div class="controls report-controls">
                 <label for="year-select"><i class="fas fa-calendar-alt"></i> Select Year:</label>
                 <select id="year-select" onchange="loadGoodStanding()"></select>
                 <button onclick="loadGoodStanding()"><i class="fas fa-sync-alt"></i> Refresh</button>
-                <button onclick="exportGoodStandingCSV()" class="export-btn"><i class="fas fa-file-csv"></i> Export CSV</button>
             </div>
         </div>
         <div id="good-standing-content"></div>
+            </div>
+        </main>
     </div>
     <script src="api-client.js"></script>
     <script>
