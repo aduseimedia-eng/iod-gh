@@ -700,7 +700,6 @@
                             <thead>
                                 <tr>
                                     <th>Candidate</th>
-                                    <th>Type</th>
                                     <th>Organization</th>
                                     <th>Induction</th>
                                     <th>Status</th>
@@ -708,7 +707,7 @@
                                 </tr>
                             </thead>
                             <tbody id="pending-tbody">
-                                <tr><td colspan="6" class="empty">Loading candidates...</td></tr>
+                                <tr><td colspan="5" class="empty">Loading candidates...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -852,7 +851,7 @@
                 pendingMembers = await response.json();
                 renderPendingMembers();
             } else {
-                document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="6" class="empty">Failed to load candidates.</td></tr>';
+                document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="5" class="empty">Failed to load candidates.</td></tr>';
             }
         }
 
@@ -865,7 +864,6 @@
                     candidate.surname,
                     candidate.last_name,
                     candidate.organization,
-                    candidate.member_type,
                     candidate.email
                 ].join(' ').toLowerCase();
                 return !search || text.includes(search);
@@ -874,7 +872,7 @@
             document.getElementById('pending-count').textContent = `${pendingMembers.filter(c => c.status === 'Pending').length} pending`;
 
             if (rows.length === 0) {
-                document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="6" class="empty">No candidates found.</td></tr>';
+                document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="5" class="empty">No candidates found.</td></tr>';
                 return;
             }
 
@@ -892,7 +890,6 @@
                             <div style="font-weight:700;color:var(--text-dark)">${escapeHtml(name)}</div>
                             <div style="font-size:0.72rem;color:var(--text-light)">${escapeHtml(candidate.candidate_code || '')}</div>
                         </td>
-                        <td><span class="badge">${escapeHtml(candidate.member_type || '-')}</span></td>
                         <td>${escapeHtml(candidate.organization || '-')}</td>
                         <td>${inductionDate}</td>
                         <td><span class="badge">${escapeHtml(candidate.status || 'Pending')}</span></td>

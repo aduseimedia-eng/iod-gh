@@ -1361,7 +1361,6 @@
                     <thead>
                         <tr>
                             <th>Candidate</th>
-                            <th>Type</th>
                             <th>Organization</th>
                             <th>Region</th>
                             <th>Induction</th>
@@ -1369,7 +1368,7 @@
                         </tr>
                     </thead>
                     <tbody id="pending-members-tbody">
-                        <tr><td colspan="6" class="no-data"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>
+                        <tr><td colspan="5" class="no-data"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1480,7 +1479,7 @@
             } catch (err) {
                 console.error('Error loading induction list:', err);
                 document.getElementById('pending-members-tbody').innerHTML =
-                    '<tr><td colspan="6" class="no-data"><i class="fas fa-exclamation-triangle" style="color: var(--danger); margin-right: 0.5rem;"></i>Failed to load induction list. Please refresh the page.</td></tr>';
+                    '<tr><td colspan="5" class="no-data"><i class="fas fa-exclamation-triangle" style="color: var(--danger); margin-right: 0.5rem;"></i>Failed to load induction list. Please refresh the page.</td></tr>';
             }
         }
 
@@ -1488,7 +1487,7 @@
             document.getElementById('members-tbody').innerHTML =
                 '<tr><td colspan="8" class="no-data"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>';
             document.getElementById('pending-members-tbody').innerHTML =
-                '<tr><td colspan="6" class="no-data"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>';
+                '<tr><td colspan="5" class="no-data"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>';
             loadMembers();
             loadStaffPendingMembers();
             if (document.getElementById('good-standing-section').style.display !== 'none') {
@@ -1714,7 +1713,6 @@
                     candidate.surname,
                     candidate.last_name,
                     candidate.organization,
-                    candidate.member_type,
                     candidate.region,
                     candidate.email
                 ].join(' ').toLowerCase();
@@ -1725,7 +1723,7 @@
 
             if (rows.length === 0) {
                 document.getElementById('pending-members-tbody').innerHTML =
-                    '<tr><td colspan="6" class="no-data">No induction candidates found.</td></tr>';
+                    '<tr><td colspan="5" class="no-data">No induction candidates found.</td></tr>';
                 return;
             }
 
@@ -1735,7 +1733,6 @@
                         <div style="font-weight:700;color:var(--text-dark)">${escapeHtml(getPendingCandidateName(candidate))}</div>
                         <div style="font-size:0.72rem;color:var(--text-light)">${escapeHtml(candidate.candidate_code || '')}</div>
                     </td>
-                    <td><span class="badge badge-type" style="text-transform: none;">${escapeHtml(formatMemberType(candidate.member_type))}</span></td>
                     <td>${escapeHtml(candidate.organization || '-')}</td>
                     <td>${escapeHtml(candidate.region || '-')}</td>
                     <td>${escapeHtml(candidate.proposed_induction_date || '-')}</td>
