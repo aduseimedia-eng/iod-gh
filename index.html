@@ -3549,7 +3549,7 @@
             <div class="welcome-banner">
                 <div class="welcome-content">
                     <div class="welcome-text">
-                        <h2><i class="fas fa-user-shield" style="opacity: 0.8; margin-right: 0.3rem;"></i> <span id="welcome-admin-heading">Howdy, Admin</span></h2>
+                        <h2><i class="fas fa-user-shield" style="opacity: 0.8; margin-right: 0.3rem;"></i> <span id="welcome-admin-heading">Welcome back</span></h2>
                         <p>Membership records, subscriptions, and operational actions in one place.</p>
                     </div>
                     <div class="welcome-stats">
@@ -4393,7 +4393,7 @@
             const heading = document.getElementById('welcome-admin-heading');
             if (!heading) return;
             const username = String(currentAuthContext.user || '').trim();
-            heading.textContent = `Howdy, ${username || 'Admin'}`;
+            heading.textContent = username ? `Howdy, ${username}` : 'Welcome back';
         }
 
         async function logout() {
