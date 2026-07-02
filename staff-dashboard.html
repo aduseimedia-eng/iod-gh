@@ -1256,7 +1256,7 @@
         </div>
 
         <!-- KPI Cards -->
-        <div class="kpi-grid">
+        <div class="kpi-grid" id="members-kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-label"><i class="fas fa-users" style="color:var(--accent)"></i> Total Members</div>
                 <div class="kpi-value" id="kpi-total">-</div>
@@ -1919,6 +1919,7 @@
         // SECTION NAVIGATION
         // ==========================================
         function scrollToSection(sectionId) {
+            const kpiGrid = document.getElementById('members-kpi-grid');
             const membersSection = document.getElementById('members-section');
             const inductionSection = document.getElementById('induction-section');
             const gsSection = document.getElementById('good-standing-section');
@@ -1926,6 +1927,7 @@
             const navInduction = document.getElementById('nav-induction-btn');
             const navGS = document.getElementById('nav-gs-btn');
 
+            kpiGrid.style.display = sectionId === 'members-section' ? 'grid' : 'none';
             membersSection.style.display = sectionId === 'members-section' ? '' : 'none';
             inductionSection.style.display = sectionId === 'induction-section' ? '' : 'none';
             gsSection.style.display = sectionId === 'good-standing-section' ? '' : 'none';
