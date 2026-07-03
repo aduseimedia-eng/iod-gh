@@ -3082,6 +3082,16 @@ async function recalculateMemberCreditLedger(client, memberId, options = {}) {
     const timeline = [];
     let carryForwardCredit = 0;
     let currentYearCreditBalance = 0;
+    const membershipStartYear = getMemberInductionYear(member);
+
+    const hasRealSubscriptionActivity = (sub) => {
+        if (!sub) return false;
+        return hasPositiveAmount(sub.amount_paid) ||
+            hasPositiveAmount(sub.credit_applied) ||
+            hasPositiveAmount(sub.credit_balance) ||
+            sub.status === 'Paid' ||
+            sub.status === 'Waived';
+    };
 
     const persistTimelineRow = async (row, existingSub) => {
         if (!persistAutoYears) return row;
@@ -3148,7 +3158,16 @@ async function recalculateMemberCreditLedger(client, memberId, options = {}) {
     };
 
     const addYearToTimeline = async (year, existingSub = null) => {
-        const expectedAmount = resolveExpectedAmount(existingSub, ratesByYear, year);
+        if (
+            Number.isFinite(membershipStartYear) &&
+            year < membershipStartYear &&
+            !hasRealSubscriptionActivity(existingSub)
+        ) {
+            return;
+        }
+
+        const isBeforeMembershipStart = Number.isFinite(membershipStartYear) && year < membershipStartYear;
+        const expectedAmount = isBeforeMembershipStart ? 0 : resolveExpectedAmount(existingSub, ratesByYear, year);
         const amountPaid = Math.max(0, moneyValue(existingSub && existingSub.amount_paid));
         const explicitStatus = existingSub ? existingSub.status : 'Pending';
         const outcome = calculateCreditOutcome({
