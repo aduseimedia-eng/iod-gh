@@ -2623,13 +2623,15 @@ function getMemberInductionYear(member) {
         getYearFromDateValue(member.created_at);
 }
 
-function isInductionYearSubscription(member, subscriptionYear) {
+function isInductionYearSubscription(member, subscriptionYear, explicitStatus, amountPaid) {
     const inductionYear = getMemberInductionYear(member);
     const year = parseInt(subscriptionYear, 10);
 
     return Number.isFinite(inductionYear) &&
         Number.isFinite(year) &&
-        year === inductionYear;
+        year === inductionYear &&
+        explicitStatus === 'Paid' &&
+        !hasPositiveAmount(amountPaid);
 }
 
 function determineSubscriptionStatus({ subscriptionYear, memberType, explicitStatus, amountPaid, totalAvailable, expectedAmount }) {
