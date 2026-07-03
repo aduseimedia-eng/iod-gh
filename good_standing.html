@@ -613,6 +613,54 @@
             margin-bottom: 0.85rem !important;
         }
 
+        .good-standing-section-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .good-standing-page-info {
+            color: var(--text-light);
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+
+        .good-standing-pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .good-standing-pagination button {
+            min-width: 40px !important;
+            min-height: 36px !important;
+            padding: 0.45rem 0.8rem !important;
+            background: #ffffff !important;
+            border: 1px solid #d8ddea !important;
+            color: var(--primary) !important;
+            border-radius: 20px !important;
+            box-shadow: none !important;
+            font-weight: 700 !important;
+        }
+
+        .good-standing-pagination button:hover,
+        .good-standing-pagination button.active {
+            background: var(--primary) !important;
+            border-color: var(--primary) !important;
+            color: #ffffff !important;
+        }
+
+        .good-standing-pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
         .report-controls {
             justify-content: flex-start;
         }
@@ -886,6 +934,9 @@
         let currentGoodStandingData = [];
         let currentYear = null;
         let currentRates = {};
+        const GOOD_STANDING_PAGE_SIZE = 15;
+        const goodStandingSectionPages = {};
+        const goodStandingSections = {};
         const memberTypes = ['AIOD', 'FIOD', 'MIOD', 'Honorary'];
         const corpCategories = ['Platinum', 'Gold', 'Silver', 'Bronze'];
         // Combined list for rates config: individual types + Corporate categories
@@ -1139,6 +1190,85 @@
             </tr>`;
         }
 
+        function escapeSectionId(value) {
+            return String(value || 'section').replace(/[^a-zA-Z0-9_-]/g, '-');
+        }
+
+        function renderGoodStandingPagination(sectionId, totalPages, currentPage) {
+            if (totalPages <= 1) return '';
+
+            let pageButtons = '';
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === currentPage) {
+                    pageButtons += `<button class="active" type="button">${i}</button>`;
+                } else if (i >= currentPage - 2 && i <= currentPage + 2) {
+                    pageButtons += `<button type="button" onclick="goToGoodStandingSectionPage('${sectionId}', ${i})">${i}</button>`;
+                }
+            }
+
+            return `
+                <div class="good-standing-pagination">
+                    <button type="button" ${currentPage <= 1 ? 'disabled' : ''} onclick="goToGoodStandingSectionPage('${sectionId}', ${currentPage - 1})">Previous</button>
+                    ${pageButtons}
+                    <button type="button" ${currentPage >= totalPages ? 'disabled' : ''} onclick="goToGoodStandingSectionPage('${sectionId}', ${currentPage + 1})">Next</button>
+                </div>
+            `;
+        }
+
+        function renderGoodStandingSectionBody(sectionId) {
+            const section = goodStandingSections[sectionId];
+            if (!section) return '';
+
+            const members = section.members || [];
+            const totalPages = Math.max(1, Math.ceil(members.length / GOOD_STANDING_PAGE_SIZE));
+            const currentPage = Math.min(Math.max(goodStandingSectionPages[sectionId] || 1, 1), totalPages);
+            goodStandingSectionPages[sectionId] = currentPage;
+            const startIdx = (currentPage - 1) * GOOD_STANDING_PAGE_SIZE;
+            const endIdx = Math.min(startIdx + GOOD_STANDING_PAGE_SIZE, members.length);
+            const pageMembers = members.slice(startIdx, endIdx);
+
+            return `
+                <div class="good-standing-section-head">
+                    <div class="card-title" style="${section.titleStyle || ''}">
+                        ${section.icon ? `<i class="fas ${section.icon}"></i>` : ''}
+                        ${section.title}
+                        <span class="member-count" style="${section.countStyle || ''}">${members.length} ${section.countLabel || 'members'}</span>
+                    </div>
+                    <div class="good-standing-page-info">Showing ${startIdx + 1}-${endIdx} of ${members.length}</div>
+                </div>
+                ${section.description || ''}
+                <div class="table-scroll-wrap"><table>
+                    ${renderGoodStandingTableHeader()}
+                    <tbody>${pageMembers.map(renderGoodStandingTableRow).join('')}</tbody>
+                </table></div>
+                ${renderGoodStandingPagination(sectionId, totalPages, currentPage)}
+            `;
+        }
+
+        function renderGoodStandingSection(sectionId, config) {
+            const safeId = escapeSectionId(sectionId);
+            goodStandingSections[safeId] = {
+                ...config,
+                members: (config.members || []).slice()
+            };
+            if (!goodStandingSectionPages[safeId]) {
+                goodStandingSectionPages[safeId] = 1;
+            }
+            return `<div id="good-standing-section-${safeId}" class="member-card" style="${config.cardStyle || ''}">${renderGoodStandingSectionBody(safeId)}</div>`;
+        }
+
+        function goToGoodStandingSectionPage(sectionId, page) {
+            const section = goodStandingSections[sectionId];
+            if (!section) return;
+            const totalPages = Math.max(1, Math.ceil((section.members || []).length / GOOD_STANDING_PAGE_SIZE));
+            if (page < 1 || page > totalPages) return;
+            goodStandingSectionPages[sectionId] = page;
+            const sectionEl = document.getElementById(`good-standing-section-${sectionId}`);
+            if (sectionEl) {
+                sectionEl.innerHTML = renderGoodStandingSectionBody(sectionId);
+            }
+        }
+
         async function loadGoodStanding() {
             const year = document.getElementById('year-select').value;
             if (!year) return;
@@ -1152,6 +1282,8 @@
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 const members = await res.json();
                 currentGoodStandingData = members;
+                Object.keys(goodStandingSections).forEach(key => delete goodStandingSections[key]);
+                Object.keys(goodStandingSectionPages).forEach(key => delete goodStandingSectionPages[key]);
                 
                 const groups = { FIOD: [], MIOD: [], AIOD: [] };
                 const corpGroups = { Platinum: [], Gold: [], Silver: [], Bronze: [] };
@@ -1241,21 +1373,12 @@
                 // Render individual member types (FIOD, MIOD, AIOD)
                 for(const type of ['FIOD','MIOD','AIOD']) {
                     if(groups[type].length) {
-                        html += `<div class='member-card'>
-                            <div class="card-title">
-                                <i class="fas ${typeNames[type].icon}"></i>
-                                ${typeNames[type].name}
-                                <span class="member-count">${groups[type].length} members</span>
-                            </div>
-                            <div class="table-scroll-wrap"><table>
-                                ${renderGoodStandingTableHeader()}
-                                <tbody>`;
-                        groups[type]
-                            .sort((a,b)=>a.membership_number.localeCompare(b.membership_number))
-                            .forEach(m => {
-                                html += renderGoodStandingTableRow(m);
-                            });
-                        html += `</tbody></table></div></div>`;
+                        html += renderGoodStandingSection(`type-${type}`, {
+                            title: typeNames[type].name,
+                            icon: typeNames[type].icon,
+                            members: groups[type].sort((a,b)=>(a.membership_number || '').localeCompare(b.membership_number || '')),
+                            countLabel: 'members'
+                        });
                     }
                 }
                 
@@ -1269,75 +1392,47 @@
                 
                 const hasAnyCorporate = Object.values(corpGroups).some(arr => arr.length > 0);
                 if (hasAnyCorporate) {
-                    html += `<div class='member-card'>
-                        <div class="card-title">
-                            <i class="fas fa-building"></i>
-                            Corporate Members
-                            <span class="member-count">${totalCorporate} members</span>
-                        </div>`;
-                    
                     for (const cat of ['Platinum', 'Gold', 'Silver', 'Bronze']) {
                         if (corpGroups[cat].length > 0) {
-                            html += `
-                                <div style="margin: 1rem 0 0.5rem 0; padding: 0.5rem 1rem; background: ${corpCategoryNames[cat].color}15; border-left: 4px solid ${corpCategoryNames[cat].color}; border-radius: 0 8px 8px 0;">
-                                    <strong style="color: ${corpCategoryNames[cat].color}; font-size: 0.95rem;">
-                                        <i class="fas fa-gem" style="margin-right: 0.4rem;"></i>${corpCategoryNames[cat].label}
-                                    </strong>
-                                    <span style="color: var(--text-light); font-size: 0.85rem; margin-left: 0.75rem;">${corpGroups[cat].length} member${corpGroups[cat].length !== 1 ? 's' : ''}</span>
-                                </div>
-                                <div class="table-scroll-wrap" style="margin-bottom: 1rem;"><table>
-                                    ${renderGoodStandingTableHeader()}
-                                    <tbody>`;
-                            corpGroups[cat]
-                                .sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||''))
-                                .forEach(m => {
-                                    html += renderGoodStandingTableRow(m);
-                                });
-                            html += `</tbody></table></div>`;
+                            html += renderGoodStandingSection(`corporate-${cat}`, {
+                                title: corpCategoryNames[cat].label,
+                                icon: 'fa-gem',
+                                members: corpGroups[cat].sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||'')),
+                                countLabel: corpGroups[cat].length === 1 ? 'member' : 'members',
+                                cardStyle: `border-left: 4px solid ${corpCategoryNames[cat].color};`,
+                                titleStyle: `color: ${corpCategoryNames[cat].color};`,
+                                countStyle: `background: ${corpCategoryNames[cat].color}15; color: ${corpCategoryNames[cat].color};`
+                            });
                         }
                     }
-                    
-                    html += `</div>`;
                 }
                 
                 // Render Waived Members section (non-Honorary only)
                 if (waivedMembers.length > 0) {
-                    html += `<div class='member-card' style='border-left: 4px solid #eab308;'>
-                        <div class="card-title" style="color: #854d0e;">
-                            <i class="fas fa-hand-holding-heart"></i>
-                            Waived Members
-                            <span class="member-count" style="background: #fef9c3; color: #854d0e;">${waivedMembers.length} member${waivedMembers.length !== 1 ? 's' : ''}</span>
-                        </div>
-                        <p style="padding: 0 1rem; margin: 0 0 1rem; font-size: 0.88rem; color: #92400e;">Members whose subscription payment has been waived for ${year}.</p>
-                        <div class="table-scroll-wrap"><table>
-                            ${renderGoodStandingTableHeader()}
-                            <tbody>`;
-                    waivedMembers
-                        .sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||''))
-                        .forEach(m => {
-                            html += renderGoodStandingTableRow(m);
-                        });
-                    html += `</tbody></table></div></div>`;
+                    html += renderGoodStandingSection('waived-members', {
+                        title: 'Waived Members',
+                        icon: 'fa-hand-holding-heart',
+                        members: waivedMembers.sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||'')),
+                        countLabel: waivedMembers.length === 1 ? 'member' : 'members',
+                        cardStyle: 'border-left: 4px solid #eab308;',
+                        titleStyle: 'color: #854d0e;',
+                        countStyle: 'background: #fef9c3; color: #854d0e;',
+                        description: `<p style="padding: 0 1rem; margin: 0 0 1rem; font-size: 0.88rem; color: #92400e;">Members whose subscription payment has been waived for ${year}.</p>`
+                    });
                 }
 
                 // Render Honorary Members section
                 if (honoraryMembers.length > 0) {
-                    html += `<div class='member-card' style='border-left: 4px solid #7c3aed;'>
-                        <div class="card-title" style="color: #5b21b6;">
-                            <i class="fas fa-medal"></i>
-                            Honorary Members
-                            <span class="member-count" style="background: #ede9fe; color: #5b21b6;">${honoraryMembers.length} member${honoraryMembers.length !== 1 ? 's' : ''}</span>
-                        </div>
-                        <p style="padding: 0 1rem; margin: 0 0 1rem; font-size: 0.88rem; color: #6d28d9;">Honorary members are automatically in good standing.</p>
-                        <div class="table-scroll-wrap"><table>
-                            ${renderGoodStandingTableHeader()}
-                            <tbody>`;
-                    honoraryMembers
-                        .sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||''))
-                        .forEach(m => {
-                            html += renderGoodStandingTableRow(m);
-                        });
-                    html += `</tbody></table></div></div>`;
+                    html += renderGoodStandingSection('honorary-members', {
+                        title: 'Honorary Members',
+                        icon: 'fa-medal',
+                        members: honoraryMembers.sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||'')),
+                        countLabel: honoraryMembers.length === 1 ? 'member' : 'members',
+                        cardStyle: 'border-left: 4px solid #7c3aed;',
+                        titleStyle: 'color: #5b21b6;',
+                        countStyle: 'background: #ede9fe; color: #5b21b6;',
+                        description: '<p style="padding: 0 1rem; margin: 0 0 1rem; font-size: 0.88rem; color: #6d28d9;">Honorary members are automatically in good standing.</p>'
+                    });
                 }
                 
                 if(totalMembers === 0) {
