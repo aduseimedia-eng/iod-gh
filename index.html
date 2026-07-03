@@ -6210,7 +6210,12 @@
                 if (response.ok) {
                     closeMemberModal();
                     await loadAllData();
-                    alert(isNewMember ? 'Member added successfully!' : 'Member updated successfully!');
+                    showPaymentSuccessPopup({
+                        title: isNewMember ? 'Member added successfully' : 'Member updated successfully',
+                        subtitle: isNewMember ? 'The new member record is now saved.' : 'The member profile changes are now saved.',
+                        summary: null,
+                        nextYear: null
+                    });
                 } else {
                     const errorData = await response.json().catch(() => ({}));
                     console.error('Server error:', errorData);
@@ -6441,92 +6446,8 @@
                     </div>
                 `;
 
-                // ── Payment History Table ──
-                let historyHtml = '';
-                if (paymentSummary && paymentSummary.subscriptions && paymentSummary.subscriptions.length > 0) {
-                    const rows = paymentSummary.subscriptions.map((sub) => {
-                        const isCurrentSubscriptionYear = Number(sub.subscription_year) === currentYear;
-                        const effectiveStatus = getDisplaySubscriptionStatus(sub);
-                        const statusColor = effectiveStatus === 'Paid' || effectiveStatus === 'Waived' ? '#10b981' : effectiveStatus === 'Partial' ? '#f59e0b' : '#ef4444';
-                        const isVirtual = sub.is_virtual === true;
-                        const isInductionYear = sub.is_induction_year === true;
-                        const expectedAmt = parseFloat(sub.rate_expected_amount || sub.expected_amount || 0);
-                        const paidAmt = parseFloat(sub.amount_paid || 0);
-                        const creditApplied = parseFloat(sub.credit_applied || 0);
-                        const creditBalance = parseFloat(sub.credit_balance || 0);
-                        // Total Applied = only what was actually applied to THIS year
-                        // = cash paid + credit from prev year - excess carried to next year
-                        const totalApplied = paidAmt + creditApplied - creditBalance;
-                        const balanceDue = getSubscriptionBalanceDue(
-                            sub,
-                            isSettledSubscription(sub) ? 0 : Math.max(0, expectedAmt - totalApplied)
-                        );
-                        const displayBalanceDue = isCurrentSubscriptionYear ? balanceDue : 0;
-                        const subData = JSON.stringify({id: sub.id, year: sub.subscription_year, amount_paid: sub.amount_paid || 0, status: effectiveStatus, payment_method: sub.payment_method || '', receipt_number: sub.receipt_number || '', payment_date: sub.payment_date || '', is_virtual: isVirtual, expected_amount: sub.rate_expected_amount || 0, credit_applied: creditApplied, credit_balance: creditBalance, is_induction_year: isInductionYear}).replace(/"/g, '&quot;');
-
-                        // Build credit info tags
-                        let creditTags = '';
-                        if (creditApplied > 0) {
-                            creditTags += '<div style="font-size:0.72rem;color:#059669;margin-top:2px"><i class="fas fa-arrow-down" style="font-size:0.6rem"></i> +₵' + creditApplied.toFixed(2) + ' credit from ' + (sub.subscription_year - 1) + '</div>';
-                        }
-                        if (creditBalance > 0) {
-                            creditTags += '<div style="font-size:0.72rem;color:#2563eb;margin-top:2px"><i class="fas fa-arrow-right" style="font-size:0.6rem"></i> ₵' + creditBalance.toFixed(2) + ' → ' + (sub.subscription_year + 1) + '</div>';
-                        }
-
-                        // Year label: show status tag for virtual years based on credit logic
-                        let yearLabel = '' + sub.subscription_year;
-                        if (isInductionYear) {
-                            yearLabel += ' <span style="font-size:0.7rem;color:#059669">(Inducted this year)</span>';
-                        } else if (isVirtual) {
-                            if (effectiveStatus === 'Paid') {
-                                yearLabel += ' <span style="font-size:0.7rem;color:#10b981">(covered by credit)</span>';
-                            } else if (effectiveStatus === 'Partial') {
-                                yearLabel += ' <span style="font-size:0.7rem;color:#f59e0b">(partial credit)</span>';
-                            } else {
-                                yearLabel += ' <span style="font-size:0.7rem;color:#ef4444">(unpaid)</span>';
-                            }
-                        }
-
-                        return '<tr>' +
-                            '<td style="font-weight:600">' + yearLabel + '</td>' +
-                            '<td>₵' + expectedAmt.toFixed(2) + '</td>' +
-                            '<td>' + (paidAmt > 0 ? '₵' + paidAmt.toFixed(2) : '<span style="color:#9ca3af">₵0.00</span>') +
-                                (creditApplied > 0 ? '<br><span style="font-size:0.72rem;color:#059669">+₵' + creditApplied.toFixed(2) + ' credit from ' + (sub.subscription_year - 1) + '</span>' : '') +
-                                (creditBalance > 0 ? '<br><span style="font-size:0.72rem;color:#2563eb">-₵' + creditBalance.toFixed(2) + ' excess → ' + (sub.subscription_year + 1) + '</span>' : '') +
-                            '</td>' +
-                            '<td style="font-weight:600">' + (isInductionYear ? '<span style="color:#059669">Inducted this year</span>' : (totalApplied > 0 ? '₵' + totalApplied.toFixed(2) : '<span style="color:#9ca3af">₵0.00</span>')) + '</td>' +
-                            '<td>' + (isInductionYear ? '<span style="color:#9ca3af">-</span>' : (displayBalanceDue > 0 ? '<span style="color:#dc2626;font-weight:600">₵' + displayBalanceDue.toFixed(2) + '</span>' : '<span style="color:#10b981;font-weight:600">₵0.00</span>')) + '</td>' +
-                            '<td>' +
-                                '<span class="mp-pill" style="background:' + statusColor + '">' + effectiveStatus + '</span>' +
-                                (isInductionYear ? '<div style="font-size:0.72rem;color:#059669;margin-top:2px">Inducted this year</div>' : '') +
-                                creditTags +
-                            '</td>' +
-                            '<td>' + (sub.payment_date ? new Date(sub.payment_date).toLocaleDateString('en-GB') : '-') + '</td>' +
-                            '<td>' + (sub.payment_method || '-') + '</td>' +
-                            '<td>' + (sub.recorded_by || '-') + '</td>' +
-                            '<td class="print-hide" style="white-space:nowrap">' +
-                                '<button onclick="editPaymentHistory(' + member.id + ', \'' + subData + '\')" class="mp-history-btn edit" title="' + (isVirtual ? 'Record Payment' : 'Edit Payment') + '"><i class="fas fa-' + (isVirtual ? 'plus' : 'edit') + '"></i></button>' +
-                                (isVirtual ? '' : ' <button onclick="deletePaymentHistory(' + member.id + ', ' + sub.id + ', ' + sub.subscription_year + ')" class="mp-history-btn delete" title="Delete Payment"><i class="fas fa-trash"></i></button>') +
-                            '</td>' +
-                        '</tr>';
-                    }).join('');
-
-                    historyHtml = `
-                    <div class="mp-history">
-                        <div class="mp-history-title"><i class="fas fa-history"></i> Payment History</div>
-                        <div style="overflow-x:auto">
-                            <table>
-                                <thead><tr>
-                                    <th>Year</th><th>Expected</th><th>Paid</th><th>Total Applied</th><th>Balance</th><th>Status</th><th>Date</th><th>Method</th><th>Recorded By</th><th class="print-hide">Actions</th>
-                                </tr></thead>
-                                <tbody>${rows}</tbody>
-                            </table>
-                        </div>
-                    </div>`;
-                }
-
-                // ── Assemble Final HTML ──
-                historyHtml = buildPaymentHistoryLedger(member, paymentSummary, isSettledSubscription) || historyHtml;
+                // ── Payment History ──
+                const historyHtml = buildPaymentHistoryLedger(member, paymentSummary, isSettledSubscription);
 
                 const profileEmail = member.email || member.contact_email || 'No email on record';
                 const joinedDate = member.date_of_admission || member.registration_date || 'N/A';
@@ -7477,8 +7398,8 @@
                         <div class="payment-success-head">
                             <div class="payment-success-icon"><i class="fas fa-check"></i></div>
                             <div>
-                                <h3 id="payment-success-title" class="payment-success-title">${title}</h3>
-                                <div class="payment-success-subtitle">${subtitle}</div>
+                                <h3 id="payment-success-title" class="payment-success-title">${escapeHtml(title)}</h3>
+                                <div class="payment-success-subtitle">${escapeHtml(subtitle)}</div>
                             </div>
                         </div>
                         <div class="payment-success-body">
