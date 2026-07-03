@@ -2619,8 +2619,7 @@ function getMemberInductionYear(member) {
     if (Number.isFinite(explicitYear)) return explicitYear;
 
     return getYearFromDateValue(member.date_of_admission) ||
-        getYearFromDateValue(member.registration_date) ||
-        getYearFromDateValue(member.created_at);
+        getYearFromDateValue(member.registration_date);
 }
 
 function isInductionYearSubscription(member, subscriptionYear, explicitStatus, amountPaid) {
@@ -2629,9 +2628,7 @@ function isInductionYearSubscription(member, subscriptionYear, explicitStatus, a
 
     return Number.isFinite(inductionYear) &&
         Number.isFinite(year) &&
-        year === inductionYear &&
-        explicitStatus === 'Paid' &&
-        !hasPositiveAmount(amountPaid);
+        year === inductionYear;
 }
 
 function determineSubscriptionStatus({ subscriptionYear, memberType, explicitStatus, amountPaid, totalAvailable, expectedAmount }) {
@@ -2828,7 +2825,24 @@ async function getGoodStandingMembersForYear(year, { includePaymentDetails = fal
         }
 
         const memberSubscriptions = subscriptionsByMember.get(member.id) || [];
-        if (memberSubscriptions.length === 0) continue;
+        const memberInductionYear = getMemberInductionYear(member);
+        if (memberSubscriptions.length === 0) {
+            if (memberInductionYear === year) {
+                goodStandingMembers.push({
+                    ...member,
+                    subscription_year: year,
+                    status: 'Paid',
+                    amount_paid: 0,
+                    credit_applied: 0,
+                    expected_amount: 0,
+                    is_induction_year: true,
+                    induction_note: 'Inducted this year',
+                    recorded_by: null,
+                    payment_date: null
+                });
+            }
+            continue;
+        }
 
         const memberRatesMap = ratesByMemberType.get(
             rateKey(member.member_type, member.member_type === 'Corporate' ? member.membership_category : '')
@@ -2850,7 +2864,8 @@ async function getGoodStandingMembersForYear(year, { includePaymentDetails = fal
                         explicitStatus: 'Pending',
                         amountPaid: 0,
                         expectedAmount: gapRate,
-                        availableCredit: carryForwardCredit
+                        availableCredit: carryForwardCredit,
+                        isInductionYear: isInductionYearSubscription(member, gapYear, 'Pending', 0)
                     });
 
                     if (gapYear === year) {
@@ -2914,7 +2929,8 @@ async function getGoodStandingMembersForYear(year, { includePaymentDetails = fal
                     explicitStatus: 'Pending',
                     amountPaid: 0,
                     expectedAmount: gapRate,
-                    availableCredit: carryForwardCredit
+                    availableCredit: carryForwardCredit,
+                    isInductionYear: isInductionYearSubscription(member, gapYear, 'Pending', 0)
                 });
 
                 if (gapYear === year) {
@@ -2933,6 +2949,21 @@ async function getGoodStandingMembersForYear(year, { includePaymentDetails = fal
                 }
                 carryForwardCredit = gapOutcome.creditBalance;
             }
+        }
+
+        if (!targetYearData && memberInductionYear === year) {
+            targetYearData = {
+                amountPaid: 0,
+                creditApplied: 0,
+                rateExpected: 0,
+                creditBalance: carryForwardCredit,
+                recorded_by: null,
+                payment_date: null,
+                isWaived: false,
+                isLegacyPaid: false,
+                isInductionYear: true,
+                status: 'Paid'
+            };
         }
 
         const isGoodStanding = targetYearData && (
@@ -2977,7 +3008,7 @@ async function getMemberLedgerContext(client, memberId) {
     const result = await client.query(`
         SELECT id, member_type, membership_number, membership_category,
                date_of_admission, registration_date, created_at,
-               EXTRACT(YEAR FROM COALESCE(date_of_admission, registration_date, created_at))::int as induction_year
+               EXTRACT(YEAR FROM COALESCE(date_of_admission, registration_date))::int as induction_year
         FROM members
         WHERE id = $1
     `, [memberId]);
@@ -4665,7 +4696,7 @@ app.get('/api/members/:id/payment-summary', async (req, res) => {
         const memberResult = await pool.query(`
             SELECT id, member_type, membership_number, membership_category,
                    date_of_admission, registration_date, created_at,
-                   EXTRACT(YEAR FROM COALESCE(date_of_admission, registration_date, created_at))::int as induction_year
+                   EXTRACT(YEAR FROM COALESCE(date_of_admission, registration_date))::int as induction_year
             FROM members
             WHERE id = $1
         `, [memberId]);
@@ -4835,7 +4866,7 @@ app.get('/api/dashboard/current-year-overview', async (req, res) => {
         const inductionPaidCondition = `
             COALESCE((
                 s.status = 'Paid'
-                AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date, m.created_at))::int
+                AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::int
             ), false)
         `;
         const fullyPaidCondition = `
@@ -4888,7 +4919,7 @@ app.get('/api/dashboard/paid-by-type', async (req, res) => {
         const inductionPaidCondition = `
             COALESCE((
                 s.status = 'Paid'
-                AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date, m.created_at))::int
+                AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::int
             ), false)
         `;
         const fullyPaidCondition = `
@@ -4954,7 +4985,7 @@ app.get('/api/dashboard/yearly-trends', async (req, res) => {
                     COUNT(DISTINCT CASE 
                         WHEN COALESCE((
                             s.status = 'Paid'
-                            AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date, m.created_at))::int
+                            AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::int
                         ), false) OR (
                             COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) > 0
                             AND (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0))
@@ -5042,7 +5073,7 @@ app.get('/api/dashboard/unpaid-subscriptions', async (req, res) => {
                 OR (
                     NOT (
                         s.status = 'Paid'
-                        AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date, m.created_at))::int
+                        AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::int
                     )
                     AND
                     COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) > 0
@@ -5161,7 +5192,7 @@ app.get('/api/dashboard/regional-performance', async (req, res) => {
         const inductionPaidCondition = `
             COALESCE((
                 s.status = 'Paid'
-                AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date, m.created_at))::int
+                AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::int
             ), false)
         `;
         const fullyPaidCondition = `
@@ -5358,7 +5389,7 @@ app.get('/api/dashboard/lapsed-good-standing', async (req, res) => {
                 TO_CHAR(m.date_of_admission, 'DD/MM/YYYY') AS date_of_admission,
                 TO_CHAR(m.registration_date, 'DD/MM/YYYY') AS registration_date,
                 m.created_at,
-                EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date, m.created_at))::INT AS induction_year,
+                EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::INT AS induction_year,
                 ARRAY_REMOVE(ARRAY_AGG(DISTINCT s.subscription_year ORDER BY s.subscription_year DESC), NULL) AS subscription_years,
                 (
                     SELECT ARRAY_AGG(DISTINCT subscription_year ORDER BY subscription_year DESC)
