@@ -4504,6 +4504,19 @@
             return sub.computed_status || sub.status || 'Pending';
         }
 
+        function getSubscriptionBalanceDue(sub, fallbackBalance) {
+            if (!sub) return 0;
+            if (sub.is_induction_year === true) return null;
+
+            const apiBalanceDue = parseFloat(sub.balance_due);
+            if (Number.isFinite(apiBalanceDue)) {
+                return Math.max(0, apiBalanceDue);
+            }
+
+            const fallback = parseFloat(fallbackBalance);
+            return Number.isFinite(fallback) ? Math.max(0, fallback) : 0;
+        }
+
         async function loadAuthContext() {
             try {
                 const response = await fetch('/api/auth-status');
@@ -6362,7 +6375,10 @@
                     const creditBalance = parseFloat(currentYearSub.credit_balance || 0);
                     // Total actually applied to THIS year = cash + credit - excess carried to next year
                     const totalApplied = paidAmt + creditApplied - creditBalance;
-                    const remaining = isInductionYear ? null : (isSettledSubscription(currentYearSub) ? 0 : Math.max(0, expectedAmt - totalApplied));
+                    const remaining = getSubscriptionBalanceDue(
+                        currentYearSub,
+                        isSettledSubscription(currentYearSub) ? 0 : Math.max(0, expectedAmt - totalApplied)
+                    );
                     const overpayment = creditBalance;
 
                     paymentRows += `
@@ -6440,7 +6456,10 @@
                         // Total Applied = only what was actually applied to THIS year
                         // = cash paid + credit from prev year - excess carried to next year
                         const totalApplied = paidAmt + creditApplied - creditBalance;
-                        const balanceDue = isInductionYear ? null : (isSettledSubscription(sub) ? 0 : Math.max(0, expectedAmt - totalApplied));
+                        const balanceDue = getSubscriptionBalanceDue(
+                            sub,
+                            isSettledSubscription(sub) ? 0 : Math.max(0, expectedAmt - totalApplied)
+                        );
                         const subData = JSON.stringify({id: sub.id, year: sub.subscription_year, amount_paid: sub.amount_paid || 0, status: effectiveStatus, payment_method: sub.payment_method || '', receipt_number: sub.receipt_number || '', payment_date: sub.payment_date || '', is_virtual: isVirtual, expected_amount: sub.rate_expected_amount || 0, credit_applied: creditApplied, credit_balance: creditBalance, is_induction_year: isInductionYear}).replace(/"/g, '&quot;');
 
                         // Build credit info tags
@@ -6788,10 +6807,12 @@
                         const creditApplied = parseFloat(sub.credit_applied || 0);
                         const creditBalance = parseFloat(sub.credit_balance || 0);
                         const totalApplied = Math.max(0, amountPaid + creditApplied - creditBalance);
-                        const apiBalanceDue = parseFloat(sub.balance_due);
                         const effectiveStatus = sub.computed_status || sub.status || 'Pending';
                         const isSettled = effectiveStatus === 'Paid' || effectiveStatus === 'Waived';
-                        const balanceDue = isSettled ? 0 : (Number.isFinite(apiBalanceDue) ? apiBalanceDue : Math.max(0, expectedAmount - totalApplied));
+                        const balanceDue = getSubscriptionBalanceDue(
+                            sub,
+                            isSettled ? 0 : Math.max(0, expectedAmount - totalApplied)
+                        );
                         const isGoodStanding = effectiveStatus === 'Paid' || effectiveStatus === 'Waived';
                         const statusColor = isGoodStanding ? 'var(--success)' : (effectiveStatus === 'Partial' ? 'var(--warning)' : 'var(--danger)');
                         const statusText = effectiveStatus === 'Paid' ? 'Good Standing' : (effectiveStatus === 'Partial' ? 'Top Up Needed' : effectiveStatus);
@@ -7075,7 +7096,10 @@
                 const isSettled = typeof isSettledSubscription === 'function'
                     ? isSettledSubscription(sub)
                     : (effectiveStatus === 'Paid' || effectiveStatus === 'Waived');
-                const balanceDue = isInductionYear ? null : (isSettled ? 0 : Math.max(0, expectedAmt - totalApplied));
+                const balanceDue = getSubscriptionBalanceDue(
+                    sub,
+                    isSettled ? 0 : Math.max(0, expectedAmt - totalApplied)
+                );
                 const subData = encodeURIComponent(JSON.stringify({
                     id: sub.id,
                     year: sub.subscription_year,

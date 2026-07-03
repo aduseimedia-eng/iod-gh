@@ -2623,14 +2623,13 @@ function getMemberInductionYear(member) {
         getYearFromDateValue(member.created_at);
 }
 
-function isInductionYearSubscription(member, subscriptionYear, explicitStatus) {
+function isInductionYearSubscription(member, subscriptionYear) {
     const inductionYear = getMemberInductionYear(member);
     const year = parseInt(subscriptionYear, 10);
 
     return Number.isFinite(inductionYear) &&
         Number.isFinite(year) &&
-        year === inductionYear &&
-        explicitStatus === 'Paid';
+        year === inductionYear;
 }
 
 function determineSubscriptionStatus({ subscriptionYear, memberType, explicitStatus, amountPaid, totalAvailable, expectedAmount }) {
@@ -3159,9 +3158,7 @@ async function recalculateMemberCreditLedger(client, memberId, options = {}) {
             amountPaid,
             expectedAmount,
             availableCredit: carryForwardCredit,
-            isInductionYear: existingSub
-                ? isInductionYearSubscription(member, year, explicitStatus, amountPaid)
-                : false
+            isInductionYear: isInductionYearSubscription(member, year, explicitStatus, amountPaid)
         });
 
         let row = {
