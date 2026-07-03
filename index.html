@@ -3996,52 +3996,6 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Subscription Years</label>
-                    <div class="multi-select-container">
-                        <div class="multi-select-dropdown" id="subscription-years-dropdown" onclick="toggleYearDropdown()">
-                            <span class="multi-select-placeholder">Select years...</span>
-                        </div>
-                        <div class="multi-select-options" id="subscription-years-options"></div>
-                    </div>
-                    <input type="hidden" id="subscription-years">
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="payment-status">Payment Status</label>
-                        <select id="payment-status">
-                            <option value="">Not Specified</option>
-                            <option value="Paid">Fully Paid</option>
-                            <option value="Partial">Partial Payment</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Waived">Waived</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="amount-paid">Amount Paid (₵)</label>
-                        <input type="number" id="amount-paid" min="0" step="0.01" placeholder="0.00">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="recorded-by">Recorded By</label>
-                        <input type="text" id="recorded-by" readonly placeholder="Logged-in admin account">
-                    </div>
-                    <div class="form-group">
-                        <label for="payment-method">Payment Method</label>
-                        <select id="payment-method">
-                            <option value="">Select Method</option>
-                            <option value="Cash">Cash</option>
-                            <option value="Bank Transfer">Bank Transfer</option>
-                            <option value="Mobile Money">Mobile Money</option>
-                            <option value="Cheque">Cheque</option>
-                            <option value="Card">Card</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-group">
                     <label for="expertise">Expertise</label>
                     <textarea id="expertise" placeholder="e.g. Finance, Corporate Governance, Risk Management..."></textarea>
                 </div>
@@ -5117,7 +5071,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadAuthContext();
             loadAllData();
-            initializeYearDropdown();
             document.getElementById('member-form').addEventListener('submit', saveMember);
             
             // Auto-open settings if navigated with #settings hash
@@ -5134,97 +5087,7 @@
                 history.replaceState(null, '', window.location.pathname);
             }
 
-            // Close dropdown when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!e.target.closest('.multi-select-container')) {
-                    document.getElementById('subscription-years-options').classList.remove('show');
-                    document.getElementById('subscription-years-dropdown').classList.remove('active');
-                }
-            });
         });
-
-        // ==========================================
-        // SUBSCRIPTION YEARS MULTI-SELECT DROPDOWN
-        // ==========================================
-        let selectedYears = [];
-
-        function initializeYearDropdown() {
-            const optionsContainer = document.getElementById('subscription-years-options');
-            const years = [];
-            for (let y = 2025; y <= 2035; y++) {
-                years.push(y);
-            }
-            
-            optionsContainer.innerHTML = years.map(year => `
-                <div class="multi-select-option" onclick="toggleYear(${year}, event)">
-                    <input type="checkbox" id="year-${year}" ${selectedYears.includes(year) ? 'checked' : ''}>
-                    <label for="year-${year}">${year}</label>
-                </div>
-            `).join('');
-        }
-
-        function toggleYearDropdown() {
-            const options = document.getElementById('subscription-years-options');
-            const dropdown = document.getElementById('subscription-years-dropdown');
-            options.classList.toggle('show');
-            dropdown.classList.toggle('active');
-        }
-
-        function toggleYear(year, event) {
-            event.stopPropagation();
-            const index = selectedYears.indexOf(year);
-            if (index > -1) {
-                selectedYears.splice(index, 1);
-            } else {
-                selectedYears.push(year);
-            }
-            selectedYears.sort((a, b) => a - b);
-            updateYearDisplay();
-            document.getElementById('subscription-years').value = selectedYears.join(',');
-            
-            // Update checkbox state
-            const checkbox = document.getElementById(`year-${year}`);
-            if (checkbox) checkbox.checked = selectedYears.includes(year);
-        }
-
-        function updateYearDisplay() {
-            const dropdown = document.getElementById('subscription-years-dropdown');
-            if (selectedYears.length === 0) {
-                dropdown.innerHTML = '<span class="multi-select-placeholder">Select years...</span>';
-            } else {
-                dropdown.innerHTML = selectedYears.map(year => `
-                    <span class="selected-tag">
-                        ${year}
-                        <span class="remove-tag" onclick="removeYear(${year}, event)">&times;</span>
-                    </span>
-                `).join('');
-            }
-        }
-
-        function removeYear(year, event) {
-            event.stopPropagation();
-            const index = selectedYears.indexOf(year);
-            if (index > -1) {
-                selectedYears.splice(index, 1);
-            }
-            updateYearDisplay();
-            document.getElementById('subscription-years').value = selectedYears.join(',');
-            
-            // Update checkbox state
-            const checkbox = document.getElementById(`year-${year}`);
-            if (checkbox) checkbox.checked = false;
-        }
-
-        function setSelectedYears(years) {
-            selectedYears = years || [];
-            updateYearDisplay();
-            document.getElementById('subscription-years').value = selectedYears.join(',');
-            // Update all checkboxes
-            for (let y = 2025; y <= 2035; y++) {
-                const checkbox = document.getElementById(`year-${y}`);
-                if (checkbox) checkbox.checked = selectedYears.includes(y);
-            }
-        }
 
         // ==========================================
         // DATA LOADING
@@ -5643,8 +5506,6 @@
         function openAddMemberModal() {
             document.getElementById('member-id').value = '';
             document.getElementById('member-form').reset();
-            setSelectedYears([]); // Clear the subscription years dropdown
-            document.getElementById('recorded-by').value = currentAuthContext.user || '';
             document.getElementById('modal-title').textContent = 'Add New Member';
             document.getElementById('member-modal').classList.add('show');
         }
@@ -6160,9 +6021,6 @@
             const memberId = document.getElementById('member-id').value;
             const isNewMember = !memberId;
 
-            const subscriptionYearsInput = document.getElementById('subscription-years').value;
-            const subscription_years = subscriptionYearsInput ? subscriptionYearsInput.split(',').map(y => parseInt(y.trim())).filter(y => !isNaN(y)) : [];
-
             const memberData = {
                 member_type: sanitizeInput(document.getElementById('member-type').value),
                 title: sanitizeInput(document.getElementById('title').value),
@@ -6184,12 +6042,7 @@
                 email: sanitizeInput(document.getElementById('email').value),
                 expertise: sanitizeInput(document.getElementById('expertise').value),
                 feedback_on_calls: sanitizeInput(document.getElementById('feedback-on-calls').value),
-                years_served_on_boards: parseInt(document.getElementById('years-served-on-boards').value) || 0,
-                subscription_years,
-                payment_status: document.getElementById('payment-status').value,
-                payment_method: document.getElementById('payment-method').value,
-                amount_paid: parseFloat(document.getElementById('amount-paid').value) || 0,
-                recorded_by: document.getElementById('recorded-by').value
+                years_served_on_boards: parseInt(document.getElementById('years-served-on-boards').value) || 0
             };
 
             // Include membership_number only when editing existing member
@@ -6539,11 +6392,6 @@
                 document.getElementById('feedback-on-calls').value = member.feedback_on_calls || '';
                 document.getElementById('years-served-on-boards').value = member.years_served_on_boards || 0;
                 document.getElementById('membership-category').value = member.membership_category || 'Gold';
-                setSelectedYears(member.subscription_years || []);
-                document.getElementById('payment-status').value = member.payment_status || '';
-                document.getElementById('payment-method').value = member.payment_method || '';
-                document.getElementById('amount-paid').value = member.amount_paid || 0;
-                document.getElementById('recorded-by').value = currentAuthContext.user || member.recorded_by || '';
 
                 // Set dates - convert from DD/MM/YYYY format back to date input format
                 if (member.date_of_admission && member.date_of_admission.includes('/')) {
