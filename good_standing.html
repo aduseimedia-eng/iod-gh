@@ -262,6 +262,50 @@
             box-shadow: 0 1px 0 var(--border);
         }
 
+        .good-standing-list {
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .good-standing-row {
+            display: grid;
+            grid-template-columns: minmax(130px, 0.9fr) minmax(180px, 1.3fr) repeat(4, minmax(110px, 1fr));
+            gap: 0.75rem;
+            align-items: center;
+            padding: 0.85rem 0.95rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #ffffff;
+        }
+
+        .good-standing-row:hover {
+            background: #f8fafc;
+            border-color: #d8ddea;
+        }
+
+        .good-standing-field {
+            min-width: 0;
+        }
+
+        .good-standing-field span {
+            display: block;
+            color: var(--text-light);
+            font-size: 0.66rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin-bottom: 0.18rem;
+        }
+
+        .good-standing-field strong,
+        .good-standing-field .value {
+            display: block;
+            color: var(--text-dark);
+            font-size: 0.84rem;
+            font-weight: 700;
+            overflow-wrap: anywhere;
+        }
+
         .card-title {
             color: var(--primary);
             font-size: 1.1rem;
@@ -379,6 +423,10 @@
             .summary-section {
                 grid-template-columns: 1fr;
             }
+
+            .good-standing-row {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
         }
 
         @media (max-width: 768px) {
@@ -417,6 +465,11 @@
 
             .member-card {
                 padding: 1rem;
+            }
+
+            .good-standing-row {
+                grid-template-columns: 1fr;
+                gap: 0.55rem;
             }
 
             table {
@@ -1168,26 +1221,35 @@
                 : formatGoodStandingAmount(member.expected_amount);
         }
 
-        function renderGoodStandingTableHeader() {
-            return `<thead><tr>
-                <th>Membership No.</th>
-                <th>Full Name</th>
-                <th>Expected / Note</th>
-                <th>Paid (₵)</th>
-                <th>Credit Applied (₵)</th>
-                <th>Payment Date</th>
-            </tr></thead>`;
-        }
-
-        function renderGoodStandingTableRow(member) {
-            return `<tr>
-                <td><strong>${member.membership_number || 'N/A'}</strong></td>
-                <td>${formatGoodStandingFullName(member)}</td>
-                <td>${formatGoodStandingExpected(member)}</td>
-                <td>${formatGoodStandingAmount(member.amount_paid)}</td>
-                <td>${formatGoodStandingAmount(member.credit_applied)}</td>
-                <td>${member.payment_date || '-'}</td>
-            </tr>`;
+        function renderGoodStandingMemberCard(member) {
+            return `
+                <div class="good-standing-row">
+                    <div class="good-standing-field">
+                        <span>Membership No.</span>
+                        <strong>${member.membership_number || 'N/A'}</strong>
+                    </div>
+                    <div class="good-standing-field">
+                        <span>Full Name</span>
+                        <strong>${formatGoodStandingFullName(member)}</strong>
+                    </div>
+                    <div class="good-standing-field">
+                        <span>Expected / Note</span>
+                        <div class="value">${formatGoodStandingExpected(member)}</div>
+                    </div>
+                    <div class="good-standing-field">
+                        <span>Paid</span>
+                        <strong>&#8373;${formatGoodStandingAmount(member.amount_paid)}</strong>
+                    </div>
+                    <div class="good-standing-field">
+                        <span>Credit Applied</span>
+                        <strong>&#8373;${formatGoodStandingAmount(member.credit_applied)}</strong>
+                    </div>
+                    <div class="good-standing-field">
+                        <span>Payment Date</span>
+                        <strong>${member.payment_date || '-'}</strong>
+                    </div>
+                </div>
+            `;
         }
 
         function escapeSectionId(value) {
@@ -1237,10 +1299,7 @@
                     <div class="good-standing-page-info">Showing ${startIdx + 1}-${endIdx} of ${members.length}</div>
                 </div>
                 ${section.description || ''}
-                <div class="table-scroll-wrap"><table>
-                    ${renderGoodStandingTableHeader()}
-                    <tbody>${pageMembers.map(renderGoodStandingTableRow).join('')}</tbody>
-                </table></div>
+                <div class="good-standing-list">${pageMembers.map(renderGoodStandingMemberCard).join('')}</div>
                 ${renderGoodStandingPagination(sectionId, totalPages, currentPage)}
             `;
         }
