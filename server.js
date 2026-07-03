@@ -5437,7 +5437,7 @@ app.get('/api/dashboard/lapsed-good-standing', async (req, res) => {
                 ? `${member.member_type}:${member.membership_category}`
                 : member.member_type;
             const memberRates = ratesByMemberType[rateKey] || {};
-            const estimatedOutstanding = missedYears.reduce((sum, year) => sum + (memberRates[year] || 0), 0);
+            const estimatedOutstanding = missedYears.includes(currentYear) ? (memberRates[currentYear] || 0) : 0;
             const lastGoodStandingYear = Array.from(paidYears)
                 .filter(year => year < currentYear)
                 .sort((a, b) => b - a)[0] || null;

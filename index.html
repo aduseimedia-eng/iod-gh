@@ -6445,6 +6445,7 @@
                 let historyHtml = '';
                 if (paymentSummary && paymentSummary.subscriptions && paymentSummary.subscriptions.length > 0) {
                     const rows = paymentSummary.subscriptions.map((sub) => {
+                        const isCurrentSubscriptionYear = Number(sub.subscription_year) === currentYear;
                         const effectiveStatus = getDisplaySubscriptionStatus(sub);
                         const statusColor = effectiveStatus === 'Paid' || effectiveStatus === 'Waived' ? '#10b981' : effectiveStatus === 'Partial' ? '#f59e0b' : '#ef4444';
                         const isVirtual = sub.is_virtual === true;
@@ -6460,6 +6461,7 @@
                             sub,
                             isSettledSubscription(sub) ? 0 : Math.max(0, expectedAmt - totalApplied)
                         );
+                        const displayBalanceDue = isCurrentSubscriptionYear ? balanceDue : 0;
                         const subData = JSON.stringify({id: sub.id, year: sub.subscription_year, amount_paid: sub.amount_paid || 0, status: effectiveStatus, payment_method: sub.payment_method || '', receipt_number: sub.receipt_number || '', payment_date: sub.payment_date || '', is_virtual: isVirtual, expected_amount: sub.rate_expected_amount || 0, credit_applied: creditApplied, credit_balance: creditBalance, is_induction_year: isInductionYear}).replace(/"/g, '&quot;');
 
                         // Build credit info tags
@@ -6493,7 +6495,7 @@
                                 (creditBalance > 0 ? '<br><span style="font-size:0.72rem;color:#2563eb">-₵' + creditBalance.toFixed(2) + ' excess → ' + (sub.subscription_year + 1) + '</span>' : '') +
                             '</td>' +
                             '<td style="font-weight:600">' + (isInductionYear ? '<span style="color:#059669">Inducted this year</span>' : (totalApplied > 0 ? '₵' + totalApplied.toFixed(2) : '<span style="color:#9ca3af">₵0.00</span>')) + '</td>' +
-                            '<td>' + (isInductionYear ? '<span style="color:#9ca3af">-</span>' : (balanceDue > 0 ? '<span style="color:#dc2626;font-weight:600">₵' + balanceDue.toFixed(2) + '</span>' : '<span style="color:#10b981;font-weight:600">₵0.00</span>')) + '</td>' +
+                            '<td>' + (isInductionYear ? '<span style="color:#9ca3af">-</span>' : (displayBalanceDue > 0 ? '<span style="color:#dc2626;font-weight:600">₵' + displayBalanceDue.toFixed(2) + '</span>' : '<span style="color:#10b981;font-weight:600">₵0.00</span>')) + '</td>' +
                             '<td>' +
                                 '<span class="mp-pill" style="background:' + statusColor + '">' + effectiveStatus + '</span>' +
                                 (isInductionYear ? '<div style="font-size:0.72rem;color:#059669;margin-top:2px">Inducted this year</div>' : '') +
@@ -6802,6 +6804,7 @@
                 // Populate subscription status by year
                 if (balanceData.subscriptions && balanceData.subscriptions.length > 0) {
                     const subscriptionList = balanceData.subscriptions.map(sub => {
+                        const isCurrentSubscriptionYear = Number(sub.subscription_year) === currentYear;
                         const expectedAmount = parseFloat(sub.expected_amount || sub.rate_expected_amount || 0);
                         const amountPaid = parseFloat(sub.amount_paid || 0);
                         const creditApplied = parseFloat(sub.credit_applied || 0);
@@ -6813,6 +6816,7 @@
                             sub,
                             isSettled ? 0 : Math.max(0, expectedAmount - totalApplied)
                         );
+                        const displayBalanceDue = isCurrentSubscriptionYear ? balanceDue : 0;
                         const isGoodStanding = effectiveStatus === 'Paid' || effectiveStatus === 'Waived';
                         const statusColor = isGoodStanding ? 'var(--success)' : (effectiveStatus === 'Partial' ? 'var(--warning)' : 'var(--danger)');
                         const statusText = effectiveStatus === 'Paid' ? 'Good Standing' : (effectiveStatus === 'Partial' ? 'Top Up Needed' : effectiveStatus);
@@ -6842,7 +6846,7 @@
                                 </div>
                                 <div style="text-align: right; min-width: 110px;">
                                     <span style="display: inline-block; padding: 4px 10px; background: ${statusColor}22; color: ${statusColor}; border-radius: 4px; font-size: 12px; font-weight: 600;">${statusText}</span>
-                                    ${balanceDue > 0 ? `<div style="font-size: 12px; color: var(--danger); margin-top: 4px;">₵ ${balanceDue.toFixed(2)} due</div>` : ''}
+                                    ${displayBalanceDue > 0 ? `<div style="font-size: 12px; color: var(--danger); margin-top: 4px;">₵ ${displayBalanceDue.toFixed(2)} due</div>` : ''}
                                 </div>
                             </div>
                         `;
@@ -7080,11 +7084,13 @@
                 return '';
             }
 
+            const currentYear = new Date().getFullYear();
             let totalPaid = 0;
             let totalOutstanding = 0;
             let lastPaymentDate = null;
 
             const rows = paymentSummary.subscriptions.map(sub => {
+                const isCurrentSubscriptionYear = Number(sub.subscription_year) === currentYear;
                 const effectiveStatus = getDisplaySubscriptionStatus(sub);
                 const isVirtual = sub.is_virtual === true;
                 const isInductionYear = sub.is_induction_year === true;
@@ -7100,6 +7106,7 @@
                     sub,
                     isSettled ? 0 : Math.max(0, expectedAmt - totalApplied)
                 );
+                const displayBalanceDue = isCurrentSubscriptionYear ? balanceDue : 0;
                 const subData = encodeURIComponent(JSON.stringify({
                     id: sub.id,
                     year: sub.subscription_year,
@@ -7116,7 +7123,7 @@
                 }));
 
                 totalPaid += paidAmt;
-                if (!isInductionYear) totalOutstanding += balanceDue || 0;
+                if (!isInductionYear && isCurrentSubscriptionYear) totalOutstanding += balanceDue || 0;
                 if (sub.payment_date) {
                     const parsedDate = new Date(sub.payment_date);
                     if (!Number.isNaN(parsedDate.getTime()) && (!lastPaymentDate || parsedDate > lastPaymentDate)) {
@@ -7149,7 +7156,7 @@
                     : (totalApplied > 0 ? '&#8373;' + totalApplied.toFixed(2) : '<span class="mp-muted-value">&#8373;0.00</span>');
                 const balanceHtml = isInductionYear
                     ? '<span class="mp-muted-value">-</span>'
-                    : (balanceDue > 0 ? '<span class="mp-balance-due">&#8373;' + balanceDue.toFixed(2) + '</span>' : '<span class="mp-balance-clear">&#8373;0.00</span>');
+                    : (displayBalanceDue > 0 ? '<span class="mp-balance-due">&#8373;' + displayBalanceDue.toFixed(2) + '</span>' : '<span class="mp-balance-clear">&#8373;0.00</span>');
                 const creditTags = [
                     creditApplied > 0 ? '<div class="mp-credit-line in"><i class="fas fa-arrow-down" style="font-size:0.6rem"></i> +&#8373;' + creditApplied.toFixed(2) + ' credit from ' + (Number(sub.subscription_year) - 1) + '</div>' : '',
                     creditBalance > 0 ? '<div class="mp-credit-line out"><i class="fas fa-arrow-right" style="font-size:0.6rem"></i> &#8373;' + creditBalance.toFixed(2) + ' excess to ' + (Number(sub.subscription_year) + 1) + '</div>' : ''
