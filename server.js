@@ -5314,6 +5314,153 @@ app.get('/api/dashboard/member-growth', async (req, res) => {
     }
 });
 
+// Advanced: Members inducted in the current year
+app.get('/api/dashboard/inducted-this-year', async (req, res) => {
+    try {
+        const memberType = req.query.memberType || null;
+        const currentYear = parseInt(req.query.year, 10) || new Date().getFullYear();
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 25, 1), 500);
+        const params = [currentYear];
+
+        let typeFilter = '';
+        if (memberType) {
+            params.push(memberType);
+            typeFilter = ` AND m.member_type = $${params.length}`;
+        }
+
+        const membersQuery = `
+            WITH inducted AS (
+                SELECT
+                    m.id,
+                    m.membership_number,
+                    m.member_type,
+                    m.membership_category,
+                    COALESCE(
+                        NULLIF(TRIM(CONCAT_WS(' ', NULLIF(m.first_name, ''), COALESCE(NULLIF(m.surname, ''), NULLIF(m.last_name, '')), NULLIF(m.other_names, ''))), ''),
+                        NULLIF(m.organization, ''),
+                        'Unknown'
+                    ) AS member_name,
+                    m.organization,
+                    m.region,
+                    m.email,
+                    COALESCE(m.date_of_admission, m.registration_date)::DATE AS induction_date
+                FROM members m
+                WHERE COALESCE(m.date_of_admission, m.registration_date) IS NOT NULL
+                  AND EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::INT = $1
+                  ${typeFilter}
+            )
+            SELECT
+                i.*,
+                TO_CHAR(i.induction_date, 'DD/MM/YYYY') AS induction_date_display,
+                COALESCE(SUM(CASE WHEN s.status = 'Paid' THEN COALESCE(s.amount_paid, 0) ELSE 0 END), 0) AS next_year_credit_paid,
+                MAX(CASE WHEN s.status = 'Paid' THEN TO_CHAR(s.payment_date, 'DD/MM/YYYY') END) AS last_payment_date,
+                MAX(CASE WHEN s.status = 'Paid' THEN s.payment_method END) AS last_payment_method,
+                COALESCE(
+                    MAX(CASE WHEN s.status = 'Paid' THEN rau.username END),
+                    MAX(CASE WHEN s.status = 'Paid' THEN s.recorded_by_admin_username END),
+                    MAX(CASE WHEN s.status = 'Paid' THEN s.receipt_number END)
+                ) AS recorded_by
+            FROM inducted i
+            LEFT JOIN subscriptions s ON s.member_id = i.id
+                AND s.subscription_year = $1
+            LEFT JOIN admin_users rau ON rau.id = s.recorded_by_admin_user_id
+            GROUP BY
+                i.id,
+                i.membership_number,
+                i.member_type,
+                i.membership_category,
+                i.member_name,
+                i.organization,
+                i.region,
+                i.email,
+                i.induction_date
+            ORDER BY i.induction_date DESC NULLS LAST, i.membership_number
+            LIMIT ${limit}
+        `;
+
+        const summaryQuery = `
+            WITH inducted AS (
+                SELECT
+                    m.id,
+                    m.member_type,
+                    m.membership_category
+                FROM members m
+                WHERE COALESCE(m.date_of_admission, m.registration_date) IS NOT NULL
+                  AND EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::INT = $1
+                  ${typeFilter}
+            ),
+            member_credits AS (
+                SELECT
+                    i.id,
+                    i.member_type,
+                    i.membership_category,
+                    COALESCE(SUM(CASE WHEN s.status = 'Paid' THEN COALESCE(s.amount_paid, 0) ELSE 0 END), 0) AS next_year_credit_paid
+                FROM inducted i
+                LEFT JOIN subscriptions s ON s.member_id = i.id
+                    AND s.subscription_year = $1
+                GROUP BY i.id, i.member_type, i.membership_category
+            )
+            SELECT
+                COUNT(*) AS total_inducted,
+                COUNT(*) FILTER (WHERE next_year_credit_paid > 0) AS members_with_next_year_credit,
+                COALESCE(SUM(next_year_credit_paid), 0) AS next_year_credit_total
+            FROM member_credits
+        `;
+
+        const byTypeQuery = `
+            WITH inducted AS (
+                SELECT
+                    m.id,
+                    m.member_type
+                FROM members m
+                WHERE COALESCE(m.date_of_admission, m.registration_date) IS NOT NULL
+                  AND EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::INT = $1
+                  ${typeFilter}
+            ),
+            member_credits AS (
+                SELECT
+                    i.id,
+                    i.member_type,
+                    COALESCE(SUM(CASE WHEN s.status = 'Paid' THEN COALESCE(s.amount_paid, 0) ELSE 0 END), 0) AS next_year_credit_paid
+                FROM inducted i
+                LEFT JOIN subscriptions s ON s.member_id = i.id
+                    AND s.subscription_year = $1
+                GROUP BY i.id, i.member_type
+            )
+            SELECT
+                member_type,
+                COUNT(*) AS total_inducted,
+                COUNT(*) FILTER (WHERE next_year_credit_paid > 0) AS members_with_next_year_credit,
+                COALESCE(SUM(next_year_credit_paid), 0) AS next_year_credit_total
+            FROM member_credits
+            GROUP BY member_type
+            ORDER BY total_inducted DESC, member_type
+        `;
+
+        const [membersResult, summaryResult, byTypeResult] = await Promise.all([
+            pool.query(membersQuery, params),
+            pool.query(summaryQuery, params),
+            pool.query(byTypeQuery, params)
+        ]);
+
+        const summary = summaryResult.rows[0] || {};
+        res.json({
+            current_year: currentYear,
+            next_subscription_year: currentYear + 1,
+            summary: {
+                total_inducted: parseInt(summary.total_inducted || 0, 10),
+                members_with_next_year_credit: parseInt(summary.members_with_next_year_credit || 0, 10),
+                next_year_credit_total: parseFloat(summary.next_year_credit_total || 0)
+            },
+            by_type: byTypeResult.rows,
+            members: membersResult.rows
+        });
+    } catch (err) {
+        console.error('Error fetching inducted-this-year analytics:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // Advanced: Churn Analysis
 app.get('/api/dashboard/churn-analysis', async (req, res) => {
     try {

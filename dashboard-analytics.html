@@ -1447,10 +1447,10 @@
             </button>
         </div>
 
-        <!-- Top 5 Insights Summary -->
+        <!-- Top Insights Summary -->
         <div class="table-card">
             <div class="chart-title">
-                <i class="fas fa-lightbulb"></i> Top 5 Insights Summary
+                <i class="fas fa-lightbulb"></i> Top Insights Summary
             </div>
             <div id="topInsightsContent" class="top-insights-grid">
                 <div class="empty-state" style="grid-column: 1 / -1; padding: 24px 18px;">
@@ -1589,6 +1589,23 @@
                     </div>
                     <div class="section-footer">
                         <button class="export-btn" onclick="exportPaymentMethods()">
+                            <i class="fas fa-file-excel"></i> Export
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-title" style="margin-bottom: 1rem;">
+                        <i class="fas fa-user-check"></i> Inducted This Year
+                    </div>
+                    <div id="inductedThisYearContent">
+                        <div class="empty-state">
+                            <div class="loading-spinner"></div>
+                            <p>Loading...</p>
+                        </div>
+                    </div>
+                    <div class="section-footer">
+                        <button class="export-btn" onclick="exportInductedThisYear()">
                             <i class="fas fa-file-excel"></i> Export
                         </button>
                     </div>
@@ -2446,6 +2463,8 @@
         let lapsedGoodStandingChartInstance = null;
         let memberGrowthData = [];
         let paymentMethodsData = [];
+        let inductedThisYearReport = { summary: {}, by_type: [], members: [] };
+        let inductedThisYearLoaded = false;
         let cohortAnalysisData = [];
         let churnAnalysisData = [];
         let lapsedGoodStandingReport = { summary: {}, members: [] };
@@ -2553,6 +2572,27 @@
                 });
             }
 
+            if (inductedThisYearLoaded) {
+                const inductionSummary = inductedThisYearReport.summary || {};
+                const inductedCount = parseInt(inductionSummary.total_inducted || 0, 10);
+                const creditedCount = parseInt(inductionSummary.members_with_next_year_credit || 0, 10);
+                insights.push({
+                    tone: inductedCount > 0 ? 'success' : 'info',
+                    icon: 'fa-user-check',
+                    title: 'Inducted This Year',
+                    value: `${inductedCount.toLocaleString()} members`,
+                    detail: `${creditedCount.toLocaleString()} already paid toward ${inductedThisYearReport.next_subscription_year || currentYear + 1}; ${formatCurrency(inductionSummary.next_year_credit_total || 0)} recorded`
+                });
+            } else {
+                insights.push({
+                    tone: 'info',
+                    icon: 'fa-user-check',
+                    title: 'Inducted This Year',
+                    value: 'Loading',
+                    detail: 'Induction insight will appear once data loads'
+                });
+            }
+
             const lapsedSummary = lapsedGoodStandingReport.summary || {};
             const fallbackHighRiskMembers = churnAnalysisData.filter(row => {
                 if (row.years_since_paid === null || row.years_since_paid === undefined) return true;
@@ -2572,7 +2612,7 @@
                     : `${unpaidData.length.toLocaleString()} unpaid members; ${formatCurrency(totalOutstanding)} outstanding`
             });
 
-            container.innerHTML = insights.slice(0, 5).map(renderInsightCard).join('');
+            container.innerHTML = insights.map(renderInsightCard).join('');
         }
 
         async function loadMemberGrowth() {
@@ -2739,6 +2779,123 @@
                 paymentMethodsChartInstance = destroyChart(paymentMethodsChartInstance);
                 document.getElementById('paymentMethodsContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i><p>Failed to load payment methods.</p></div>';
             }
+        }
+
+        async function loadInductedThisYear() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/inducted-this-year', {
+                    limit: 25
+                }));
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to load inducted members');
+
+                inductedThisYearReport = data && typeof data === 'object'
+                    ? data
+                    : { summary: {}, by_type: [], members: [] };
+                inductedThisYearLoaded = true;
+                renderInductedThisYear();
+            } catch (err) {
+                console.error('Error loading inducted this year:', err);
+                inductedThisYearReport = { summary: {}, by_type: [], members: [] };
+                inductedThisYearLoaded = false;
+                document.getElementById('inductedThisYearContent').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i><p>Failed to load induction insight.</p></div>';
+            }
+        }
+
+        function renderInductedThisYear() {
+            const content = document.getElementById('inductedThisYearContent');
+            if (!content) return;
+
+            const report = inductedThisYearReport || {};
+            const summary = report.summary || {};
+            const byType = Array.isArray(report.by_type) ? report.by_type : [];
+            const members = Array.isArray(report.members) ? report.members : [];
+            const currentYear = report.current_year || new Date().getFullYear();
+            const nextYear = report.next_subscription_year || currentYear + 1;
+            const totalInducted = parseInt(summary.total_inducted || 0, 10);
+
+            if (!totalInducted) {
+                content.innerHTML = `<div class="empty-state"><i class="fas fa-user-check"></i><p>No members have been inducted in ${currentYear}.</p></div>`;
+                return;
+            }
+
+            const rowsToDisplay = members.slice(0, 10);
+            const typeRows = byType.length
+                ? byType
+                : [{ member_type: 'All', total_inducted: totalInducted, members_with_next_year_credit: summary.members_with_next_year_credit || 0, next_year_credit_total: summary.next_year_credit_total || 0 }];
+
+            content.innerHTML = `
+                <div class="insight-stat-grid" style="margin-bottom: 1rem;">
+                    <div class="insight-stat">
+                        <div class="insight-stat-label">${currentYear} Inducted</div>
+                        <div class="insight-stat-value">${totalInducted.toLocaleString()}</div>
+                    </div>
+                    <div class="insight-stat">
+                        <div class="insight-stat-label">Paid Toward ${nextYear}</div>
+                        <div class="insight-stat-value">${parseInt(summary.members_with_next_year_credit || 0, 10).toLocaleString()}</div>
+                    </div>
+                    <div class="insight-stat">
+                        <div class="insight-stat-label">${nextYear} Fees Recorded</div>
+                        <div class="insight-stat-value">${formatCurrency(summary.next_year_credit_total || 0)}</div>
+                    </div>
+                </div>
+                <div class="chart-support-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Member Type</th>
+                                <th>Inducted</th>
+                                <th>Paid Toward ${nextYear}</th>
+                                <th>${nextYear} Fees</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${typeRows.map(row => `
+                                <tr>
+                                    <td><strong>${escapeHtml(row.member_type === 'All' ? 'All Types' : formatMemberType(row.member_type))}</strong></td>
+                                    <td>${parseInt(row.total_inducted || 0, 10).toLocaleString()}</td>
+                                    <td>${parseInt(row.members_with_next_year_credit || 0, 10).toLocaleString()}</td>
+                                    <td>${formatCurrency(row.next_year_credit_total || 0)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin: 1rem 0 0.55rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                    <span style="font-weight: 600; color: #12086f;">Latest inducted members</span>
+                    <span style="color: #666; font-size: 0.85rem;">Showing ${rowsToDisplay.length} of ${totalInducted.toLocaleString()}</span>
+                </div>
+                <div class="chart-support-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Member #</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Induction Date</th>
+                                <th>${nextYear} Credit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsToDisplay.map(row => {
+                                const rowAction = row.id ? `onclick="navigateToMember(${row.id})" style="cursor:pointer;" title="Click to view member details"` : '';
+                                return `
+                                    <tr ${rowAction}>
+                                        <td><strong>${escapeHtml(row.membership_number || 'N/A')}</strong></td>
+                                        <td>
+                                            <strong>${escapeHtml(row.member_name || 'Unknown')}</strong>
+                                            ${row.organization ? `<div style="color:#6b7280; font-size:0.78rem; margin-top:2px;">${escapeHtml(row.organization)}</div>` : ''}
+                                        </td>
+                                        <td><span class="status-badge badge-paid">${escapeHtml(formatMemberType(row.member_type))}</span></td>
+                                        <td>${escapeHtml(row.induction_date_display || '-')}</td>
+                                        <td><strong>${formatCurrency(row.next_year_credit_paid || 0)}</strong></td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
         }
 
         async function loadCohortAnalysis() {
@@ -3242,6 +3399,7 @@
                     loadUnpaidSubscriptions(),
                     loadMemberGrowth(),
                     loadPaymentMethods(),
+                    loadInductedThisYear(),
                     loadCohortAnalysis(),
                     loadRevenueForecast(),
                     loadLapsedGoodStanding(),
@@ -3413,6 +3571,47 @@
                 showAlert('Payment methods exported successfully', 'success');
             } catch (err) {
                 showAlert('Failed to export payment methods', 'error');
+            }
+        }
+
+        async function exportInductedThisYear() {
+            try {
+                const response = await fetch(buildDashboardUrl('/api/dashboard/inducted-this-year', {
+                    limit: 500
+                }));
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to export inducted members');
+
+                const rows = Array.isArray(data.members) ? data.members : [];
+                const currentYear = data.current_year || new Date().getFullYear();
+                const nextYear = data.next_subscription_year || currentYear + 1;
+
+                if (!rows.length) {
+                    showAlert(`No ${currentYear} inducted members to export`, 'error');
+                    return;
+                }
+
+                let csv = `Inducted This Year\nCurrent Year,${currentYear}\nNext Subscription Year,${nextYear}\n\nMembership Number,Member Name,Member Type,Organization,Region,Email,Induction Date,${nextYear} Credit Paid,Last Payment Date,Payment Method,Recorded By`;
+                rows.forEach(row => {
+                    csv += `\n${[
+                        row.membership_number || '',
+                        row.member_name || '',
+                        formatMemberType(row.member_type),
+                        row.organization || '',
+                        row.region || '',
+                        row.email || '',
+                        row.induction_date_display || '',
+                        parseFloat(row.next_year_credit_paid || 0).toFixed(2),
+                        row.last_payment_date || '',
+                        row.last_payment_method || '',
+                        row.recorded_by || ''
+                    ].map(csvCell).join(',')}`;
+                });
+
+                downloadCSV(`Inducted_This_Year_${currentYear}.csv`, csv);
+                showAlert('Inducted-this-year data exported successfully', 'success');
+            } catch (err) {
+                showAlert(err.message || 'Failed to export inducted members', 'error');
             }
         }
 
