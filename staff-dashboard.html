@@ -880,12 +880,23 @@
         }
 
         .gs-table-wrap {
-            max-height: 420px;
-            overflow-y: auto;
-            overflow-x: auto;
+            overflow-x: hidden;
+            overflow-y: visible;
             border-radius: 12px;
             border: 1px solid var(--border);
             margin-bottom: 0.75rem;
+        }
+
+        .gs-table-wrap table {
+            min-width: 0;
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        .gs-table-wrap th,
+        .gs-table-wrap td {
+            overflow-wrap: anywhere;
+            white-space: normal;
         }
 
         .gs-table-wrap thead th {
@@ -1488,6 +1499,8 @@
         let sortState = { column: null, direction: 'asc' };
         const currentYear = new Date().getFullYear();
         let gsData = [];  // Good standing data
+        const STAFF_GS_PAGE_SIZE = 15;
+        let staffGoodStandingPages = {};
 
         // ==========================================
         // INIT
@@ -2051,6 +2064,41 @@
             </tr>`;
         }
 
+        function renderGoodStandingPagedTable(sectionId, members) {
+            const sorted = [...members].sort((a, b) => (a.membership_number || '').localeCompare(b.membership_number || ''));
+            const totalPages = Math.max(1, Math.ceil(sorted.length / STAFF_GS_PAGE_SIZE));
+            const current = Math.min(Math.max(1, parseInt(staffGoodStandingPages[sectionId] || 1, 10)), totalPages);
+            staffGoodStandingPages[sectionId] = current;
+            const startIndex = (current - 1) * STAFF_GS_PAGE_SIZE;
+            const pageMembers = sorted.slice(startIndex, startIndex + STAFF_GS_PAGE_SIZE);
+            const startLabel = sorted.length ? startIndex + 1 : 0;
+            const endLabel = Math.min(startIndex + pageMembers.length, sorted.length);
+
+            return `
+                <div class="gs-table-wrap"><table>
+                    ${renderGoodStandingTableHeader()}<tbody>
+                        ${pageMembers.map(renderGoodStandingTableRow).join('')}
+                    </tbody>
+                </table></div>
+                <div class="pagination">
+                    <button onclick="changeStaffGoodStandingPage('${sectionId}', -1)" ${current <= 1 ? 'disabled' : ''}>
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <span style="color: var(--text-light); font-size: 0.82rem; font-weight: 600;">
+                        Page ${current} of ${totalPages} &bull; ${startLabel}-${endLabel} of ${sorted.length.toLocaleString()}
+                    </span>
+                    <button onclick="changeStaffGoodStandingPage('${sectionId}', 1)" ${current >= totalPages ? 'disabled' : ''}>
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            `;
+        }
+
+        function changeStaffGoodStandingPage(sectionId, delta) {
+            staffGoodStandingPages[sectionId] = Math.max(1, parseInt(staffGoodStandingPages[sectionId] || 1, 10) + delta);
+            renderGoodStandingFromData();
+        }
+
         async function loadGoodStanding() {
             const year = document.getElementById('gs-year-select').value;
             if (!year) return;
@@ -2062,6 +2110,21 @@
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const members = await res.json();
                 gsData = members;
+                staffGoodStandingPages = {};
+                renderGoodStandingFromData();
+            } catch (err) {
+                console.error('Error loading good standing:', err);
+                contentEl.innerHTML = `<div class="gs-no-data">
+                    <i class="fas fa-exclamation-triangle" style="color:var(--danger);"></i>
+                    <p>Error loading good standing data. Please check the server connection and try again.</p>
+                </div>`;
+            }
+        }
+
+        function renderGoodStandingFromData() {
+            const year = document.getElementById('gs-year-select').value;
+            const contentEl = document.getElementById('gs-content');
+            const members = Array.isArray(gsData) ? gsData : [];
 
                 const groups = { FIOD: [], MIOD: [], AIOD: [] };
                 const corpGroups = { Platinum: [], Gold: [], Silver: [], Bronze: [] };
@@ -2129,12 +2192,8 @@
                             <h3>${typeNames[type].name}</h3>
                             <span class="gs-type-count">${groups[type].length} member${groups[type].length !== 1 ? 's' : ''}</span>
                         </div>
-                        <div class="gs-table-wrap"><table>
-                            ${renderGoodStandingTableHeader()}<tbody>`;
-                    groups[type].sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||'')).forEach((m) => {
-                        html += renderGoodStandingTableRow(m);
-                    });
-                    html += '</tbody></table></div></div>';
+                        ${renderGoodStandingPagedTable(`type-${type}`, groups[type])}
+                    </div>`;
                 }
 
                 // Corporate grouped by category
@@ -2159,12 +2218,7 @@
                             <i class="fas fa-gem"></i> ${info.label}
                             <span class="gs-corp-count">${corpGroups[cat].length} member${corpGroups[cat].length !== 1 ? 's' : ''}</span>
                         </div>
-                        <div class="gs-table-wrap"><table>
-                            ${renderGoodStandingTableHeader()}<tbody>`;
-                        corpGroups[cat].sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||'')).forEach((m) => {
-                            html += renderGoodStandingTableRow(m);
-                        });
-                        html += '</tbody></table></div>';
+                        ${renderGoodStandingPagedTable(`corp-${cat}`, corpGroups[cat])}`;
                     }
                     html += '</div>';
                 }
@@ -2178,22 +2232,11 @@
                             <span class="gs-type-count" style="background: #ede9fe; color: #5b21b6;">${honoraryMembers.length} member${honoraryMembers.length !== 1 ? 's' : ''}</span>
                         </div>
                         <p style="padding: 0 1rem; margin: 0 0 0.75rem; font-size: 0.85rem; color: #6d28d9;">Honorary members are automatically in good standing.</p>
-                        <div class="gs-table-wrap"><table>
-                            ${renderGoodStandingTableHeader()}<tbody>`;
-                    honoraryMembers.sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||'')).forEach((m) => {
-                        html += renderGoodStandingTableRow(m);
-                    });
-                    html += '</tbody></table></div></div>';
+                        ${renderGoodStandingPagedTable('honorary', honoraryMembers)}
+                    </div>`;
                 }
 
                 contentEl.innerHTML = html;
-            } catch (err) {
-                console.error('Error loading good standing:', err);
-                contentEl.innerHTML = `<div class="gs-no-data">
-                    <i class="fas fa-exclamation-triangle" style="color:var(--danger);"></i>
-                    <p>Error loading good standing data. Please check the server connection and try again.</p>
-                </div>`;
-            }
         }
 
         function exportGoodStandingCSV() {
