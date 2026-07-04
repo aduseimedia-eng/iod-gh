@@ -1154,6 +1154,21 @@
             margin-bottom: 1rem !important;
         }
 
+        .charts-section,
+        .insight-grid {
+            grid-template-columns: 1fr !important;
+        }
+
+        .charts-section .chart-card,
+        .insight-grid .chart-card {
+            width: 100%;
+            grid-column: auto !important;
+        }
+
+        .insight-grid {
+            gap: 1.15rem !important;
+        }
+
         .kpi-card,
         .chart-card,
         .table-card,
@@ -1169,6 +1184,16 @@
         .chart-card,
         .table-card {
             padding: 1rem 1.1rem !important;
+        }
+
+        .insight-grid .chart-card,
+        .charts-section .chart-card {
+            padding: 1.15rem 1.25rem !important;
+        }
+
+        .insight-grid .chart-support-table,
+        .charts-section .chart-support-table {
+            max-height: 360px;
         }
 
         .kpi-card:hover,
