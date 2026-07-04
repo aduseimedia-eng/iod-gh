@@ -838,6 +838,29 @@
             width: 24%;
         }
 
+        .inducted-no-scroll-table {
+            max-height: none;
+            overflow-x: hidden;
+            overflow-y: visible;
+        }
+
+        .inducted-no-scroll-table table {
+            min-width: 0;
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        .inducted-no-scroll-table th,
+        .inducted-no-scroll-table td {
+            overflow-wrap: anywhere;
+            white-space: normal;
+        }
+
+        .inducted-no-scroll-table th:nth-child(2),
+        .inducted-no-scroll-table td:nth-child(2) {
+            width: 30%;
+        }
+
         .revenue-stat-card {
             background: #ffffff;
             border: 1px solid #e8eef5;
@@ -2890,7 +2913,7 @@
                         <div class="insight-stat-value">${formatCurrency(summary.next_year_credit_total || 0)}</div>
                     </div>
                 </div>
-                <div class="chart-support-table">
+                <div class="chart-support-table inducted-no-scroll-table">
                     <table>
                         <thead>
                             <tr>
@@ -2916,7 +2939,7 @@
                     <span style="font-weight: 600; color: #12086f;">Latest inducted members</span>
                     <span style="color: #666; font-size: 0.85rem;">Showing ${rowsToDisplay.length} of ${totalInducted.toLocaleString()}</span>
                 </div>
-                <div class="chart-support-table">
+                <div class="chart-support-table inducted-no-scroll-table">
                     <table>
                         <thead>
                             <tr>
