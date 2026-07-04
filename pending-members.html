@@ -412,6 +412,7 @@
             gap: 0.75rem;
             padding: 0.9rem 1rem;
             border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
         }
 
         .table-toolbar input {
@@ -419,11 +420,12 @@
         }
 
         .table-wrap {
-            overflow-x: auto;
+            overflow-x: hidden;
         }
 
         table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
             font-size: 0.8rem;
         }
@@ -469,6 +471,54 @@
             justify-content: flex-end;
             gap: 0.55rem;
             flex-wrap: wrap;
+        }
+
+        .bulk-sort-bar {
+            display: grid;
+            grid-template-columns: minmax(150px, 1fr) minmax(140px, 0.8fr) auto auto;
+            gap: 0.55rem;
+            align-items: center;
+            width: 100%;
+            padding-top: 0.75rem;
+            border-top: 1px solid #edf1f6;
+        }
+
+        .bulk-sort-bar select {
+            min-height: 38px;
+        }
+
+        .bulk-sort-note {
+            color: var(--text-light);
+            font-size: 0.74rem;
+            font-weight: 600;
+        }
+
+        .row-check,
+        .select-all-check {
+            width: 18px;
+            min-height: 18px;
+            padding: 0;
+        }
+
+        .category-stack {
+            display: grid;
+            gap: 0.25rem;
+            min-width: 0;
+        }
+
+        .category-tag {
+            width: fit-content;
+            max-width: 100%;
+        }
+
+        .category-pending {
+            background: #fff7ed;
+            color: var(--warning);
+            border: 1px solid #fed7aa;
+        }
+
+        .truncate-cell {
+            overflow-wrap: anywhere;
         }
 
         .actions button {
@@ -557,6 +607,10 @@
             }
 
             .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .bulk-sort-bar {
                 grid-template-columns: 1fr;
             }
         }
@@ -839,6 +893,15 @@
                     <div class="table-toolbar">
                         <input id="candidate-search" type="search" placeholder="Search candidates..." oninput="renderPendingMembers()">
                         <div class="toolbar-actions">
+                            <select id="category-filter" onchange="renderPendingMembers()" title="Filter by category">
+                                <option value="">All Categories</option>
+                                <option value="unsorted">Needs Sorting</option>
+                                <option value="AIOD">Associate, IoD</option>
+                                <option value="MIOD">Member, IoD</option>
+                                <option value="FIOD">Fellow, IoD</option>
+                                <option value="Honorary">Honorary Fellow</option>
+                                <option value="Corporate">Corporate Member</option>
+                            </select>
                             <button class="btn-secondary" onclick="toggleHistory()">
                                 <i class="fas fa-clock-rotate-left"></i> <span id="history-label">Show History</span>
                             </button>
@@ -846,20 +909,46 @@
                                 <i class="fas fa-trash"></i> Clear History
                             </button>
                         </div>
+                        <div class="bulk-sort-bar">
+                            <select id="bulk-member-type" onchange="updateBulkCategoryField()">
+                                <option value="">Assign selected to category...</option>
+                                <option value="AIOD">Associate, IoD</option>
+                                <option value="MIOD">Member, IoD</option>
+                                <option value="FIOD">Fellow, IoD</option>
+                                <option value="Honorary">Honorary Fellow</option>
+                                <option value="Corporate">Corporate Member</option>
+                            </select>
+                            <select id="bulk-membership-category" style="display:none;">
+                                <option value="Platinum">Platinum</option>
+                                <option value="Gold">Gold</option>
+                                <option value="Silver">Silver</option>
+                                <option value="Bronze">Bronze</option>
+                                <option value="Standard">Standard</option>
+                            </select>
+                            <button class="btn-secondary" id="bulk-assign-btn" onclick="bulkAssignCategory()" disabled>
+                                <i class="fas fa-layer-group"></i> Sort Selected
+                            </button>
+                            <button class="btn-primary" id="bulk-import-btn" onclick="bulkImportSelected()" disabled>
+                                <i class="fas fa-database"></i> Import Selected
+                            </button>
+                            <span class="bulk-sort-note" id="bulk-selection-note">Select candidates to sort before importing.</span>
+                        </div>
                     </div>
                     <div class="table-wrap">
                         <table>
                             <thead>
                                 <tr>
+                                    <th style="width:44px;"><input type="checkbox" class="select-all-check" id="select-all-candidates" onchange="toggleSelectAll(this)"></th>
                                     <th>Candidate</th>
                                     <th>Organization</th>
+                                    <th>Category</th>
                                     <th>Induction</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="pending-tbody">
-                                <tr><td colspan="5" class="empty">Loading candidates...</td></tr>
+                                <tr><td colspan="7" class="empty">Loading candidates...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -872,6 +961,7 @@
         let pendingMembers = [];
         let showHistory = false;
         let confirmModalAction = null;
+        let selectedCandidateIds = new Set();
 
         document.getElementById('pending-form').addEventListener('submit', savePendingMember);
         document.getElementById('promote-form').addEventListener('submit', submitPromotion);
@@ -932,7 +1022,7 @@
             document.getElementById('promote-candidate-id').value = candidate.id;
             document.getElementById('promote-candidate-name').textContent = getCandidateDisplayName(candidate);
             document.getElementById('promote-candidate-code').textContent = candidate.candidate_code || '';
-            document.getElementById('promote-member-type').value = '';
+            document.getElementById('promote-member-type').value = candidate.category_confirmed ? (candidate.member_type || '') : '';
             document.getElementById('promote-membership-category').value = candidate.membership_category || 'Gold';
             document.getElementById('promote-submit-btn').disabled = false;
             document.getElementById('promote-submit-btn').innerHTML = '<i class="fas fa-user-check"></i> Promote';
@@ -1009,6 +1099,13 @@
             document.getElementById('promote-category-field').style.display = memberType === 'Corporate' ? 'flex' : 'none';
         }
 
+        function updateBulkCategoryField() {
+            const memberType = document.getElementById('bulk-member-type').value;
+            const categoryField = document.getElementById('bulk-membership-category');
+            categoryField.style.display = memberType === 'Corporate' ? 'block' : 'none';
+            updateBulkControls();
+        }
+
         function getCandidateDisplayName(candidate) {
             return [candidate.title, candidate.first_name, candidate.surname || candidate.last_name]
                 .filter(Boolean)
@@ -1020,7 +1117,9 @@
         }
 
         function updateCandidateFields() {
-            document.getElementById('member-type').value = 'MIOD';
+            if (!document.getElementById('pending-id').value) {
+                document.getElementById('member-type').value = 'MIOD';
+            }
             document.getElementById('membership-category-field').style.display = 'none';
             document.getElementById('gender-field').style.display = 'flex';
             document.getElementById('title-field').style.display = 'flex';
@@ -1032,7 +1131,7 @@
         }
 
         function getFormData() {
-            const memberType = 'MIOD';
+            const memberType = sanitizeInput(document.getElementById('member-type').value) || 'MIOD';
             return {
                 member_type: memberType,
                 title: sanitizeInput(document.getElementById('title').value),
@@ -1092,14 +1191,17 @@
             const response = await fetch(`/api/pending-members?include_all=${showHistory ? 'true' : 'false'}`);
             if (response.ok) {
                 pendingMembers = await response.json();
+                const activeIds = new Set(pendingMembers.filter(candidate => candidate.status === 'Pending').map(candidate => Number(candidate.id)));
+                selectedCandidateIds = new Set([...selectedCandidateIds].filter(id => activeIds.has(id)));
                 renderPendingMembers();
             } else {
-                document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="5" class="empty">Failed to load candidates.</td></tr>';
+                document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="7" class="empty">Failed to load candidates.</td></tr>';
             }
         }
 
         function renderPendingMembers() {
             const search = document.getElementById('candidate-search').value.toLowerCase().trim();
+            const categoryFilter = document.getElementById('category-filter').value;
             const rows = pendingMembers.filter(candidate => {
                 const text = [
                     candidate.candidate_code,
@@ -1107,9 +1209,14 @@
                     candidate.surname,
                     candidate.last_name,
                     candidate.organization,
-                    candidate.email
+                    candidate.email,
+                    getMemberTypeLabel(candidate.member_type),
+                    candidate.membership_category
                 ].join(' ').toLowerCase();
-                return !search || text.includes(search);
+                if (search && !text.includes(search)) return false;
+                if (categoryFilter === 'unsorted') return candidate.status === 'Pending' && candidate.category_confirmed !== true;
+                if (categoryFilter) return candidate.member_type === categoryFilter;
+                return true;
             });
 
             const pendingCount = pendingMembers.filter(c => c.status === 'Pending').length;
@@ -1122,7 +1229,8 @@
             }
 
             if (rows.length === 0) {
-                document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="5" class="empty">No candidates found.</td></tr>';
+                document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="7" class="empty">No candidates found.</td></tr>';
+                updateBulkControls(rows);
                 return;
             }
 
@@ -1132,13 +1240,28 @@
                     ? new Date(candidate.proposed_induction_date).toLocaleDateString('en-GB')
                     : '-';
                 const canPromote = candidate.status === 'Pending';
+                const isSelected = selectedCandidateIds.has(Number(candidate.id));
+                const categoryLabel = getMemberTypeLabel(candidate.member_type);
+                const categoryText = candidate.member_type === 'Corporate' && candidate.membership_category
+                    ? `${categoryLabel} - ${candidate.membership_category}`
+                    : categoryLabel;
+                const categoryClass = candidate.category_confirmed ? '' : ' category-pending';
                 return `
                     <tr>
+                        <td>
+                            <input type="checkbox" class="row-check" ${isSelected ? 'checked' : ''} ${canPromote ? '' : 'disabled'} onchange="toggleCandidateSelection(${candidate.id}, this.checked)">
+                        </td>
                         <td>
                             <div style="font-weight:700;color:var(--text-dark)">${escapeHtml(name)}</div>
                             <div style="font-size:0.72rem;color:var(--text-light)">${escapeHtml(candidate.candidate_code || '')}</div>
                         </td>
-                        <td>${escapeHtml(candidate.organization || '-')}</td>
+                        <td class="truncate-cell">${escapeHtml(candidate.organization || '-')}</td>
+                        <td>
+                            <div class="category-stack">
+                                <span class="badge category-tag${categoryClass}">${escapeHtml(candidate.category_confirmed ? categoryText : 'Needs Sorting')}</span>
+                                ${candidate.category_confirmed ? '' : `<span style="font-size:0.7rem;color:var(--text-light)">Default: ${escapeHtml(categoryText)}</span>`}
+                            </div>
+                        </td>
                         <td>${inductionDate}</td>
                         <td><span class="badge">${escapeHtml(candidate.status || 'Pending')}</span></td>
                         <td>
@@ -1151,6 +1274,173 @@
                     </tr>
                 `;
             }).join('');
+            updateBulkControls(rows);
+        }
+
+        function getMemberTypeLabel(memberType) {
+            const labels = {
+                AIOD: 'Associate, IoD',
+                MIOD: 'Member, IoD',
+                FIOD: 'Fellow, IoD',
+                Honorary: 'Honorary Fellow',
+                Corporate: 'Corporate Member'
+            };
+            return labels[memberType] || memberType || 'N/A';
+        }
+
+        function getSelectedPendingCandidates() {
+            return pendingMembers.filter(candidate => selectedCandidateIds.has(Number(candidate.id)) && candidate.status === 'Pending');
+        }
+
+        function updateBulkControls(visibleRows = null) {
+            const selected = getSelectedPendingCandidates();
+            const memberType = document.getElementById('bulk-member-type').value;
+            const assignBtn = document.getElementById('bulk-assign-btn');
+            const importBtn = document.getElementById('bulk-import-btn');
+            const note = document.getElementById('bulk-selection-note');
+            const selectAll = document.getElementById('select-all-candidates');
+            const selectedSorted = selected.filter(candidate => candidate.category_confirmed === true);
+
+            assignBtn.disabled = selected.length === 0 || !memberType;
+            importBtn.disabled = selectedSorted.length === 0;
+            note.textContent = selected.length === 0
+                ? 'Select candidates to sort before importing.'
+                : `${selected.length} selected, ${selectedSorted.length} ready to import.`;
+
+            if (selectAll) {
+                const visiblePendingRows = (visibleRows || getVisiblePendingRows()).filter(candidate => candidate.status === 'Pending');
+                const checkedRows = visiblePendingRows.filter(candidate => selectedCandidateIds.has(Number(candidate.id)));
+                selectAll.checked = visiblePendingRows.length > 0 && checkedRows.length === visiblePendingRows.length;
+                selectAll.indeterminate = checkedRows.length > 0 && checkedRows.length < visiblePendingRows.length;
+            }
+        }
+
+        function toggleCandidateSelection(id, checked) {
+            const numericId = Number(id);
+            if (checked) {
+                selectedCandidateIds.add(numericId);
+            } else {
+                selectedCandidateIds.delete(numericId);
+            }
+            updateBulkControls();
+        }
+
+        function getVisiblePendingRows() {
+            const search = document.getElementById('candidate-search').value.toLowerCase().trim();
+            const categoryFilter = document.getElementById('category-filter').value;
+            return pendingMembers.filter(candidate => {
+                if (candidate.status !== 'Pending') return false;
+                const text = [
+                    candidate.candidate_code,
+                    candidate.first_name,
+                    candidate.surname,
+                    candidate.last_name,
+                    candidate.organization,
+                    candidate.email,
+                    getMemberTypeLabel(candidate.member_type),
+                    candidate.membership_category
+                ].join(' ').toLowerCase();
+                if (search && !text.includes(search)) return false;
+                if (categoryFilter === 'unsorted') return candidate.category_confirmed !== true;
+                if (categoryFilter) return candidate.member_type === categoryFilter;
+                return true;
+            });
+        }
+
+        function toggleSelectAll(checkbox) {
+            for (const candidate of getVisiblePendingRows()) {
+                if (checkbox.checked) {
+                    selectedCandidateIds.add(Number(candidate.id));
+                } else {
+                    selectedCandidateIds.delete(Number(candidate.id));
+                }
+            }
+            renderPendingMembers();
+        }
+
+        async function bulkAssignCategory() {
+            const selected = getSelectedPendingCandidates();
+            const memberType = sanitizeInput(document.getElementById('bulk-member-type').value);
+            if (selected.length === 0) {
+                showAlert('Select at least one candidate.', 'error');
+                return;
+            }
+            if (!memberType) {
+                showAlert('Choose the category for the selected candidates.', 'error');
+                return;
+            }
+
+            const assignBtn = document.getElementById('bulk-assign-btn');
+            assignBtn.disabled = true;
+            assignBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sorting...';
+
+            try {
+                const response = await fetch('/api/pending-members/bulk-category', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ids: selected.map(candidate => candidate.id),
+                        member_type: memberType,
+                        membership_category: memberType === 'Corporate'
+                            ? sanitizeInput(document.getElementById('bulk-membership-category').value)
+                            : ''
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showAlert(`${result.updated_count || 0} candidate${result.updated_count === 1 ? '' : 's'} sorted as ${getMemberTypeLabel(memberType)}.`);
+                    await loadPendingMembers();
+                    return;
+                }
+
+                const error = await response.json().catch(() => ({}));
+                showAlert(error.error || 'Failed to sort selected candidates.', 'error');
+            } finally {
+                assignBtn.innerHTML = '<i class="fas fa-layer-group"></i> Sort Selected';
+                updateBulkControls();
+            }
+        }
+
+        function bulkImportSelected() {
+            const selected = getSelectedPendingCandidates();
+            const sorted = selected.filter(candidate => candidate.category_confirmed === true);
+            if (sorted.length === 0) {
+                showAlert('Sort and confirm at least one selected candidate before importing.', 'error');
+                return;
+            }
+
+            const unsortedCount = selected.length - sorted.length;
+            openConfirmModal({
+                eyebrow: 'Bulk Import',
+                title: `Import ${sorted.length} candidate${sorted.length === 1 ? '' : 's'}?`,
+                message: 'Confirmed candidates will be moved into the main member database with their final member category.',
+                note: unsortedCount > 0 ? `${unsortedCount} selected candidate${unsortedCount === 1 ? '' : 's'} will stay in the induction list until sorted.` : '',
+                confirmLabel: 'Import',
+                icon: 'fa-database',
+                actionIcon: 'fa-database',
+                onConfirm: async () => {
+                    const response = await fetch('/api/pending-members/bulk-import', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: sorted.map(candidate => candidate.id) })
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        closeConfirmModal();
+                        selectedCandidateIds.clear();
+                        showAlert(`${result.imported_count || 0} candidate${result.imported_count === 1 ? '' : 's'} imported into the database.`);
+                        await loadPendingMembers();
+                        return;
+                    }
+
+                    const error = await response.json().catch(() => ({}));
+                    const skippedCount = Array.isArray(error.skipped) ? error.skipped.length : 0;
+                    showAlert(error.error || `Import failed${skippedCount ? ` for ${skippedCount} candidate(s)` : ''}.`, 'error');
+                    throw new Error(error.error || 'Bulk import failed.');
+                }
+            });
         }
 
         function escapeHtml(value) {

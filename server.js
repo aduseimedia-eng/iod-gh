@@ -1431,6 +1431,7 @@ async function initializePendingMembers() {
                 contact_phone VARCHAR(50),
                 contact_email VARCHAR(150),
                 status VARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Inducted', 'Archived')),
+                category_confirmed BOOLEAN DEFAULT FALSE,
                 notes TEXT,
                 promoted_member_id INTEGER REFERENCES members(id) ON DELETE SET NULL,
                 promoted_at TIMESTAMP,
@@ -1445,6 +1446,7 @@ async function initializePendingMembers() {
             ALTER TABLE pending_members
                 ADD COLUMN IF NOT EXISTS candidate_code TEXT UNIQUE,
                 ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Pending',
+                ADD COLUMN IF NOT EXISTS category_confirmed BOOLEAN DEFAULT FALSE,
                 ADD COLUMN IF NOT EXISTS notes TEXT,
                 ADD COLUMN IF NOT EXISTS promoted_member_id INTEGER REFERENCES members(id) ON DELETE SET NULL,
                 ADD COLUMN IF NOT EXISTS promoted_at TIMESTAMP,
@@ -1592,6 +1594,65 @@ function buildPendingMemberValues(data) {
     });
 }
 
+async function promotePendingMemberFromRow(client, pending, options, req) {
+    const selectedMemberType = sanitizeString(options.member_type || pending.member_type || '');
+    if (!validateMemberType(selectedMemberType)) {
+        throw new Error('Select a valid member type before importing');
+    }
+
+    const selectedMembershipCategory = selectedMemberType === 'Corporate'
+        ? sanitizeString(options.membership_category || pending.membership_category || 'Gold')
+        : null;
+    const membershipNumber = await generateMembershipNumber(client, selectedMemberType);
+    const inductionDate = options.induction_date || pending.proposed_induction_date || new Date().toISOString().slice(0, 10);
+    const recorder = getSessionAdminRecorder(req);
+
+    const memberResult = await client.query(`
+        INSERT INTO members (
+            membership_number, member_type, title, first_name, surname, last_name,
+            other_names, membership_category, gender, organization, designation,
+            position, sector, region, postal_address, date_of_admission,
+            registration_date, phone_number, email, feedback_on_calls,
+            expertise, years_served_on_boards, srl_no, reg_no, contact_person,
+            contact_phone, contact_email
+        )
+        VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+            $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
+        )
+        RETURNING *
+    `, [
+        membershipNumber, selectedMemberType, pending.title, pending.first_name, pending.surname,
+        pending.last_name, pending.other_names, selectedMembershipCategory, pending.gender,
+        pending.organization, pending.designation, pending.position, pending.sector, pending.region,
+        pending.postal_address, selectedMemberType === 'Corporate' ? null : inductionDate,
+        selectedMemberType === 'Corporate' ? inductionDate : null, pending.phone_number, pending.email,
+        pending.feedback_on_calls, pending.expertise, pending.years_served_on_boards || 0,
+        pending.srl_no, pending.reg_no, pending.contact_person, pending.contact_phone, pending.contact_email
+    ]);
+
+    const member = memberResult.rows[0];
+    const inductionYear = new Date(inductionDate).getFullYear();
+    if (Number.isFinite(inductionYear)) {
+        await client.query(`
+            INSERT INTO subscriptions (
+                member_id, subscription_year, status, amount_paid, payment_date,
+                payment_method, recorded_by_admin_user_id, recorded_by_admin_username
+            )
+            VALUES ($1, $2, 'Paid', 0, $3, 'Not Specified', $4, $5)
+            ON CONFLICT (member_id, subscription_year) DO NOTHING
+        `, [member.id, inductionYear, inductionDate, recorder.adminUserId, recorder.adminUsername]);
+    }
+
+    const deletedPending = await client.query(`
+        DELETE FROM pending_members
+        WHERE id = $1
+        RETURNING *
+    `, [pending.id]);
+
+    return { member, pending_member: deletedPending.rows[0] };
+}
+
 app.get('/api/pending-members', async (req, res) => {
     try {
         const includeAll = req.query.include_all === 'true';
@@ -1730,72 +1791,143 @@ app.post('/api/pending-members/:id/promote', async (req, res) => {
             return res.status(400).json({ error: 'Candidate has already been processed' });
         }
 
-        const selectedMemberType = sanitizeString(req.body.member_type || '');
-        if (!validateMemberType(selectedMemberType)) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ error: 'Select a valid member type before promoting' });
-        }
-
-        const selectedMembershipCategory = selectedMemberType === 'Corporate'
-            ? sanitizeString(req.body.membership_category || pending.membership_category || 'Gold')
-            : null;
-        const membershipNumber = await generateMembershipNumber(client, selectedMemberType);
-        const inductionDate = req.body.induction_date || pending.proposed_induction_date || new Date().toISOString().slice(0, 10);
-        const recorder = getSessionAdminRecorder(req);
-
-        const memberResult = await client.query(`
-            INSERT INTO members (
-                membership_number, member_type, title, first_name, surname, last_name,
-                other_names, membership_category, gender, organization, designation,
-                position, sector, region, postal_address, date_of_admission,
-                registration_date, phone_number, email, feedback_on_calls,
-                expertise, years_served_on_boards, srl_no, reg_no, contact_person,
-                contact_phone, contact_email
-            )
-            VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
-            )
-            RETURNING *
-        `, [
-            membershipNumber, selectedMemberType, pending.title, pending.first_name, pending.surname,
-            pending.last_name, pending.other_names, selectedMembershipCategory, pending.gender,
-            pending.organization, pending.designation, pending.position, pending.sector, pending.region,
-            pending.postal_address, selectedMemberType === 'Corporate' ? null : inductionDate,
-            selectedMemberType === 'Corporate' ? inductionDate : null, pending.phone_number, pending.email,
-            pending.feedback_on_calls, pending.expertise, pending.years_served_on_boards || 0,
-            pending.srl_no, pending.reg_no, pending.contact_person, pending.contact_phone, pending.contact_email
-        ]);
-
-        const member = memberResult.rows[0];
-        const inductionYear = new Date(inductionDate).getFullYear();
-        if (Number.isFinite(inductionYear)) {
-            await client.query(`
-                INSERT INTO subscriptions (
-                    member_id, subscription_year, status, amount_paid, payment_date,
-                    payment_method, recorded_by_admin_user_id, recorded_by_admin_username
-                )
-                VALUES ($1, $2, 'Paid', 0, $3, 'Not Specified', $4, $5)
-                ON CONFLICT (member_id, subscription_year) DO NOTHING
-            `, [member.id, inductionYear, inductionDate, recorder.adminUserId, recorder.adminUsername]);
-        }
-
-        const deletedPending = await client.query(`
-            DELETE FROM pending_members
-            WHERE id = $1
-            RETURNING *
-        `, [pending.id]);
+        const { member, pending_member: deletedPending } = await promotePendingMemberFromRow(client, pending, {
+            induction_date: req.body.induction_date,
+            member_type: req.body.member_type,
+            membership_category: req.body.membership_category
+        }, req);
 
         await client.query('COMMIT');
 
         res.locals.activityAction = 'promote_pending_member';
         res.locals.activityEntityType = 'pending_member';
         res.locals.activityEntityId = pending.id;
-        res.locals.activityDescription = `${req.session.user} promoted ${pending.candidate_code || pending.id} to ${membershipNumber}`;
-        res.json({ member, pending_member: deletedPending.rows[0] });
+        res.locals.activityDescription = `${req.session.user} promoted ${pending.candidate_code || pending.id} to ${member.membership_number}`;
+        res.json({ member, pending_member: deletedPending });
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('Error promoting pending member:', err);
+        res.status(500).json({ error: err.message || 'Database error' });
+    } finally {
+        client.release();
+    }
+});
+
+app.patch('/api/pending-members/bulk-category', async (req, res) => {
+    const ids = Array.isArray(req.body.ids)
+        ? req.body.ids.map(id => parseInt(id, 10)).filter(Number.isFinite)
+        : [];
+    const memberType = sanitizeString(req.body.member_type || '');
+    const membershipCategory = memberType === 'Corporate'
+        ? sanitizeString(req.body.membership_category || 'Gold')
+        : null;
+
+    if (ids.length === 0) {
+        return res.status(400).json({ error: 'Select at least one candidate' });
+    }
+    if (!validateMemberType(memberType)) {
+        return res.status(400).json({ error: 'Select a valid member category' });
+    }
+
+    try {
+        const result = await pool.query(`
+            UPDATE pending_members
+            SET member_type = $1,
+                membership_category = $2,
+                category_confirmed = TRUE,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ANY($3::int[]) AND status = 'Pending'
+            RETURNING *
+        `, [memberType, membershipCategory, ids]);
+
+        res.locals.activityAction = 'bulk_sort_pending_members';
+        res.locals.activityEntityType = 'pending_member';
+        res.locals.activityDescription = `${req.session.user} sorted ${result.rowCount} induction candidate${result.rowCount === 1 ? '' : 's'} as ${memberType}`;
+        res.locals.activityMetadata = { ids, member_type: memberType, membership_category: membershipCategory };
+
+        res.json({ updated_count: result.rowCount, candidates: result.rows });
+    } catch (err) {
+        console.error('Error bulk sorting pending members:', err);
+        res.status(500).json({ error: err.message || 'Database error' });
+    }
+});
+
+app.post('/api/pending-members/bulk-import', async (req, res) => {
+    const ids = Array.isArray(req.body.ids)
+        ? req.body.ids.map(id => parseInt(id, 10)).filter(Number.isFinite)
+        : [];
+
+    if (ids.length === 0) {
+        return res.status(400).json({ error: 'Select at least one sorted candidate to import' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const pendingResult = await client.query(`
+            SELECT *
+            FROM pending_members
+            WHERE id = ANY($1::int[])
+            ORDER BY proposed_induction_date NULLS LAST, id ASC
+            FOR UPDATE
+        `, [ids]);
+
+        const imported = [];
+        const skipped = [];
+        const foundIds = new Set(pendingResult.rows.map(row => Number(row.id)));
+        for (const id of ids) {
+            if (!foundIds.has(id)) {
+                skipped.push({ id, reason: 'Candidate not found' });
+            }
+        }
+
+        for (const pending of pendingResult.rows) {
+            if (pending.status !== 'Pending') {
+                skipped.push({ id: pending.id, candidate_code: pending.candidate_code, reason: 'Already processed' });
+                continue;
+            }
+            if (pending.category_confirmed !== true) {
+                skipped.push({ id: pending.id, candidate_code: pending.candidate_code, reason: 'Category not confirmed' });
+                continue;
+            }
+            if (!validateMemberType(pending.member_type)) {
+                skipped.push({ id: pending.id, candidate_code: pending.candidate_code, reason: 'Invalid member category' });
+                continue;
+            }
+
+            const result = await promotePendingMemberFromRow(client, pending, {
+                induction_date: pending.proposed_induction_date,
+                member_type: pending.member_type,
+                membership_category: pending.membership_category
+            }, req);
+            imported.push({
+                id: pending.id,
+                candidate_code: pending.candidate_code,
+                membership_number: result.member.membership_number,
+                member_type: result.member.member_type
+            });
+        }
+
+        if (imported.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                error: 'No candidates were imported. Confirm each candidate category first.',
+                skipped
+            });
+        }
+
+        await client.query('COMMIT');
+
+        res.locals.activityAction = 'bulk_import_pending_members';
+        res.locals.activityEntityType = 'pending_member';
+        res.locals.activityDescription = `${req.session.user} bulk imported ${imported.length} induction candidate${imported.length === 1 ? '' : 's'}`;
+        res.locals.activityMetadata = { imported, skipped };
+
+        res.json({ imported_count: imported.length, imported, skipped });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error bulk importing pending members:', err);
         res.status(500).json({ error: err.message || 'Database error' });
     } finally {
         client.release();
