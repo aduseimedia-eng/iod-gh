@@ -5513,8 +5513,8 @@ app.get('/api/dashboard/lapsed-good-standing', async (req, res) => {
         const memberType = req.query.memberType || null;
         const currentYear = parseInt(req.query.year, 10) || new Date().getFullYear();
         const minYears = Math.max(2, parseInt(req.query.minYears, 10) || 2);
-        const maxYears = Math.max(minYears, parseInt(req.query.maxYears, 10) || 3);
-        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 500);
+        const band = String(req.query.band || 'all').toLowerCase();
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 10000);
         const params = [];
 
         let membersQuery = `
@@ -5600,18 +5600,22 @@ app.get('/api/dashboard/lapsed-good-standing', async (req, res) => {
                 .map(year => parseInt(year, 10))
                 .filter(Number.isFinite));
             const startYear = getMembershipStartYear(member.membership_start_date);
+            const inductionYear = parseInt(member.induction_year, 10);
 
             let yearsNotInGoodStanding = 0;
             const missedYears = [];
 
-            for (let year = currentYear; year >= currentYear - maxYears + 1; year--) {
+            for (let year = currentYear; year >= 1900; year--) {
                 if (startYear && year < startYear) break;
+                if (Number.isFinite(inductionYear) && year === inductionYear) continue;
                 if (paidYears.has(year)) break;
                 yearsNotInGoodStanding += 1;
                 missedYears.unshift(year);
             }
 
             if (yearsNotInGoodStanding < minYears) continue;
+            if (band === '2' && yearsNotInGoodStanding !== 2) continue;
+            if ((band === '3' || band === '3plus' || band === '3+') && yearsNotInGoodStanding < 3) continue;
 
             const rateKey = member.member_type === 'Corporate' && member.membership_category
                 ? `${member.member_type}:${member.membership_category}`
@@ -5651,17 +5655,38 @@ app.get('/api/dashboard/lapsed-good-standing', async (req, res) => {
         const twoYearCount = lapsedMembers.filter(member => member.years_not_in_good_standing === 2).length;
         const threePlusCount = lapsedMembers.filter(member => member.years_not_in_good_standing >= 3).length;
         const totalOutstanding = lapsedMembers.reduce((sum, member) => sum + parseFloat(member.estimated_outstanding || 0), 0);
+        const byType = lapsedMembers.reduce((acc, member) => {
+            const key = member.member_type || 'Unknown';
+            if (!acc[key]) {
+                acc[key] = {
+                    member_type: key,
+                    total_count: 0,
+                    two_year_count: 0,
+                    three_plus_count: 0,
+                    estimated_outstanding: 0
+                };
+            }
+            acc[key].total_count += 1;
+            if (member.years_not_in_good_standing === 2) acc[key].two_year_count += 1;
+            if (member.years_not_in_good_standing >= 3) acc[key].three_plus_count += 1;
+            acc[key].estimated_outstanding += parseFloat(member.estimated_outstanding || 0);
+            return acc;
+        }, {});
 
         res.json({
             current_year: currentYear,
             min_years: minYears,
-            max_years: maxYears,
+            band,
             summary: {
                 total_count: lapsedMembers.length,
                 two_year_count: twoYearCount,
                 three_plus_count: threePlusCount,
                 estimated_outstanding: totalOutstanding
             },
+            by_type: Object.values(byType).sort((a, b) =>
+                b.total_count - a.total_count ||
+                String(a.member_type || '').localeCompare(String(b.member_type || ''))
+            ),
             members: limitedMembers
         });
     } catch (err) {
