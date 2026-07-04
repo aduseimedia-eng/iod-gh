@@ -815,6 +815,29 @@
             min-width: 560px;
         }
 
+        .lapsed-swiper-table {
+            max-height: none;
+            overflow-x: hidden;
+            overflow-y: visible;
+        }
+
+        .lapsed-swiper-table table {
+            min-width: 0;
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        .lapsed-swiper-table th,
+        .lapsed-swiper-table td {
+            overflow-wrap: anywhere;
+            white-space: normal;
+        }
+
+        .lapsed-swiper-table th:nth-child(3),
+        .lapsed-swiper-table td:nth-child(3) {
+            width: 24%;
+        }
+
         .revenue-stat-card {
             background: #ffffff;
             border: 1px solid #e8eef5;
