@@ -5615,7 +5615,8 @@ app.get('/api/dashboard/lapsed-good-standing', async (req, res) => {
 
             if (yearsNotInGoodStanding < minYears) continue;
             if (band === '2' && yearsNotInGoodStanding !== 2) continue;
-            if ((band === '3' || band === '3plus' || band === '3+') && yearsNotInGoodStanding < 3) continue;
+            if ((band === '3' || band === 'exact3' || band === '3exact') && yearsNotInGoodStanding !== 3) continue;
+            if ((band === '3plus' || band === '3+') && yearsNotInGoodStanding < 3) continue;
 
             const rateKey = member.member_type === 'Corporate' && member.membership_category
                 ? `${member.member_type}:${member.membership_category}`
@@ -5640,7 +5641,11 @@ app.get('/api/dashboard/lapsed-good-standing', async (req, res) => {
                 last_good_standing_year: lastGoodStandingYear,
                 years_not_in_good_standing: yearsNotInGoodStanding,
                 missed_years: missedYears,
-                lapsed_band: yearsNotInGoodStanding >= 3 ? '3+ years' : '2 years',
+                lapsed_band: yearsNotInGoodStanding === 2
+                    ? '2 years'
+                    : yearsNotInGoodStanding === 3
+                    ? '3 years'
+                    : '3+ years',
                 estimated_outstanding: estimatedOutstanding
             });
         }
@@ -5653,6 +5658,7 @@ app.get('/api/dashboard/lapsed-good-standing', async (req, res) => {
 
         const limitedMembers = lapsedMembers.slice(0, limit);
         const twoYearCount = lapsedMembers.filter(member => member.years_not_in_good_standing === 2).length;
+        const exactThreeYearCount = lapsedMembers.filter(member => member.years_not_in_good_standing === 3).length;
         const threePlusCount = lapsedMembers.filter(member => member.years_not_in_good_standing >= 3).length;
         const totalOutstanding = lapsedMembers.reduce((sum, member) => sum + parseFloat(member.estimated_outstanding || 0), 0);
         const byType = lapsedMembers.reduce((acc, member) => {
@@ -5662,12 +5668,14 @@ app.get('/api/dashboard/lapsed-good-standing', async (req, res) => {
                     member_type: key,
                     total_count: 0,
                     two_year_count: 0,
+                    exact_three_year_count: 0,
                     three_plus_count: 0,
                     estimated_outstanding: 0
                 };
             }
             acc[key].total_count += 1;
             if (member.years_not_in_good_standing === 2) acc[key].two_year_count += 1;
+            if (member.years_not_in_good_standing === 3) acc[key].exact_three_year_count += 1;
             if (member.years_not_in_good_standing >= 3) acc[key].three_plus_count += 1;
             acc[key].estimated_outstanding += parseFloat(member.estimated_outstanding || 0);
             return acc;
@@ -5680,6 +5688,7 @@ app.get('/api/dashboard/lapsed-good-standing', async (req, res) => {
             summary: {
                 total_count: lapsedMembers.length,
                 two_year_count: twoYearCount,
+                exact_three_year_count: exactThreeYearCount,
                 three_plus_count: threePlusCount,
                 estimated_outstanding: totalOutstanding
             },

@@ -2494,7 +2494,9 @@
         let churnAnalysisData = [];
         let lapsedGoodStandingReport = { summary: {}, members: [] };
         let lapsedGoodStandingLoaded = false;
-        let lapsedGoodStandingBand = '3plus';
+        const LAPSED_GOOD_STANDING_PAGE_SIZE = 15;
+        let lapsedGoodStandingBand = '2';
+        let lapsedGoodStandingPage = 1;
         let revenueForecastData = [];
 
         function renderInsightCard({ tone = 'info', icon, title, value, detail }) {
@@ -3307,7 +3309,13 @@
                 return;
             }
 
-            const rowsToDisplay = members.slice(0, 100);
+            const totalPages = Math.max(1, Math.ceil(members.length / LAPSED_GOOD_STANDING_PAGE_SIZE));
+            const currentPage = Math.min(Math.max(1, lapsedGoodStandingPage), totalPages);
+            lapsedGoodStandingPage = currentPage;
+            const startIndex = (currentPage - 1) * LAPSED_GOOD_STANDING_PAGE_SIZE;
+            const rowsToDisplay = members.slice(startIndex, startIndex + LAPSED_GOOD_STANDING_PAGE_SIZE);
+            const startLabel = members.length ? startIndex + 1 : 0;
+            const endLabel = Math.min(startIndex + rowsToDisplay.length, members.length);
             const bandLabel = getLapsedGoodStandingBandLabel(lapsedGoodStandingBand);
             const html = `
                 <div class="insight-stat-grid" style="margin-bottom: 1rem;">
@@ -3318,6 +3326,10 @@
                     <div class="insight-stat">
                         <div class="insight-stat-label">2 Years</div>
                         <div class="insight-stat-value">${parseInt(summary.two_year_count || 0, 10).toLocaleString()}</div>
+                    </div>
+                    <div class="insight-stat">
+                        <div class="insight-stat-label">Exactly 3 Years</div>
+                        <div class="insight-stat-value">${parseInt(summary.exact_three_year_count || 0, 10).toLocaleString()}</div>
                     </div>
                     <div class="insight-stat">
                         <div class="insight-stat-label">3+ Years</div>
@@ -3333,49 +3345,25 @@
                 <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
                     <span style="font-weight: 600; color: #12086f;">${bandLabel}: showing ${rowsToDisplay.length} of ${members.length.toLocaleString()} members</span>
                     <select id="lapsedGoodStandingBandFilter" onchange="setLapsedGoodStandingBand(this.value)" style="padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid #dee2e6; font-size: 0.8rem; cursor: pointer;">
-                        <option value="3plus" ${lapsedGoodStandingBand === '3plus' ? 'selected' : ''}>3+ years first</option>
                         <option value="2" ${lapsedGoodStandingBand === '2' ? 'selected' : ''}>Exactly 2 years</option>
+                        <option value="3" ${lapsedGoodStandingBand === '3' ? 'selected' : ''}>Exactly 3 years</option>
+                        <option value="3plus" ${lapsedGoodStandingBand === '3plus' ? 'selected' : ''}>3+ years</option>
                         <option value="all" ${lapsedGoodStandingBand === 'all' ? 'selected' : ''}>All 2+ years</option>
                     </select>
                     <span style="color: #666; font-size: 0.85rem;">Consecutive through ${currentYear}</span>
                 </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Member Type</th>
-                            <th>Member #</th>
-                            <th>Name</th>
-                            <th>Last Good Standing</th>
-                            <th>Missed Years</th>
-                            <th>Duration</th>
-                            <th>Est. Dues</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rowsToDisplay.map(row => {
-                            const years = parseInt(row.years_not_in_good_standing || 0, 10);
-                            const badgeClass = years >= 3 ? 'badge-overdue' : 'badge-pending';
-                            const missedYears = Array.isArray(row.missed_years) && row.missed_years.length
-                                ? row.missed_years.join(', ')
-                                : '-';
-                            const rowAction = row.member_id ? `onclick="navigateToMember(${row.member_id})" style="cursor:pointer;" title="Click to view member details"` : '';
-                            return `
-                                <tr ${rowAction}>
-                                    <td><span class="status-badge badge-paid">${formatMemberType(row.member_type)}</span></td>
-                                    <td><strong>${escapeHtml(row.membership_number || 'N/A')}</strong></td>
-                                    <td>
-                                        <strong>${escapeHtml(row.member_name || 'Unknown')}</strong>
-                                        ${row.organization ? `<div style="color:#6b7280; font-size:0.78rem; margin-top:2px;">${escapeHtml(row.organization)}</div>` : ''}
-                                    </td>
-                                    <td>${escapeHtml(row.last_good_standing_year || 'Never')}</td>
-                                    <td>${escapeHtml(missedYears)}</td>
-                                    <td><span class="status-badge ${badgeClass}">${escapeHtml(row.lapsed_band || `${years} years`)}</span></td>
-                                    <td><strong style="color: #dc3545;">${formatCurrency(row.estimated_outstanding || 0)}</strong></td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
+                <div class="chart-support-table lapsed-swiper-table">
+                    ${renderLapsedGoodStandingRows(rowsToDisplay)}
+                </div>
+                <div class="pagination lapsed-swiper-pagination">
+                    <button onclick="changeLapsedGoodStandingPage(-1)" ${currentPage <= 1 ? 'disabled' : ''}>
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <span>Page ${currentPage} of ${totalPages} &bull; ${startLabel}-${endLabel} of ${members.length.toLocaleString()}</span>
+                    <button onclick="changeLapsedGoodStandingPage(1)" ${currentPage >= totalPages ? 'disabled' : ''}>
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
             `;
 
             content.innerHTML = html;
@@ -3383,14 +3371,15 @@
             lapsedGoodStandingChartInstance = new Chart(document.getElementById('lapsedGoodStandingChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['2 Years', '3+ Years'],
+                    labels: ['2 Years', 'Exactly 3 Years', '3+ Years'],
                     datasets: [
                         {
                             data: [
                                 parseInt(summary.two_year_count || 0, 10),
+                                parseInt(summary.exact_three_year_count || 0, 10),
                                 parseInt(summary.three_plus_count || 0, 10)
                             ],
-                            backgroundColor: [CHART_COLORS.amber, CHART_COLORS.red],
+                            backgroundColor: [CHART_COLORS.amber, CHART_COLORS.violet, CHART_COLORS.red],
                             borderColor: '#ffffff',
                             borderWidth: 2
                         }
@@ -3423,6 +3412,10 @@
                 return sorted.filter(row => parseInt(row.years_not_in_good_standing || 0, 10) === 2);
             }
 
+            if (lapsedGoodStandingBand === '3') {
+                return sorted.filter(row => parseInt(row.years_not_in_good_standing || 0, 10) === 3);
+            }
+
             if (lapsedGoodStandingBand === '3plus') {
                 return sorted.filter(row => parseInt(row.years_not_in_good_standing || 0, 10) >= 3);
             }
@@ -3432,13 +3425,64 @@
 
         function getLapsedGoodStandingBandLabel(value) {
             if (value === '2') return 'Exactly 2 years not in good standing';
+            if (value === '3') return 'Exactly 3 years not in good standing';
             if (value === '3plus') return '3+ years not in good standing';
             return 'All members not in good standing for 2+ years';
         }
 
         function setLapsedGoodStandingBand(value) {
-            lapsedGoodStandingBand = value || '3plus';
+            lapsedGoodStandingBand = value || '2';
+            lapsedGoodStandingPage = 1;
             renderLapsedGoodStanding();
+        }
+
+        function changeLapsedGoodStandingPage(delta) {
+            const members = getVisibleLapsedGoodStandingMembers(Array.isArray(lapsedGoodStandingReport.members) ? lapsedGoodStandingReport.members : []);
+            const totalPages = Math.max(1, Math.ceil(members.length / LAPSED_GOOD_STANDING_PAGE_SIZE));
+            lapsedGoodStandingPage = Math.min(totalPages, Math.max(1, lapsedGoodStandingPage + delta));
+            renderLapsedGoodStanding();
+        }
+
+        function renderLapsedGoodStandingRows(rows) {
+            return `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Member Type</th>
+                            <th>Member #</th>
+                            <th>Name</th>
+                            <th>Last Good Standing</th>
+                            <th>Missed Years</th>
+                            <th>Duration</th>
+                            <th>Est. Dues</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(row => {
+                            const years = parseInt(row.years_not_in_good_standing || 0, 10);
+                            const badgeClass = years >= 3 ? 'badge-overdue' : 'badge-pending';
+                            const missedYears = Array.isArray(row.missed_years) && row.missed_years.length
+                                ? row.missed_years.join(', ')
+                                : '-';
+                            const rowAction = row.member_id ? `onclick="navigateToMember(${row.member_id})" style="cursor:pointer;" title="Click to view member details"` : '';
+                            return `
+                                <tr ${rowAction}>
+                                    <td><span class="status-badge badge-paid">${formatMemberType(row.member_type)}</span></td>
+                                    <td><strong>${escapeHtml(row.membership_number || 'N/A')}</strong></td>
+                                    <td>
+                                        <strong>${escapeHtml(row.member_name || 'Unknown')}</strong>
+                                        ${row.organization ? `<div style="color:#6b7280; font-size:0.78rem; margin-top:2px;">${escapeHtml(row.organization)}</div>` : ''}
+                                    </td>
+                                    <td>${escapeHtml(row.last_good_standing_year || 'Never')}</td>
+                                    <td>${escapeHtml(missedYears)}</td>
+                                    <td><span class="status-badge ${badgeClass}">${escapeHtml(row.lapsed_band || `${years} years`)}</span></td>
+                                    <td><strong style="color: #dc3545;">${formatCurrency(row.estimated_outstanding || 0)}</strong></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
         }
 
         function renderLapsedGoodStandingByType(rows) {
@@ -3452,6 +3496,7 @@
                                 <th>Member Type</th>
                                 <th>Total Lapsed</th>
                                 <th>2 Years</th>
+                                <th>Exactly 3</th>
                                 <th>3+ Years</th>
                                 <th>Est. Dues</th>
                             </tr>
@@ -3462,6 +3507,7 @@
                                     <td><strong>${escapeHtml(formatMemberType(row.member_type))}</strong></td>
                                     <td>${parseInt(row.total_count || 0, 10).toLocaleString()}</td>
                                     <td>${parseInt(row.two_year_count || 0, 10).toLocaleString()}</td>
+                                    <td>${parseInt(row.exact_three_year_count || 0, 10).toLocaleString()}</td>
                                     <td>${parseInt(row.three_plus_count || 0, 10).toLocaleString()}</td>
                                     <td>${formatCurrency(row.estimated_outstanding || 0)}</td>
                                 </tr>
@@ -3758,6 +3804,8 @@
 
                 if (lapsedGoodStandingBand === '2') {
                     extraParams.band = '2';
+                } else if (lapsedGoodStandingBand === '3') {
+                    extraParams.band = '3';
                 } else if (lapsedGoodStandingBand === '3plus') {
                     extraParams.band = '3plus';
                 }
@@ -3787,7 +3835,7 @@
                         parseFloat(row.estimated_outstanding || 0).toFixed(2)
                     ].map(csvCell).join(',')}`;
                 });
-                const suffix = lapsedGoodStandingBand === '2' ? '2_Years' : lapsedGoodStandingBand === '3plus' ? '3Plus_Years' : 'All_2Plus_Years';
+                const suffix = lapsedGoodStandingBand === '2' ? '2_Years' : lapsedGoodStandingBand === '3' ? 'Exactly_3_Years' : lapsedGoodStandingBand === '3plus' ? '3Plus_Years' : 'All_2Plus_Years';
                 downloadCSV(`Lapsed_Good_Standing_${suffix}.csv`, csv);
                 showAlert('Lapsed good standing data exported successfully', 'success');
             } catch (err) {
