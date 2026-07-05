@@ -1316,6 +1316,8 @@ async function initializeSubscriptionRates() {
             }
             console.log('Corporate category rates initialized (Platinum/Gold/Silver/Bronze) for 2025-2035');
         }
+
+        await reconcileCorporateRateMatchedSubscriptions(pool);
         
         console.log('Subscription rates table initialized successfully');
     } catch (err) {
@@ -3181,6 +3183,33 @@ async function getMemberRates(client, memberType, membershipCategory) {
     return { ratesByYear, maxRateYear };
 }
 
+async function getCorporateRatesByYear(client) {
+    const result = await client.query(`
+        SELECT subscription_year, membership_category, expected_amount
+        FROM subscription_rates
+        WHERE member_type = 'Corporate'
+        AND membership_category IS NOT NULL
+        ORDER BY subscription_year ASC, expected_amount ASC
+    `);
+
+    const ratesByYear = {};
+    for (const row of result.rows) {
+        const year = parseInt(row.subscription_year, 10);
+        if (!Number.isFinite(year)) {
+            continue;
+        }
+        if (!ratesByYear[year]) {
+            ratesByYear[year] = [];
+        }
+        ratesByYear[year].push({
+            category: row.membership_category,
+            amount: Math.max(0, moneyValue(row.expected_amount))
+        });
+    }
+
+    return ratesByYear;
+}
+
 async function getApplicableExpectedAmount(client, memberType, membershipCategory, subscriptionYear, paymentDate) {
     const paymentDateStr = paymentDate || new Date().toISOString().split('T')[0];
     const result = await client.query(`
@@ -3239,13 +3268,81 @@ async function syncRateExpectedAmounts(client, memberType, membershipCategory, s
     ]);
 }
 
-function resolveExpectedAmount(sub, ratesByYear, year) {
+async function reconcileCorporateRateMatchedSubscriptions(client, options = {}) {
+    const year = Number.isFinite(parseInt(options.subscriptionYear, 10))
+        ? parseInt(options.subscriptionYear, 10)
+        : null;
+    const memberId = Number.isFinite(parseInt(options.memberId, 10))
+        ? parseInt(options.memberId, 10)
+        : null;
+
+    await client.query(`
+        WITH matched AS (
+            SELECT DISTINCT ON (s.id)
+                s.id,
+                sr.expected_amount
+            FROM subscriptions s
+            JOIN members m ON m.id = s.member_id
+            JOIN subscription_rates sr ON sr.member_type = 'Corporate'
+                AND sr.subscription_year = s.subscription_year
+                AND sr.membership_category IS NOT NULL
+            WHERE m.member_type = 'Corporate'
+            AND ($1::int IS NULL OR s.subscription_year = $1)
+            AND ($2::int IS NULL OR s.member_id = $2)
+            AND (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0)) > 0
+            AND ABS((COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0)) - sr.expected_amount) < 0.01
+            ORDER BY s.id, sr.expected_amount ASC
+        )
+        UPDATE subscriptions s
+        SET expected_amount = matched.expected_amount,
+            status = CASE WHEN s.status = 'Waived' THEN s.status ELSE 'Paid' END,
+            credit_balance = CASE
+                WHEN ABS(COALESCE(s.credit_balance, 0)) < 0.01 THEN 0
+                ELSE s.credit_balance
+            END
+        FROM matched
+        WHERE s.id = matched.id
+    `, [year, memberId]);
+}
+
+function findMatchingCorporateRate(corporateRatesForYear, totalAvailable) {
+    const available = Math.max(0, moneyValue(totalAvailable));
+    if (!Array.isArray(corporateRatesForYear) || available <= 0) {
+        return null;
+    }
+
+    return corporateRatesForYear.find(rate => Math.abs(moneyValue(rate.amount) - available) < 0.01) || null;
+}
+
+async function getCorporateMatchedExpectedAmount(client, memberType, subscriptionYear, totalAvailable) {
+    if (memberType !== 'Corporate') {
+        return null;
+    }
+
+    const corporateRatesByYear = await getCorporateRatesByYear(client);
+    const matchedRate = findMatchingCorporateRate(corporateRatesByYear[parseInt(subscriptionYear, 10)], totalAvailable);
+    return matchedRate ? matchedRate.amount : null;
+}
+
+function resolveExpectedAmount(sub, ratesByYear, year, options = {}) {
+    const rateExpected = Math.max(0, moneyValue(ratesByYear[year]));
     const storedExpected = moneyValue(sub && sub.expected_amount);
+
+    if (options.memberType === 'Corporate') {
+        const matchedRate = findMatchingCorporateRate(options.corporateRatesForYear, options.totalAvailable);
+        if (matchedRate) {
+            return matchedRate.amount;
+        }
+        if (rateExpected > 0) {
+            return rateExpected;
+        }
+    }
+
     if (storedExpected > 0) {
         return storedExpected;
     }
 
-    return Math.max(0, moneyValue(ratesByYear[year]));
+    return rateExpected;
 }
 
 async function recalculateMemberCreditLedger(client, memberId, options = {}) {
@@ -3259,6 +3356,9 @@ async function recalculateMemberCreditLedger(client, memberId, options = {}) {
     const currentYear = new Date().getFullYear();
     const member = await getMemberLedgerContext(client, memberId);
     const { ratesByYear, maxRateYear } = await getMemberRates(client, member.member_type, member.membership_category);
+    const corporateRatesByYear = member.member_type === 'Corporate'
+        ? await getCorporateRatesByYear(client)
+        : {};
     const lockClause = persistAutoYears ? ' FOR UPDATE OF s' : '';
 
     const subscriptionsResult = await client.query(`
@@ -3370,8 +3470,12 @@ async function recalculateMemberCreditLedger(client, memberId, options = {}) {
         }
 
         const isBeforeMembershipStart = Number.isFinite(membershipStartYear) && year < membershipStartYear;
-        const expectedAmount = isBeforeMembershipStart ? 0 : resolveExpectedAmount(existingSub, ratesByYear, year);
         const amountPaid = Math.max(0, moneyValue(existingSub && existingSub.amount_paid));
+        const expectedAmount = isBeforeMembershipStart ? 0 : resolveExpectedAmount(existingSub, ratesByYear, year, {
+            memberType: member.member_type,
+            corporateRatesForYear: corporateRatesByYear[year],
+            totalAvailable: amountPaid + carryForwardCredit
+        });
         const explicitStatus = existingSub ? existingSub.status : 'Pending';
         const outcome = calculateCreditOutcome({
             subscriptionYear: year,
@@ -4074,6 +4178,7 @@ app.put('/api/members/:id', async (req, res) => {
         }
 
         await syncMemberSubscriptionExpectedAmounts(client, req.params.id);
+        await reconcileCorporateRateMatchedSubscriptions(client, { memberId: req.params.id });
 
         await client.query('COMMIT');
         res.json(result.rows[0]);
@@ -4193,6 +4298,16 @@ app.post('/api/members/:id/subscriptions', async (req, res) => {
         }
         
         const paidAmount = parseFloat(amount_paid) || 0;
+        const matchedCorporateExpected = await getCorporateMatchedExpectedAmount(
+            client,
+            memberType,
+            subscription_year,
+            paidAmount + previousCredit
+        );
+        if (matchedCorporateExpected !== null) {
+            finalExpectedAmount = matchedCorporateExpected;
+        }
+
         const creditOutcome = calculateCreditOutcome({
             subscriptionYear: subscription_year,
             memberType,
@@ -4235,6 +4350,11 @@ app.post('/api/members/:id/subscriptions', async (req, res) => {
                 WHERE member_id = $1 AND subscription_year = $2
             `, [memberId, subscription_year - 1, creditOutcome.creditApplied]);
         }
+
+        await reconcileCorporateRateMatchedSubscriptions(client, {
+            memberId,
+            subscriptionYear: subscription_year
+        });
 
         await client.query('COMMIT');
         
@@ -4322,7 +4442,7 @@ app.put('/api/subscriptions/:id', async (req, res) => {
         }
         
         const rateResult = await client.query(rateQuery, rateParams);
-        const expectedAmount = rateResult.rows.length > 0 ? parseFloat(rateResult.rows[0].applicable_amount) : (subRecord.expected_amount || 0);
+        let expectedAmount = rateResult.rows.length > 0 ? parseFloat(rateResult.rows[0].applicable_amount) : (subRecord.expected_amount || 0);
         
         // Get any credit balance from previous year that hasn't been applied yet
         // Recalculate from rate table since stored credit_balance may be wrong for old records
@@ -4362,6 +4482,16 @@ app.put('/api/subscriptions/:id', async (req, res) => {
         
         // Recalculate credit using both currently available previous-year credit and any previously applied credit.
         const availableCreditPool = previousCredit + existingCreditApplied;
+        const matchedCorporateExpected = await getCorporateMatchedExpectedAmount(
+            client,
+            memberType,
+            subYear,
+            newAmountPaid + availableCreditPool
+        );
+        if (matchedCorporateExpected !== null) {
+            expectedAmount = matchedCorporateExpected;
+        }
+
         const creditOutcome = calculateCreditOutcome({
             subscriptionYear: subYear,
             memberType,
@@ -4410,6 +4540,11 @@ app.put('/api/subscriptions/:id', async (req, res) => {
                 WHERE member_id = $1 AND subscription_year = $2
             `, [memberId, subYear - 1, remainingPreviousCredit]);
         }
+
+        await reconcileCorporateRateMatchedSubscriptions(client, {
+            memberId,
+            subscriptionYear: subYear
+        });
         
         await client.query('COMMIT');
 
@@ -4561,6 +4696,7 @@ app.post('/api/subscription-rates', async (req, res) => {
         `, [member_type, subscription_year, expected_amount, early_bird_amount || null, early_bird_deadline || null, description || null, membership_category || null]);
 
         await syncRateExpectedAmounts(pool, member_type, membership_category || null, subscription_year, expected_amount);
+        await reconcileCorporateRateMatchedSubscriptions(pool, { subscriptionYear: subscription_year });
 
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -4601,6 +4737,8 @@ app.post('/api/subscription-rates/bulk', async (req, res) => {
                     rate.expected_amount
                 );
             }
+
+            await reconcileCorporateRateMatchedSubscriptions(client, { subscriptionYear: subscription_year });
             
             await client.query('COMMIT');
             res.json({ message: 'Rates updated successfully', rates: results });
@@ -4714,7 +4852,7 @@ app.post('/api/members/:id/process-payment', async (req, res) => {
                     OR ($1 = 'Corporate' AND membership_category = $4)
                 )
             `, [memberType, subscription_year, paymentDateStr, membershipCategory]);
-            const expectedAmount = rateResult.rows.length > 0 ? parseFloat(rateResult.rows[0].applicable_amount) : 0;
+            let expectedAmount = rateResult.rows.length > 0 ? parseFloat(rateResult.rows[0].applicable_amount) : 0;
             const isEarlyBird = rateResult.rows.length > 0 && rateResult.rows[0].early_bird_amount && parseFloat(rateResult.rows[0].applicable_amount) === parseFloat(rateResult.rows[0].early_bird_amount);
             
             // Get any credit balance from previous year
@@ -4734,6 +4872,15 @@ app.post('/api/members/:id/process-payment', async (req, res) => {
             const existingStatus = existingSub.rows.length > 0 ? existingSub.rows[0].status : null;
             const totalPaid = existingPaid + parseFloat(amount_paid);
             const availableCreditPool = previousCredit + existingCreditApplied;
+            const matchedCorporateExpected = await getCorporateMatchedExpectedAmount(
+                client,
+                memberType,
+                subscription_year,
+                totalPaid + availableCreditPool
+            );
+            if (matchedCorporateExpected !== null) {
+                expectedAmount = matchedCorporateExpected;
+            }
             
             const creditOutcome = calculateCreditOutcome({
                 subscriptionYear: subscription_year,
@@ -4791,6 +4938,11 @@ app.post('/api/members/:id/process-payment', async (req, res) => {
                     WHERE member_id = $1 AND subscription_year = $2
                 `, [memberId, subscription_year - 1, remainingPreviousCredit]);
             }
+
+            await reconcileCorporateRateMatchedSubscriptions(client, {
+                memberId,
+                subscriptionYear: subscription_year
+            });
 
             const updatedTimeline = await recalculateMemberCreditLedger(client, memberId, {
                 persistAutoYears: true,
