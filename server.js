@@ -30,6 +30,16 @@ const upload = multer({
 
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
+function getRequiredProductionEnv(name, devFallback = '') {
+    const value = process.env[name];
+    if (typeof value === 'string' && value.trim()) return value;
+    if (isProduction) {
+        throw new Error(`${name} is required in production`);
+    }
+    return devFallback;
+}
+
+const sessionSecret = getRequiredProductionEnv('SESSION_SECRET', 'dev-only-iod-session-secret');
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
     .split(',')
     .map(origin => origin.trim())
@@ -54,7 +64,7 @@ app.use(express.json());
 
 // Session middleware
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'iod-ghana-secret-key-2026',
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -984,8 +994,11 @@ async function initializeAdminUsers() {
 
         const adminCount = await pool.query('SELECT COUNT(*) FROM admin_users');
         if (parseInt(adminCount.rows[0].count, 10) === 0) {
-            const defaultUsername = (process.env.ADMIN_DEFAULT_USERNAME || 'admin').trim();
-            const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || 'changeme123!';
+            const defaultUsername = (process.env.ADMIN_DEFAULT_USERNAME || (isProduction ? '' : 'admin')).trim();
+            const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || '';
+            if (!defaultUsername || !defaultPassword) {
+                throw new Error('ADMIN_DEFAULT_USERNAME and ADMIN_DEFAULT_PASSWORD are required to bootstrap the first admin user');
+            }
             const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
             await pool.query(

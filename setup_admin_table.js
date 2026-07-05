@@ -2,6 +2,8 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 function createDatabasePoolConfig() {
     if (process.env.DATABASE_URL) {
         return {
@@ -109,8 +111,11 @@ async function setup() {
         // Check if any admin exists
         const { rows } = await pool.query('SELECT COUNT(*) as cnt FROM admin_users');
         if (parseInt(rows[0].cnt) === 0) {
-            const defaultUsername = (process.env.ADMIN_DEFAULT_USERNAME || 'admin').trim();
-            const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || 'changeme123!';
+            const defaultUsername = (process.env.ADMIN_DEFAULT_USERNAME || (isProduction ? '' : 'admin')).trim();
+            const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || '';
+            if (!defaultUsername || !defaultPassword) {
+                throw new Error('ADMIN_DEFAULT_USERNAME and ADMIN_DEFAULT_PASSWORD are required to bootstrap the first admin user');
+            }
             const hash = await bcrypt.hash(defaultPassword, 10);
             await pool.query(
                 'INSERT INTO admin_users (username, password_hash, email, role, is_active) VALUES ($1, $2, $3, $4, TRUE)',
