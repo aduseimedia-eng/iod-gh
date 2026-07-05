@@ -1318,6 +1318,7 @@ async function initializeSubscriptionRates() {
         }
 
         await reconcileCorporateRateMatchedSubscriptions(pool);
+        await reconcileCorporateAdmissionYearSubscriptions(pool);
         
         console.log('Subscription rates table initialized successfully');
     } catch (err) {
@@ -2759,6 +2760,10 @@ function getMemberInductionYear(member) {
 }
 
 function isInductionYearSubscription(member, subscriptionYear, explicitStatus, amountPaid) {
+    if (member && member.member_type === 'Corporate') {
+        return false;
+    }
+
     const inductionYear = getMemberInductionYear(member);
     const year = parseInt(subscriptionYear, 10);
 
@@ -2964,18 +2969,20 @@ async function getGoodStandingMembersForYear(year, { includePaymentDetails = fal
         const memberInductionYear = getMemberInductionYear(member);
         if (memberSubscriptions.length === 0) {
             if (memberInductionYear === year) {
-                goodStandingMembers.push({
-                    ...member,
-                    subscription_year: year,
-                    status: 'Paid',
-                    amount_paid: 0,
-                    credit_applied: 0,
-                    expected_amount: 0,
-                    is_induction_year: true,
-                    induction_note: 'Inducted this year',
-                    recorded_by: null,
-                    payment_date: null
-                });
+                if (member.member_type !== 'Corporate') {
+                    goodStandingMembers.push({
+                        ...member,
+                        subscription_year: year,
+                        status: 'Paid',
+                        amount_paid: 0,
+                        credit_applied: 0,
+                        expected_amount: 0,
+                        is_induction_year: true,
+                        induction_note: 'Inducted this year',
+                        recorded_by: null,
+                        payment_date: null
+                    });
+                }
             }
             continue;
         }
@@ -3087,7 +3094,7 @@ async function getGoodStandingMembersForYear(year, { includePaymentDetails = fal
             }
         }
 
-        if (!targetYearData && memberInductionYear === year) {
+        if (!targetYearData && member.member_type !== 'Corporate' && memberInductionYear === year) {
             targetYearData = {
                 amountPaid: 0,
                 creditApplied: 0,
@@ -3303,6 +3310,43 @@ async function reconcileCorporateRateMatchedSubscriptions(client, options = {}) 
         FROM matched
         WHERE s.id = matched.id
     `, [year, memberId]);
+}
+
+async function reconcileCorporateAdmissionYearSubscriptions(client, options = {}) {
+    const memberId = Number.isFinite(parseInt(options.memberId, 10))
+        ? parseInt(options.memberId, 10)
+        : null;
+
+    await client.query(`
+        UPDATE subscriptions s
+        SET status = CASE
+                WHEN (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0))
+                    >= COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0)
+                THEN 'Paid'
+                WHEN (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0)) > 0
+                THEN 'Partial'
+                ELSE 'Pending'
+            END,
+            expected_amount = COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0),
+            credit_balance = CASE
+                WHEN (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0))
+                    <= COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0)
+                THEN 0
+                ELSE s.credit_balance
+            END
+        FROM members m, subscription_rates sr
+        WHERE s.member_id = m.id
+        AND m.member_type = 'Corporate'
+        AND sr.member_type = m.member_type
+        AND sr.subscription_year = s.subscription_year
+        AND sr.membership_category = m.membership_category
+        AND ($1::int IS NULL OR s.member_id = $1)
+        AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::int
+        AND s.status = 'Paid'
+        AND COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) > 0
+        AND (COALESCE(s.amount_paid, 0) + COALESCE(s.credit_applied, 0))
+            < COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0)
+    `, [memberId]);
 }
 
 function findMatchingCorporateRate(corporateRatesForYear, totalAvailable) {
@@ -4179,6 +4223,7 @@ app.put('/api/members/:id', async (req, res) => {
 
         await syncMemberSubscriptionExpectedAmounts(client, req.params.id);
         await reconcileCorporateRateMatchedSubscriptions(client, { memberId: req.params.id });
+        await reconcileCorporateAdmissionYearSubscriptions(client, { memberId: req.params.id });
 
         await client.query('COMMIT');
         res.json(result.rows[0]);
@@ -4697,6 +4742,7 @@ app.post('/api/subscription-rates', async (req, res) => {
 
         await syncRateExpectedAmounts(pool, member_type, membership_category || null, subscription_year, expected_amount);
         await reconcileCorporateRateMatchedSubscriptions(pool, { subscriptionYear: subscription_year });
+        await reconcileCorporateAdmissionYearSubscriptions(pool);
 
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -4739,6 +4785,7 @@ app.post('/api/subscription-rates/bulk', async (req, res) => {
             }
 
             await reconcileCorporateRateMatchedSubscriptions(client, { subscriptionYear: subscription_year });
+            await reconcileCorporateAdmissionYearSubscriptions(client);
             
             await client.query('COMMIT');
             res.json({ message: 'Rates updated successfully', rates: results });
@@ -5174,7 +5221,8 @@ app.get('/api/dashboard/current-year-overview', async (req, res) => {
         const params = [];
         const inductionPaidCondition = `
             COALESCE((
-                s.status = 'Paid'
+                m.member_type != 'Corporate'
+                AND s.status = 'Paid'
                 AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::int
             ), false)
         `;
@@ -5227,7 +5275,8 @@ app.get('/api/dashboard/paid-by-type', async (req, res) => {
         const params = [];
         const inductionPaidCondition = `
             COALESCE((
-                s.status = 'Paid'
+                m.member_type != 'Corporate'
+                AND s.status = 'Paid'
                 AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::int
             ), false)
         `;
@@ -5293,7 +5342,8 @@ app.get('/api/dashboard/yearly-trends', async (req, res) => {
                     s.subscription_year,
                     COUNT(DISTINCT CASE 
                         WHEN COALESCE((
-                            s.status = 'Paid'
+                            m.member_type != 'Corporate'
+                            AND s.status = 'Paid'
                             AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::int
                         ), false) OR (
                             COALESCE(NULLIF(s.expected_amount, 0), sr.expected_amount, 0) > 0
@@ -5381,7 +5431,8 @@ app.get('/api/dashboard/unpaid-subscriptions', async (req, res) => {
                 s.id IS NULL 
                 OR (
                     NOT (
-                        s.status = 'Paid'
+                        m.member_type != 'Corporate'
+                        AND s.status = 'Paid'
                         AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::int
                     )
                     AND
@@ -5500,7 +5551,8 @@ app.get('/api/dashboard/regional-performance', async (req, res) => {
         const params = [];
         const inductionPaidCondition = `
             COALESCE((
-                s.status = 'Paid'
+                m.member_type != 'Corporate'
+                AND s.status = 'Paid'
                 AND s.subscription_year = EXTRACT(YEAR FROM COALESCE(m.date_of_admission, m.registration_date))::int
             ), false)
         `;
