@@ -1203,6 +1203,76 @@
             return personalName || member.organization || 'N/A';
         }
 
+        function escapeCsvValue(value) {
+            return String(value || '').replace(/"/g, '""');
+        }
+
+        function getGoodStandingSortName(member) {
+            return formatGoodStandingFullName(member)
+                .toLowerCase()
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function sortGoodStandingMembersByName(members) {
+            return (members || []).slice().sort((a, b) => {
+                const nameCompare = getGoodStandingSortName(a).localeCompare(getGoodStandingSortName(b));
+                if (nameCompare !== 0) return nameCompare;
+                return String(a.membership_number || '').localeCompare(String(b.membership_number || ''));
+            });
+        }
+
+        function getGoodStandingPublicCategory(member) {
+            if (member.member_type === 'Corporate') {
+                return `Corporate - ${member.membership_category || 'Bronze'}`;
+            }
+
+            const labels = {
+                FIOD: 'Fellow, Institute of Directors',
+                MIOD: 'Member, Institute of Directors',
+                AIOD: 'Associate, Institute of Directors',
+                Honorary: 'Honorary Members'
+            };
+
+            return labels[member.member_type] || member.member_type || 'Uncategorized';
+        }
+
+        function buildGoodStandingPublicExportGroups(members) {
+            const categoryOrder = [
+                'Fellow, Institute of Directors',
+                'Member, Institute of Directors',
+                'Associate, Institute of Directors',
+                'Corporate - Platinum',
+                'Corporate - Gold',
+                'Corporate - Silver',
+                'Corporate - Bronze',
+                'Honorary Members'
+            ];
+            const groups = {};
+
+            (members || []).forEach(member => {
+                const category = getGoodStandingPublicCategory(member);
+                if (!groups[category]) groups[category] = [];
+                groups[category].push(member);
+            });
+
+            return Object.keys(groups)
+                .sort((a, b) => {
+                    const aIndex = categoryOrder.indexOf(a);
+                    const bIndex = categoryOrder.indexOf(b);
+                    if (aIndex !== -1 || bIndex !== -1) {
+                        if (aIndex === -1) return 1;
+                        if (bIndex === -1) return -1;
+                        return aIndex - bIndex;
+                    }
+                    return a.localeCompare(b);
+                })
+                .map(category => ({
+                    category,
+                    members: sortGoodStandingMembersByName(groups[category])
+                }));
+        }
+
         function formatGoodStandingAmount(value) {
             const amount = parseFloat(value);
             return Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
@@ -1435,7 +1505,7 @@
                         html += renderGoodStandingSection(`type-${type}`, {
                             title: typeNames[type].name,
                             icon: typeNames[type].icon,
-                            members: groups[type].sort((a,b)=>(a.membership_number || '').localeCompare(b.membership_number || '')),
+                            members: sortGoodStandingMembersByName(groups[type]),
                             countLabel: 'members'
                         });
                     }
@@ -1456,7 +1526,7 @@
                             html += renderGoodStandingSection(`corporate-${cat}`, {
                                 title: corpCategoryNames[cat].label,
                                 icon: 'fa-gem',
-                                members: corpGroups[cat].sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||'')),
+                                members: sortGoodStandingMembersByName(corpGroups[cat]),
                                 countLabel: corpGroups[cat].length === 1 ? 'member' : 'members',
                                 cardStyle: `border-left: 4px solid ${corpCategoryNames[cat].color};`,
                                 titleStyle: `color: ${corpCategoryNames[cat].color};`,
@@ -1471,7 +1541,7 @@
                     html += renderGoodStandingSection('waived-members', {
                         title: 'Waived Members',
                         icon: 'fa-hand-holding-heart',
-                        members: waivedMembers.sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||'')),
+                        members: sortGoodStandingMembersByName(waivedMembers),
                         countLabel: waivedMembers.length === 1 ? 'member' : 'members',
                         cardStyle: 'border-left: 4px solid #eab308;',
                         titleStyle: 'color: #854d0e;',
@@ -1485,7 +1555,7 @@
                     html += renderGoodStandingSection('honorary-members', {
                         title: 'Honorary Members',
                         icon: 'fa-medal',
-                        members: honoraryMembers.sort((a,b) => (a.membership_number||'').localeCompare(b.membership_number||'')),
+                        members: sortGoodStandingMembersByName(honoraryMembers),
                         countLabel: honoraryMembers.length === 1 ? 'member' : 'members',
                         cardStyle: 'border-left: 4px solid #7c3aed;',
                         titleStyle: 'color: #5b21b6;',
@@ -1527,20 +1597,18 @@
                 return;
             }
 
-            const headers = ['Membership No.', 'Full Name', 'Expected / Note', 'Paid (GHS)', 'Credit Applied (GHS)', 'Payment Date'];
+            const headers = ['Category', 'Membership No.', 'Member Name'];
             let csv = headers.join(',') + '\n';
 
-            currentGoodStandingData.forEach(member => {
-                const fullName = formatGoodStandingFullName(member);
-                const row = [
-                    `"${member.membership_number || ''}"`,
-                    `"${fullName}"`,
-                    `"${formatGoodStandingExpectedExport(member)}"`,
-                    `"${formatGoodStandingAmount(member.amount_paid)}"`,
-                    `"${formatGoodStandingAmount(member.credit_applied)}"`,
-                    `"${member.payment_date || ''}"`
-                ];
-                csv += row.join(',') + '\n';
+            buildGoodStandingPublicExportGroups(currentGoodStandingData).forEach(group => {
+                group.members.forEach(member => {
+                    const row = [
+                        `"${escapeCsvValue(group.category)}"`,
+                        `"${escapeCsvValue(member.membership_number || '')}"`,
+                        `"${escapeCsvValue(formatGoodStandingFullName(member))}"`
+                    ];
+                    csv += row.join(',') + '\n';
+                });
             });
 
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1548,7 +1616,7 @@
             const url = URL.createObjectURL(blob);
             
             link.setAttribute('href', url);
-            link.setAttribute('download', `IOD_Good_Standing_${currentYear}_${new Date().toISOString().split('T')[0]}.csv`);
+            link.setAttribute('download', `IOD_Good_Standing_Public_${currentYear}_${new Date().toISOString().split('T')[0]}.csv`);
             link.style.visibility = 'hidden';
             
             document.body.appendChild(link);
