@@ -1207,8 +1207,20 @@
             return String(value || '').replace(/"/g, '""');
         }
 
+        function formatGoodStandingPublicName(member) {
+            if (!member) return '';
+            if (member.member_type === 'Corporate') {
+                return member.organization || 'N/A';
+            }
+
+            const surname = member.surname || member.last_name || '';
+            const otherNames = [member.first_name, member.other_names].filter(Boolean).join(' ').trim();
+            if (surname && otherNames) return `${surname}, ${otherNames}`;
+            return surname || otherNames || member.organization || 'N/A';
+        }
+
         function getGoodStandingSortName(member) {
-            return formatGoodStandingFullName(member)
+            return formatGoodStandingPublicName(member)
                 .toLowerCase()
                 .replace(/\s+/g, ' ')
                 .trim();
@@ -1224,14 +1236,14 @@
 
         function getGoodStandingPublicCategory(member) {
             if (member.member_type === 'Corporate') {
-                return `Corporate - ${member.membership_category || 'Bronze'}`;
+                return 'Corporate Members';
             }
 
             const labels = {
-                FIOD: 'Fellow, Institute of Directors',
-                MIOD: 'Member, Institute of Directors',
-                AIOD: 'Associate, Institute of Directors',
-                Honorary: 'Honorary Members'
+                Honorary: 'Honorary Fellows (HFIoD)',
+                FIOD: 'Fellows (FIoD)',
+                MIOD: 'Members (MIoD)',
+                AIOD: 'Associates (AIoD)'
             };
 
             return labels[member.member_type] || member.member_type || 'Uncategorized';
@@ -1239,14 +1251,11 @@
 
         function buildGoodStandingPublicExportGroups(members) {
             const categoryOrder = [
-                'Fellow, Institute of Directors',
-                'Member, Institute of Directors',
-                'Associate, Institute of Directors',
-                'Corporate - Platinum',
-                'Corporate - Gold',
-                'Corporate - Silver',
-                'Corporate - Bronze',
-                'Honorary Members'
+                'Honorary Fellows (HFIoD)',
+                'Fellows (FIoD)',
+                'Members (MIoD)',
+                'Associates (AIoD)',
+                'Corporate Members'
             ];
             const groups = {};
 
@@ -1597,15 +1606,16 @@
                 return;
             }
 
-            const headers = ['Category', 'Membership No.', 'Member Name'];
-            let csv = headers.join(',') + '\n';
+            const headers = ['Category', 'No.', 'Member Name'];
+            let csv = `Members in Good Standing,As at ${currentYear}\n\n`;
+            csv += headers.join(',') + '\n';
 
             buildGoodStandingPublicExportGroups(currentGoodStandingData).forEach(group => {
-                group.members.forEach(member => {
+                group.members.forEach((member, index) => {
                     const row = [
                         `"${escapeCsvValue(group.category)}"`,
-                        `"${escapeCsvValue(member.membership_number || '')}"`,
-                        `"${escapeCsvValue(formatGoodStandingFullName(member))}"`
+                        `"${index + 1}"`,
+                        `"${escapeCsvValue(formatGoodStandingPublicName(member))}"`
                     ];
                     csv += row.join(',') + '\n';
                 });
