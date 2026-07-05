@@ -313,102 +313,18 @@ app.get('/api/auth-status', async (req, res) => {
     res.json({ authenticated: false });
 });
 
-// In-memory storage for password reset codes (temporary, expires after 30 minutes)
-const resetCodes = new Map();
-
-// Generate password reset code
+// Public password reset is disabled. Logged-in admins can still change their own
+// password, and SuperAdmins can reset other admin passwords from Settings.
 app.post('/api/request-password-reset', async (req, res) => {
-    const { username } = req.body;
-    if (!username) {
-        return res.status(400).json({ error: 'Username is required' });
-    }
-    try {
-        // Verify user exists
-        const result = await pool.query('SELECT * FROM admin_users WHERE username = $1', [username.trim()]);
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Admin user not found' });
-        }
-        
-        // Generate 6-digit code
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-        const expireTime = Date.now() + 30 * 60 * 1000; // 30 minutes
-        
-        resetCodes.set(username.trim(), { code, expireTime });
-        
-        // Log the code for admin to retrieve from server logs
-        console.log(`\n${'='.repeat(60)}`);
-        console.log(`PASSWORD RESET REQUEST for ${username.trim()}`);
-        console.log(`Verification Code: ${code}`);
-        console.log(`Valid for 30 minutes until: ${new Date(expireTime).toLocaleString()}`);
-        console.log(`${'='.repeat(60)}\n`);
-        
-        res.json({ message: 'Reset code generated. Check server logs for verification code.' });
-    } catch (err) {
-        console.error('Password reset request error:', err);
-        res.status(500).json({ error: 'Server error' });
-    }
+    res.status(410).json({
+        error: 'Password reset from the login page is disabled. Please sign in and change your password from Settings, or ask a SuperAdmin to reset it.'
+    });
 });
 
-// Reset password endpoint
 app.post('/api/reset-password', async (req, res) => {
-    const { username, newPassword, verificationCode } = req.body;
-    
-    if (!username || !newPassword || !verificationCode) {
-        return res.status(400).json({ error: 'Username, password, and verification code are required' });
-    }
-    
-    if (newPassword.length < 8) {
-        return res.status(400).json({ error: 'Password must be at least 8 characters long' });
-    }
-    
-    const trimmedUsername = username.trim();
-    const trimmedCode = verificationCode.trim();
-    
-    try {
-        // Verify code
-        const storedReset = resetCodes.get(trimmedUsername);
-        if (!storedReset) {
-            return res.status(401).json({ error: 'Invalid or expired verification code. Request a new one.' });
-        }
-        
-        if (Date.now() > storedReset.expireTime) {
-            resetCodes.delete(trimmedUsername);
-            return res.status(401).json({ error: 'Verification code expired. Request a new one.' });
-        }
-        
-        if (storedReset.code !== trimmedCode) {
-            return res.status(401).json({ error: 'Invalid verification code' });
-        }
-        
-        // Verify user exists
-        const result = await pool.query('SELECT * FROM admin_users WHERE username = $1', [trimmedUsername]);
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Admin user not found' });
-        }
-        
-        // Update password
-        const newHash = await bcrypt.hash(newPassword, 10);
-        await pool.query('UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE username = $2', [newHash, trimmedUsername]);
-        
-        // Clear the used code
-        resetCodes.delete(trimmedUsername);
-        
-        console.log(`PASSWORD RESET SUCCESSFUL for ${trimmedUsername}`);
-        await recordAdminActivity(req, {
-            adminId: result.rows[0].id,
-            adminUsername: trimmedUsername,
-            action: 'password_reset',
-            entityType: 'admin_user',
-            entityId: result.rows[0].id,
-            description: `${trimmedUsername} reset their password`,
-            statusCode: 200
-        });
-        
-        res.json({ message: 'Password reset successfully! Please log in with your new password.' });
-    } catch (err) {
-        console.error('Password reset error:', err);
-        res.status(500).json({ error: 'Server error' });
-    }
+    res.status(410).json({
+        error: 'Password reset from the login page is disabled. Please sign in and change your password from Settings, or ask a SuperAdmin to reset it.'
+    });
 });
 
 
@@ -650,11 +566,6 @@ async function requireAuth(req, res, next) {
     
     // Allow staff read-only API without auth
     if (req.path.startsWith('/api/staff/')) {
-        return next();
-    }
-
-    // Allow password reset endpoints without auth
-    if (req.path === '/api/request-password-reset' || req.path === '/api/reset-password') {
         return next();
     }
 
