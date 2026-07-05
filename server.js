@@ -3203,6 +3203,42 @@ async function getApplicableExpectedAmount(client, memberType, membershipCategor
     return result.rows.length > 0 ? Math.max(0, moneyValue(result.rows[0].applicable_amount)) : 0;
 }
 
+async function syncMemberSubscriptionExpectedAmounts(client, memberId) {
+    await client.query(`
+        UPDATE subscriptions s
+        SET expected_amount = sr.expected_amount
+        FROM members m, subscription_rates sr
+        WHERE s.member_id = $1
+        AND m.id = s.member_id
+        AND sr.member_type = m.member_type
+        AND sr.subscription_year = s.subscription_year
+        AND (
+            (m.member_type != 'Corporate' AND sr.membership_category IS NULL)
+            OR (m.member_type = 'Corporate' AND sr.membership_category = m.membership_category)
+        )
+    `, [memberId]);
+}
+
+async function syncRateExpectedAmounts(client, memberType, membershipCategory, subscriptionYear, expectedAmount) {
+    await client.query(`
+        UPDATE subscriptions s
+        SET expected_amount = $4
+        FROM members m
+        WHERE s.member_id = m.id
+        AND s.subscription_year = $3
+        AND m.member_type = $1
+        AND (
+            ($1 != 'Corporate')
+            OR ($1 = 'Corporate' AND m.membership_category = $2)
+        )
+    `, [
+        memberType,
+        memberType === 'Corporate' ? membershipCategory : null,
+        subscriptionYear,
+        Math.max(0, moneyValue(expectedAmount))
+    ]);
+}
+
 function resolveExpectedAmount(sub, ratesByYear, year) {
     const storedExpected = moneyValue(sub && sub.expected_amount);
     if (storedExpected > 0) {
@@ -3965,19 +4001,32 @@ app.put('/api/members/:id', async (req, res) => {
             
             // For each subscription year in the form
             for (const year of subscription_years) {
-                if (!existingYears.includes(year)) {
+                const subscriptionYear = parseInt(year, 10);
+                if (!Number.isFinite(subscriptionYear)) {
+                    continue;
+                }
+                const yearExpectedAmount = await getApplicableExpectedAmount(
+                    client,
+                    member_type,
+                    member_type === 'Corporate' ? membership_category : null,
+                    subscriptionYear,
+                    new Date().toISOString().split('T')[0]
+                );
+
+                if (!existingYears.includes(subscriptionYear)) {
                     // Add new year that doesn't exist
                     await client.query(`
                         INSERT INTO subscriptions (
-                            member_id, subscription_year, status, amount_paid, payment_date,
+                            member_id, subscription_year, status, amount_paid, expected_amount, payment_date,
                             payment_method, recorded_by_admin_user_id, recorded_by_admin_username
                         )
-                        VALUES ($1, $2, $3, $4, CURRENT_DATE, $5, $6, $7)
+                        VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8)
                     `, [
                         req.params.id,
-                        year,
+                        subscriptionYear,
                         payment_status || 'Pending',
                         amount_paid || 0,
+                        yearExpectedAmount,
                         payment_method || null,
                         recorder.adminUserId,
                         recorder.adminUsername
@@ -3989,16 +4038,18 @@ app.put('/api/members/:id', async (req, res) => {
                             UPDATE subscriptions 
                             SET status = COALESCE($3, status),
                                 amount_paid = CASE WHEN $4 > 0 THEN $4 ELSE amount_paid END,
-                                payment_method = COALESCE($5, payment_method),
+                                expected_amount = CASE WHEN $5 > 0 THEN $5 ELSE expected_amount END,
+                                payment_method = COALESCE($6, payment_method),
                                 payment_date = COALESCE(payment_date, CURRENT_DATE),
-                                recorded_by_admin_user_id = $6,
-                                recorded_by_admin_username = $7
+                                recorded_by_admin_user_id = $7,
+                                recorded_by_admin_username = $8
                             WHERE member_id = $1 AND subscription_year = $2
                         `, [
                             req.params.id,
-                            year,
+                            subscriptionYear,
                             payment_status || null,
                             amount_paid || 0,
+                            yearExpectedAmount,
                             payment_method || null,
                             recorder.adminUserId,
                             recorder.adminUsername
@@ -4006,10 +4057,12 @@ app.put('/api/members/:id', async (req, res) => {
                     }
                 }
             }
-            
             // Remove years that are no longer in the list (but only if they have no payment)
+            const selectedYears = subscription_years
+                .map(year => parseInt(year, 10))
+                .filter(Number.isFinite);
             for (const existingYear of existingYears) {
-                if (!subscription_years.includes(existingYear)) {
+                if (!selectedYears.includes(existingYear)) {
                     // Only delete if amount_paid is 0 or null (no payment made)
                     await client.query(`
                         DELETE FROM subscriptions 
@@ -4019,6 +4072,8 @@ app.put('/api/members/:id', async (req, res) => {
                 }
             }
         }
+
+        await syncMemberSubscriptionExpectedAmounts(client, req.params.id);
 
         await client.query('COMMIT');
         res.json(result.rows[0]);
@@ -4505,6 +4560,8 @@ app.post('/api/subscription-rates', async (req, res) => {
             RETURNING *
         `, [member_type, subscription_year, expected_amount, early_bird_amount || null, early_bird_deadline || null, description || null, membership_category || null]);
 
+        await syncRateExpectedAmounts(pool, member_type, membership_category || null, subscription_year, expected_amount);
+
         res.status(201).json(result.rows[0]);
     } catch (err) {
         console.error('Error setting subscription rate:', err);
@@ -4535,6 +4592,14 @@ app.post('/api/subscription-rates/bulk', async (req, res) => {
                     RETURNING *
                 `, [rate.member_type, subscription_year, rate.expected_amount, rate.early_bird_amount || null, early_bird_deadline || rate.early_bird_deadline || null, rate.description || null, rate.membership_category || null]);
                 results.push(result.rows[0]);
+
+                await syncRateExpectedAmounts(
+                    client,
+                    rate.member_type,
+                    rate.membership_category || null,
+                    subscription_year,
+                    rate.expected_amount
+                );
             }
             
             await client.query('COMMIT');
