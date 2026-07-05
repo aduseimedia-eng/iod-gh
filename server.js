@@ -868,7 +868,12 @@ app.get('/api/admin/activity-logs', requireSuperAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/admin/reset-payment-transactions', async (req, res) => {
+app.post('/api/members/:id/reset-payment-transactions', async (req, res) => {
+    const memberId = Number(req.params.id);
+    if (!Number.isFinite(memberId)) {
+        return res.status(400).json({ error: 'Invalid member ID' });
+    }
+
     const confirmation = String(req.body.confirmation || '').trim();
     if (confirmation !== 'RESET PAYMENTS') {
         return res.status(400).json({ error: 'Type RESET PAYMENTS to confirm this reset' });
@@ -878,20 +883,38 @@ app.post('/api/admin/reset-payment-transactions', async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        const paymentsCountResult = await client.query('SELECT COUNT(*)::int AS count FROM payments');
+        const memberResult = await client.query(
+            `SELECT id, membership_number, member_type, first_name, surname, last_name, organization
+             FROM members
+             WHERE id = $1`,
+            [memberId]
+        );
+
+        if (memberResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Member not found' });
+        }
+
+        const member = memberResult.rows[0];
+        const memberName = member.member_type === 'Corporate'
+            ? (member.organization || member.membership_number || `Member #${member.id}`)
+            : (`${member.first_name || ''} ${member.surname || member.last_name || ''}`.replace(/\s+/g, ' ').trim() || member.membership_number || `Member #${member.id}`);
+
+        const paymentsCountResult = await client.query('SELECT COUNT(*)::int AS count FROM payments WHERE member_id = $1', [memberId]);
         const affectedSubscriptionsResult = await client.query(`
             SELECT COUNT(*)::int AS count
             FROM subscriptions
-            WHERE COALESCE(amount_paid, 0) <> 0
+            WHERE member_id = $1
+              AND (COALESCE(amount_paid, 0) <> 0
                OR COALESCE(credit_applied, 0) <> 0
                OR COALESCE(credit_balance, 0) <> 0
                OR payment_method IS NOT NULL
                OR receipt_number IS NOT NULL
                OR payment_date IS NOT NULL
-               OR status IN ('Paid', 'Partial')
-        `);
+               OR status IN ('Paid', 'Partial'))
+        `, [memberId]);
 
-        await client.query('DELETE FROM payments');
+        await client.query('DELETE FROM payments WHERE member_id = $1', [memberId]);
 
         await client.query(`
             UPDATE subscriptions s
@@ -909,20 +932,23 @@ app.post('/api/admin/reset-payment-transactions', async (req, res) => {
                 recorded_by_admin_username = NULL
             FROM members m
             WHERE s.member_id = m.id
-        `);
+              AND s.member_id = $1
+        `, [memberId]);
 
         await client.query('COMMIT');
 
         const paymentsReset = paymentsCountResult.rows[0]?.count || 0;
         const subscriptionsReset = affectedSubscriptionsResult.rows[0]?.count || 0;
 
-        res.locals.activityAction = 'reset_payment_transactions';
-        res.locals.activityEntityType = 'payment';
-        res.locals.activityDescription = `${req.session.user} reset payment transactions`;
-        res.locals.activityMetadata = { paymentsReset, subscriptionsReset };
+        res.locals.activityAction = 'reset_member_payment_transactions';
+        res.locals.activityEntityType = 'member';
+        res.locals.activityEntityId = memberId;
+        res.locals.activityDescription = `${req.session.user} reset payment transactions for ${memberName}`;
+        res.locals.activityMetadata = { memberId, memberName, paymentsReset, subscriptionsReset };
 
         res.json({
             message: 'Payment transactions reset successfully',
+            memberId,
             paymentsReset,
             subscriptionsReset
         });
