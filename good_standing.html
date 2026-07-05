@@ -267,11 +267,27 @@
             gap: 0.55rem;
         }
 
+        .good-standing-header,
         .good-standing-row {
             display: grid;
             grid-template-columns: minmax(130px, 0.9fr) minmax(180px, 1.3fr) repeat(4, minmax(110px, 1fr));
             gap: 0.75rem;
             align-items: center;
+        }
+
+        .good-standing-header {
+            padding: 0.62rem 0.95rem;
+            border: 1px solid #e6ebf2;
+            border-radius: 8px;
+            background: #f8fafc;
+            color: var(--text-light);
+            font-size: 0.66rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .good-standing-row {
             padding: 0.85rem 0.95rem;
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -285,16 +301,6 @@
 
         .good-standing-field {
             min-width: 0;
-        }
-
-        .good-standing-field span {
-            display: block;
-            color: var(--text-light);
-            font-size: 0.66rem;
-            font-weight: 600;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            margin-bottom: 0.18rem;
         }
 
         .good-standing-field strong,
@@ -424,6 +430,7 @@
                 grid-template-columns: 1fr;
             }
 
+            .good-standing-header,
             .good-standing-row {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
             }
@@ -467,6 +474,7 @@
                 padding: 1rem;
             }
 
+            .good-standing-header,
             .good-standing-row {
                 grid-template-columns: 1fr;
                 gap: 0.55rem;
@@ -1304,29 +1312,36 @@
             return `
                 <div class="good-standing-row">
                     <div class="good-standing-field">
-                        <span>Membership No.</span>
                         <strong>${member.membership_number || 'N/A'}</strong>
                     </div>
                     <div class="good-standing-field">
-                        <span>Full Name</span>
                         <strong>${formatGoodStandingFullName(member)}</strong>
                     </div>
                     <div class="good-standing-field">
-                        <span>Expected / Note</span>
                         <div class="value">${formatGoodStandingExpected(member)}</div>
                     </div>
                     <div class="good-standing-field">
-                        <span>Paid</span>
                         <strong>&#8373;${formatGoodStandingAmount(member.amount_paid)}</strong>
                     </div>
                     <div class="good-standing-field">
-                        <span>Credit Applied</span>
                         <strong>&#8373;${formatGoodStandingAmount(member.credit_applied)}</strong>
                     </div>
                     <div class="good-standing-field">
-                        <span>Payment Date</span>
                         <strong>${member.payment_date || '-'}</strong>
                     </div>
+                </div>
+            `;
+        }
+
+        function renderGoodStandingListHeader() {
+            return `
+                <div class="good-standing-header">
+                    <div>Membership No.</div>
+                    <div>Full Name</div>
+                    <div>Expected / Note</div>
+                    <div>Paid</div>
+                    <div>Credit Applied</div>
+                    <div>Payment Date</div>
                 </div>
             `;
         }
@@ -1378,7 +1393,10 @@
                     <div class="good-standing-page-info">Showing ${startIdx + 1}-${endIdx} of ${members.length}</div>
                 </div>
                 ${section.description || ''}
-                <div class="good-standing-list">${pageMembers.map(renderGoodStandingMemberCard).join('')}</div>
+                <div class="good-standing-list">
+                    ${renderGoodStandingListHeader()}
+                    ${pageMembers.map(renderGoodStandingMemberCard).join('')}
+                </div>
                 ${renderGoodStandingPagination(sectionId, totalPages, currentPage)}
             `;
         }
