@@ -1400,10 +1400,70 @@ async function initializePendingMembers() {
     }
 }
 
+async function repairHonoraryMembershipNumberSequence() {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const preferredPrefixResult = await client.query(`
+            SELECT
+                NULLIF(SUBSTRING(membership_number FROM '^[^0-9]*'), '') AS prefix,
+                COUNT(*)::int AS count,
+                MAX(COALESCE(NULLIF(SUBSTRING(membership_number FROM '[0-9]+'), '')::int, 0)) AS max_num
+            FROM members
+            WHERE member_type = 'Honorary'
+              AND membership_number ~ '^[^0-9]*[0-9]+$'
+              AND NULLIF(SUBSTRING(membership_number FROM '^[^0-9]*'), '') <> 'H'
+            GROUP BY prefix
+            ORDER BY count DESC, max_num DESC, prefix
+            LIMIT 1
+        `);
+
+        if (preferredPrefixResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return;
+        }
+
+        const preferredPrefix = preferredPrefixResult.rows[0].prefix;
+        const hNumberResult = await client.query(`
+            SELECT id, membership_number
+            FROM members
+            WHERE member_type = 'Honorary'
+              AND membership_number ~ '^H[0-9]+$'
+            ORDER BY created_at ASC NULLS LAST, id ASC
+            FOR UPDATE
+        `);
+
+        if (hNumberResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return;
+        }
+
+        let reassignedCount = 0;
+        for (const member of hNumberResult.rows) {
+            const nextMembershipNumber = await getNextMembershipNumberForPrefix(client, preferredPrefix);
+            await client.query(
+                'UPDATE members SET membership_number = $1, updated_at = NOW() WHERE id = $2',
+                [nextMembershipNumber, member.id]
+            );
+            reassignedCount += 1;
+        }
+
+        await client.query('COMMIT');
+        console.log(`Reassigned ${reassignedCount} Honorary membership number${reassignedCount === 1 ? '' : 's'} to continue the ${preferredPrefix} sequence`);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error repairing Honorary membership number sequence:', err);
+    } finally {
+        client.release();
+    }
+}
+
 async function initializeApplication() {
     await initializeAdminUsers();
     await initializeSubscriptionRates();
     await initializePendingMembers();
+    await repairHonoraryMembershipNumberSequence();
 }
 
 // Run initialization
@@ -1452,23 +1512,15 @@ function validateAndSanitizeMemberData(data) {
     return { errors, sanitized };
 }
 
-async function generateMembershipNumber(client, memberType) {
-    const prefixMap = {
-        'AIOD': 'A',
-        'FIOD': 'F',
-        'MIOD': 'M',
-        'Corporate': 'C',
-        'Honorary': 'H'
-    };
-    const prefix = prefixMap[memberType] || 'M';
-
+async function getNextMembershipNumberForPrefix(client, prefix) {
+    const escapedPrefix = String(prefix || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const maxResult = await client.query(`
         SELECT membership_number,
-               CAST(SUBSTRING(membership_number FROM 2) AS INTEGER) as num_part
+               COALESCE(NULLIF(SUBSTRING(membership_number FROM '[0-9]+'), '')::INTEGER, 0) as num_part
         FROM members
         WHERE membership_number ~ $1
         ORDER BY num_part DESC LIMIT 1
-    `, ['^' + prefix + '[0-9]+$']);
+    `, ['^' + escapedPrefix + '[0-9]+$']);
 
     let nextNumber = 1;
     if (maxResult.rows.length > 0) {
@@ -1479,6 +1531,32 @@ async function generateMembershipNumber(client, memberType) {
     }
 
     return prefix + String(nextNumber).padStart(5, '0');
+}
+
+async function generateMembershipNumber(client, memberType) {
+    const prefixMap = {
+        'AIOD': 'A',
+        'FIOD': 'F',
+        'MIOD': 'M',
+        'Corporate': 'C',
+        'Honorary': 'H'
+    };
+    const fallbackPrefix = prefixMap[memberType] || 'M';
+
+    const typeSequenceResult = await client.query(`
+        SELECT
+            NULLIF(SUBSTRING(membership_number FROM '^[^0-9]*'), '') AS prefix,
+            COALESCE(NULLIF(SUBSTRING(membership_number FROM '[0-9]+'), '')::INTEGER, 0) AS num_part
+        FROM members
+        WHERE member_type = $1
+          AND membership_number ~ '^[^0-9]*[0-9]+$'
+        ORDER BY num_part DESC, membership_number DESC
+        LIMIT 1
+    `, [memberType]);
+
+    const prefix = typeSequenceResult.rows[0]?.prefix || fallbackPrefix;
+
+    return getNextMembershipNumberForPrefix(client, prefix);
 }
 
 // ============================================================
@@ -3518,23 +3596,7 @@ app.post('/api/members/import', upload.single('file'), async (req, res) => {
                     : null;
 
                 if (!membership_number) {
-                    const prefix = prefixMap[member_type];
-                    const maxResult = await client.query(`
-                        SELECT membership_number, 
-                               CAST(SUBSTRING(membership_number FROM 2) AS INTEGER) as num_part
-                        FROM members 
-                        WHERE membership_number ~ $1
-                        ORDER BY num_part DESC LIMIT 1
-                    `, ['^' + prefix + '[0-9]+$']);
-                    
-                    let nextNumber = 1;
-                    if (maxResult.rows.length > 0) {
-                        const numPart = maxResult.rows[0].num_part;
-                        if (numPart !== null && !isNaN(numPart)) {
-                            nextNumber = numPart + 1;
-                        }
-                    }
-                    membership_number = prefix + String(nextNumber).padStart(5, '0');
+                    membership_number = await generateMembershipNumber(client, member_type);
                 }
 
                 // Parse date of admission
@@ -3843,33 +3905,7 @@ app.put('/api/members/:id', async (req, res) => {
         
         // If member type changed, generate new membership number for the new category
         if (currentMemberType !== member_type) {
-            const prefixMap = {
-                'AIOD': 'A',
-                'FIOD': 'F',
-                'MIOD': 'M',
-                'Corporate': 'C',
-                'Honorary': 'H'
-            };
-            const prefix = prefixMap[member_type] || 'M';
-            
-            // Get the highest number for this member type
-            const maxResult = await client.query(`
-                SELECT membership_number, 
-                       CAST(SUBSTRING(membership_number FROM 2) AS INTEGER) as num_part
-                FROM members 
-                WHERE membership_number ~ $1
-                ORDER BY num_part DESC LIMIT 1
-            `, ['^' + prefix + '[0-9]+$']);
-            
-            let nextNumber = 1;
-            if (maxResult.rows.length > 0) {
-                const numPart = maxResult.rows[0].num_part;
-                if (numPart !== null && !isNaN(numPart)) {
-                    nextNumber = numPart + 1;
-                }
-            }
-            
-            newMembershipNumber = prefix + String(nextNumber).padStart(5, '0');
+            newMembershipNumber = await generateMembershipNumber(client, member_type);
         }
 
         const result = await client.query(`
