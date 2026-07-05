@@ -1639,14 +1639,32 @@ async function promotePendingMemberFromRow(client, pending, options, req) {
     const member = memberResult.rows[0];
     const inductionYear = new Date(inductionDate).getFullYear();
     if (Number.isFinite(inductionYear)) {
+        const inductionExpectedAmount = await getApplicableExpectedAmount(
+            client,
+            selectedMemberType,
+            selectedMembershipCategory,
+            inductionYear,
+            inductionDate
+        );
+        const inductionStatus = selectedMemberType === 'Corporate' ? 'Pending' : 'Paid';
+        const inductionPaymentDate = selectedMemberType === 'Corporate' ? null : inductionDate;
+
         await client.query(`
             INSERT INTO subscriptions (
-                member_id, subscription_year, status, amount_paid, payment_date,
+                member_id, subscription_year, status, amount_paid, expected_amount, payment_date,
                 payment_method, recorded_by_admin_user_id, recorded_by_admin_username
             )
-            VALUES ($1, $2, 'Paid', 0, $3, 'Not Specified', $4, $5)
+            VALUES ($1, $2, $3, 0, $4, $5, 'Not Specified', $6, $7)
             ON CONFLICT (member_id, subscription_year) DO NOTHING
-        `, [member.id, inductionYear, inductionDate, recorder.adminUserId, recorder.adminUsername]);
+        `, [
+            member.id,
+            inductionYear,
+            inductionStatus,
+            inductionExpectedAmount,
+            inductionPaymentDate,
+            recorder.adminUserId,
+            recorder.adminUsername
+        ]);
     }
 
     const deletedPending = await client.query(`
@@ -6293,13 +6311,22 @@ app.post('/api/payments', async (req, res) => {
         await client.query('BEGIN');
 
         const member = await getMemberLedgerContext(client, memberId);
-        const expectedAmount = await getApplicableExpectedAmount(
+        let expectedAmount = await getApplicableExpectedAmount(
             client,
             member.member_type,
             member.membership_category,
             appliedYear,
             payment_date
         );
+        const matchedCorporateExpected = await getCorporateMatchedExpectedAmount(
+            client,
+            member.member_type,
+            appliedYear,
+            paymentAmount
+        );
+        if (matchedCorporateExpected !== null) {
+            expectedAmount = matchedCorporateExpected;
+        }
         
         // Record the cash receipt, then apply it to the selected subscription year.
         const paymentResult = await client.query(`
