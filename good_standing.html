@@ -1606,19 +1606,19 @@
                 return;
             }
 
-            const headers = ['Category', 'No.', 'Member Name'];
             let csv = `Members in Good Standing,As at ${currentYear}\n\n`;
-            csv += headers.join(',') + '\n';
 
             buildGoodStandingPublicExportGroups(currentGoodStandingData).forEach(group => {
+                csv += `"${escapeCsvValue(group.category)}"\n`;
+                csv += 'No.,Member Name\n';
                 group.members.forEach((member, index) => {
                     const row = [
-                        `"${escapeCsvValue(group.category)}"`,
                         `"${index + 1}"`,
                         `"${escapeCsvValue(formatGoodStandingPublicName(member))}"`
                     ];
                     csv += row.join(',') + '\n';
                 });
+                csv += '\n';
             });
 
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
