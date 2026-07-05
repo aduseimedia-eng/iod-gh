@@ -9,7 +9,7 @@
     --warning: #b45309;
     --text-dark: #111827;
     --text-light: #6b7280;
-    --bg-light: #f4f6fb;
+    --bg-light: #f4f1fb;
     --bg-white: #ffffff;
     --surface-muted: #eef2f7;
     --border: #d9e0ea;
@@ -18,7 +18,7 @@
 }
 
 body {
-    background: #f4f6fb !important;
+    background: #f4f1fb !important;
     color: var(--text-dark) !important;
 }
 
@@ -42,8 +42,8 @@ header {
 .logo-section {
     width: 42px !important;
     height: 42px !important;
-    background: #eef3ff !important;
-    border: 1px solid #dce6ff !important;
+    background: #f0eafd !important;
+    border: 1px solid #ddd4f5 !important;
     border-radius: 8px !important;
     box-shadow: none !important;
     backdrop-filter: none !important;
@@ -95,9 +95,9 @@ header p,
 .nav-btn:hover,
 .refresh-btn:hover,
 .nav-btn.active {
-    background: #eef3ff !important;
+    background: #f0eafd !important;
     color: var(--primary) !important;
-    border-color: #dce6ff !important;
+    border-color: #ddd4f5 !important;
     transform: translateY(-1px) !important;
 }
 
