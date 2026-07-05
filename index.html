@@ -6466,6 +6466,23 @@
 
                 // Populate subscription status by year
                 if (balanceData.subscriptions && balanceData.subscriptions.length > 0) {
+                    const firstUnsettledSubscription = balanceData.subscriptions
+                        .slice()
+                        .sort((a, b) => Number(a.subscription_year) - Number(b.subscription_year))
+                        .find(sub => {
+                            const expectedAmount = parseFloat(sub.expected_amount || sub.rate_expected_amount || 0);
+                            const amountPaid = parseFloat(sub.amount_paid || 0);
+                            const creditApplied = parseFloat(sub.credit_applied || 0);
+                            const creditBalance = parseFloat(sub.credit_balance || 0);
+                            const totalApplied = Math.max(0, amountPaid + creditApplied - creditBalance);
+                            const effectiveStatus = sub.computed_status || sub.status || 'Pending';
+                            if (effectiveStatus === 'Paid' || effectiveStatus === 'Waived') return false;
+                            return expectedAmount > 0 && totalApplied < expectedAmount;
+                        });
+                    if (paymentYearInput && firstUnsettledSubscription) {
+                        paymentYearInput.value = firstUnsettledSubscription.subscription_year;
+                    }
+
                     const subscriptionList = balanceData.subscriptions.map(sub => {
                         const isCurrentSubscriptionYear = Number(sub.subscription_year) === currentYear;
                         const expectedAmount = parseFloat(sub.expected_amount || sub.rate_expected_amount || 0);

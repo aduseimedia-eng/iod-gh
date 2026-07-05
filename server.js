@@ -6361,6 +6361,7 @@ app.post('/api/payments', async (req, res) => {
             DO UPDATE SET
                 amount_paid = COALESCE(subscriptions.amount_paid, 0) + EXCLUDED.amount_paid,
                 expected_amount = CASE
+                    WHEN COALESCE(EXCLUDED.expected_amount, 0) > 0 THEN EXCLUDED.expected_amount
                     WHEN COALESCE(subscriptions.expected_amount, 0) > 0 THEN subscriptions.expected_amount
                     ELSE EXCLUDED.expected_amount
                 END,
@@ -6380,6 +6381,12 @@ app.post('/api/payments', async (req, res) => {
             recorder.adminUserId,
             recorder.adminUsername
         ]);
+
+        await reconcileCorporateRateMatchedSubscriptions(client, {
+            memberId,
+            subscriptionYear: appliedYear
+        });
+        await reconcileCorporateAdmissionYearSubscriptions(client, { memberId });
 
         const updatedTimeline = await recalculateMemberCreditLedger(client, memberId, {
             persistAutoYears: true,
