@@ -6956,6 +6956,7 @@
             const expectedAmt = parseFloat(subData.expected_amount || 0);
             const creditAvailable = parseFloat(subData.credit_applied || 0);
             const currentPaid = parseFloat(subData.amount_paid || 0);
+            const defaultPaymentDate = subData.payment_date ? subData.payment_date.split('T')[0] : new Date().toISOString().split('T')[0];
             
             // Create and show modal
             const modalHtml = `
@@ -7008,7 +7009,7 @@
                                         </div>
                                         <div class="payment-form-field">
                                             <label for="edit-payment-date">Payment Date</label>
-                                            <input type="date" id="edit-payment-date" value="${subData.payment_date ? subData.payment_date.split('T')[0] : ''}">
+                                            <input type="date" id="edit-payment-date" value="${defaultPaymentDate}">
                                         </div>
                                         <div class="payment-form-field full">
                                             <label for="edit-receipt-number">Receipt Number</label>
@@ -7237,7 +7238,7 @@
             
             const { memberId, subData } = currentPaymentEdit;
             const amountPaid = parseFloat(document.getElementById('edit-amount-paid').value) || 0;
-            const autoStatus = document.getElementById('edit-payment-status').value;
+            const currentPaid = parseFloat(subData.amount_paid || 0) || 0;
             
             const isWaived = document.getElementById('edit-waive-payment') && document.getElementById('edit-waive-payment').checked;
 
@@ -7253,9 +7254,25 @@
 
             try {
                 let response;
+                const cashDelta = amountPaid - currentPaid;
+                const shouldRecordCashTransaction = !isWaived && amountPaid > 0 && (subData.is_virtual || cashDelta > 0.005);
                 
-                // If this is a virtual subscription (no DB record), create it first
-                if (subData.is_virtual) {
+                if (shouldRecordCashTransaction) {
+                    const transactionAmount = subData.is_virtual ? amountPaid : cashDelta;
+                    response = await fetch('/api/payments', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            member_id: Number(memberId),
+                            payment_amount: transactionAmount,
+                            payment_date: updateData.payment_date || new Date().toISOString().split('T')[0],
+                            subscription_year: updateData.subscription_year,
+                            payment_method: updateData.payment_method || null,
+                            receipt_number: updateData.receipt_number || null,
+                            notes: subData.is_virtual ? 'Recorded from member profile payment history' : 'Top-up recorded from member profile payment history'
+                        })
+                    });
+                } else if (subData.is_virtual) {
                     response = await fetch(`/api/members/${memberId}/subscriptions`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -7283,7 +7300,7 @@
                     closePaymentEditModal();
                     
                     showPaymentSuccessPopup({
-                        title: subData.is_virtual ? 'Payment recorded successfully' : 'Payment updated successfully',
+                        title: shouldRecordCashTransaction ? 'Payment recorded successfully' : (subData.is_virtual ? 'Payment recorded successfully' : 'Payment updated successfully'),
                         subtitle: `Subscription year ${subData.year}`,
                         summary: result.summary,
                         nextYear: subData.year + 1
