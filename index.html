@@ -4235,6 +4235,9 @@
                     <button onclick="switchSettingsTab('password')" id="tab-password" class="settings-tab" style="flex:1; padding: 0.65rem; border-radius: 10px; border: none; font-family: 'Poppins', sans-serif; font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem; transition: all 0.3s ease;">
                         <i class="fas fa-key"></i> Password
                     </button>
+                    <button onclick="switchSettingsTab('data')" id="tab-data" class="settings-tab" style="flex:1; padding: 0.65rem; border-radius: 10px; border: none; font-family: 'Poppins', sans-serif; font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem; transition: all 0.3s ease;">
+                        <i class="fas fa-database"></i> Data
+                    </button>
                     <button onclick="switchSettingsTab('admins')" id="tab-admins" class="settings-tab" style="flex:1; padding: 0.65rem; border-radius: 10px; border: none; font-family: 'Poppins', sans-serif; font-size: 0.82rem; font-weight: 600; cursor: pointer; display: none; align-items: center; justify-content: center; gap: 0.4rem; transition: all 0.3s ease;">
                         <i class="fas fa-user-shield"></i> Admins
                     </button>
@@ -4328,6 +4331,25 @@
                     </div>
                     <button class="btn-primary" onclick="changePassword()" style="width: 100%; justify-content: center; border-radius: 12px; padding: 0.85rem; font-size: 0.92rem; background: linear-gradient(135deg, var(--accent) 0%, #0d7a66 100%);">
                         <i class="fas fa-shield-halved"></i> Update Password
+                    </button>
+                </div>
+            </div>
+
+            <!-- Data Tab -->
+            <div id="settings-panel-data" style="padding: 1.5rem 2rem 2rem; display: none;">
+                <div style="background: white; padding: 1.8rem; border: 1px solid var(--border);">
+                    <div style="display: flex; align-items: flex-start; gap: 0.75rem; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 12px; padding: 0.9rem 1rem; margin-bottom: 1.25rem;">
+                        <i class="fas fa-triangle-exclamation" style="color: var(--danger); margin-top: 2px;"></i>
+                        <div style="font-size: 0.82rem; line-height: 1.55; color: var(--text-dark);">
+                            This clears payment receipts and subscription payment balances. Member profiles, subscription years, and configured rates remain in place.
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1.2rem;">
+                        <label style="font-size: 0.82rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Confirm Reset</label>
+                        <input type="text" id="reset-payment-confirmation" placeholder="Type RESET PAYMENTS">
+                    </div>
+                    <button id="reset-payment-transactions-btn" class="btn-primary" onclick="resetPaymentTransactions()" style="width: 100%; justify-content: center; border-radius: 12px; padding: 0.85rem; font-size: 0.92rem; background: linear-gradient(135deg, var(--danger) 0%, #991b1b 100%);">
+                        <i class="fas fa-rotate-left"></i> Reset Payment Transactions
                     </button>
                 </div>
             </div>
@@ -4533,6 +4555,8 @@
             document.getElementById('new-admin-username').value = '';
             document.getElementById('new-admin-email').value = '';
             document.getElementById('new-admin-password').value = '';
+            const resetPaymentConfirmation = document.getElementById('reset-payment-confirmation');
+            if (resetPaymentConfirmation) resetPaymentConfirmation.value = '';
             resetPasswordStrength();
             document.getElementById('pw-match-label').style.display = 'none';
             hideSettingsAlert();
@@ -4549,7 +4573,7 @@
                 tab = 'username';
             }
 
-            const tabs = ['username', 'password', 'admins'];
+            const tabs = ['username', 'password', 'data', 'admins'];
             tabs.forEach(t => {
                 const btn = document.getElementById('tab-' + t);
                 const panel = document.getElementById('settings-panel-' + t);
@@ -4729,6 +4753,48 @@
                 }
             } catch (err) {
                 showSettingsAlert('Connection error. Please try again.', 'error');
+            }
+        }
+
+        async function resetPaymentTransactions() {
+            hideSettingsAlert();
+            const confirmationInput = document.getElementById('reset-payment-confirmation');
+            const button = document.getElementById('reset-payment-transactions-btn');
+            const confirmation = confirmationInput ? confirmationInput.value.trim() : '';
+
+            if (confirmation !== 'RESET PAYMENTS') {
+                return showSettingsAlert('Type RESET PAYMENTS to confirm the reset.', 'error');
+            }
+
+            if (!confirm('Reset all payment transactions? This clears receipts, paid amounts, credits, and payment dates.')) {
+                return;
+            }
+
+            const originalHtml = button ? button.innerHTML : '';
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resetting...';
+            }
+
+            try {
+                const response = await fetch('/api/admin/reset-payment-transactions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ confirmation })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to reset payment transactions');
+
+                if (confirmationInput) confirmationInput.value = '';
+                showSettingsAlert(`Payment transactions reset. Cleared ${data.paymentsReset || 0} receipts and updated ${data.subscriptionsReset || 0} subscription rows.`, 'success');
+                await loadAllData();
+            } catch (err) {
+                showSettingsAlert(err.message || 'Failed to reset payment transactions.', 'error');
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = originalHtml || '<i class="fas fa-rotate-left"></i> Reset Payment Transactions';
+                }
             }
         }
 

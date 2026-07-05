@@ -868,6 +868,73 @@ app.get('/api/admin/activity-logs', requireSuperAdmin, async (req, res) => {
     }
 });
 
+app.post('/api/admin/reset-payment-transactions', async (req, res) => {
+    const confirmation = String(req.body.confirmation || '').trim();
+    if (confirmation !== 'RESET PAYMENTS') {
+        return res.status(400).json({ error: 'Type RESET PAYMENTS to confirm this reset' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const paymentsCountResult = await client.query('SELECT COUNT(*)::int AS count FROM payments');
+        const affectedSubscriptionsResult = await client.query(`
+            SELECT COUNT(*)::int AS count
+            FROM subscriptions
+            WHERE COALESCE(amount_paid, 0) <> 0
+               OR COALESCE(credit_applied, 0) <> 0
+               OR COALESCE(credit_balance, 0) <> 0
+               OR payment_method IS NOT NULL
+               OR receipt_number IS NOT NULL
+               OR payment_date IS NOT NULL
+               OR status IN ('Paid', 'Partial')
+        `);
+
+        await client.query('DELETE FROM payments');
+
+        await client.query(`
+            UPDATE subscriptions s
+            SET status = CASE
+                    WHEN m.member_type = 'Honorary' THEN 'Waived'
+                    ELSE 'Pending'
+                END,
+                amount_paid = 0,
+                credit_applied = 0,
+                credit_balance = 0,
+                payment_method = NULL,
+                receipt_number = NULL,
+                payment_date = NULL,
+                recorded_by_admin_user_id = NULL,
+                recorded_by_admin_username = NULL
+            FROM members m
+            WHERE s.member_id = m.id
+        `);
+
+        await client.query('COMMIT');
+
+        const paymentsReset = paymentsCountResult.rows[0]?.count || 0;
+        const subscriptionsReset = affectedSubscriptionsResult.rows[0]?.count || 0;
+
+        res.locals.activityAction = 'reset_payment_transactions';
+        res.locals.activityEntityType = 'payment';
+        res.locals.activityDescription = `${req.session.user} reset payment transactions`;
+        res.locals.activityMetadata = { paymentsReset, subscriptionsReset };
+
+        res.json({
+            message: 'Payment transactions reset successfully',
+            paymentsReset,
+            subscriptionsReset
+        });
+    } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('Error resetting payment transactions:', err);
+        res.status(500).json({ error: 'Failed to reset payment transactions' });
+    } finally {
+        client.release();
+    }
+});
+
 // ============================================================
 // ============================================================
 // DATABASE CONNECTION
