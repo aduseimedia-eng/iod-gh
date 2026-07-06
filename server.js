@@ -1015,6 +1015,7 @@ const BACKUP_TABLES = [
     'payments',
     'subscription_rates',
     'pending_members',
+    'pending_member_payments',
     'admin_activity_logs'
 ];
 
@@ -1723,6 +1724,33 @@ async function initializePendingMembers() {
             ON pending_members(created_at DESC)
         `);
 
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS pending_member_payments (
+                id SERIAL PRIMARY KEY,
+                pending_member_id INTEGER NOT NULL REFERENCES pending_members(id) ON DELETE CASCADE,
+                subscription_year INTEGER NOT NULL,
+                payment_amount DECIMAL(10, 2) NOT NULL,
+                payment_date DATE NOT NULL,
+                payment_method VARCHAR(50) CHECK (payment_method IN ('Cash', 'Bank Transfer', 'Mobile Money', 'Cheque', 'Card', 'Not Specified', NULL)),
+                receipt_number VARCHAR(50),
+                notes TEXT,
+                recorded_by_admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+                recorded_by_admin_username VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_pending_member_payments_pending_member_id
+            ON pending_member_payments(pending_member_id)
+        `);
+
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_pending_member_payments_payment_date
+            ON pending_member_payments(payment_date)
+        `);
+
         console.log('Pending members table initialized successfully');
     } catch (err) {
         console.error('Error initializing pending members table:', err);
@@ -1765,6 +1793,11 @@ async function initializeDatabaseConstraints() {
             table: 'payments',
             name: 'payments_positive_amount_check',
             sql: 'ALTER TABLE payments ADD CONSTRAINT payments_positive_amount_check CHECK (payment_amount > 0) NOT VALID'
+        },
+        {
+            table: 'pending_member_payments',
+            name: 'pending_member_payments_positive_amount_check',
+            sql: 'ALTER TABLE pending_member_payments ADD CONSTRAINT pending_member_payments_positive_amount_check CHECK (payment_amount > 0) NOT VALID'
         }
     ];
 
@@ -2059,23 +2092,67 @@ async function promotePendingMemberFromRow(client, pending, options, req) {
         ]);
     }
 
+    const pendingPaymentsResult = await client.query(`
+        SELECT *
+        FROM pending_member_payments
+        WHERE pending_member_id = $1
+        ORDER BY payment_date ASC, id ASC
+    `, [pending.id]);
+
+    let transferredPayments = 0;
+    for (const pendingPayment of pendingPaymentsResult.rows) {
+        const paymentRecorder = {
+            adminUserId: pendingPayment.recorded_by_admin_user_id || recorder.adminUserId,
+            adminUsername: pendingPayment.recorded_by_admin_username || recorder.adminUsername
+        };
+
+        await recordMemberPaymentWithLedger(client, {
+            memberId: member.id,
+            subscriptionYear: pendingPayment.subscription_year || inductionYear,
+            paymentAmount: pendingPayment.payment_amount,
+            paymentDate: pendingPayment.payment_date,
+            paymentMethod: pendingPayment.payment_method,
+            receiptNumber: pendingPayment.receipt_number,
+            notes: pendingPayment.notes
+                ? `${pendingPayment.notes} | Transferred from induction candidate ${pending.candidate_code || pending.id}`
+                : `Transferred from induction candidate ${pending.candidate_code || pending.id}`,
+            recorder: paymentRecorder
+        });
+        transferredPayments += 1;
+    }
+
     const deletedPending = await client.query(`
         DELETE FROM pending_members
         WHERE id = $1
         RETURNING *
     `, [pending.id]);
 
-    return { member, pending_member: deletedPending.rows[0] };
+    return { member, pending_member: deletedPending.rows[0], transferred_payments: transferredPayments };
 }
 
 app.get('/api/pending-members', async (req, res) => {
     try {
         const includeAll = req.query.include_all === 'true';
         const result = await pool.query(`
-            SELECT *
-            FROM pending_members
-            ${includeAll ? '' : "WHERE status = 'Pending'"}
-            ORDER BY created_at DESC, id DESC
+            SELECT
+                pm.*,
+                COALESCE(pay.total_paid, 0) AS payment_total,
+                COALESCE(pay.payment_count, 0) AS payment_count,
+                pay.last_payment_date,
+                pay.last_payment_method
+            FROM pending_members pm
+            LEFT JOIN (
+                SELECT
+                    pending_member_id,
+                    COUNT(*)::int AS payment_count,
+                    COALESCE(SUM(payment_amount), 0) AS total_paid,
+                    MAX(payment_date) AS last_payment_date,
+                    (ARRAY_AGG(payment_method ORDER BY payment_date DESC, id DESC))[1] AS last_payment_method
+                FROM pending_member_payments
+                GROUP BY pending_member_id
+            ) pay ON pay.pending_member_id = pm.id
+            ${includeAll ? '' : "WHERE pm.status = 'Pending'"}
+            ORDER BY pm.created_at DESC, pm.id DESC
         `);
         res.json(result.rows);
     } catch (err) {
@@ -2086,7 +2163,26 @@ app.get('/api/pending-members', async (req, res) => {
 
 app.get('/api/pending-members/:id', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM pending_members WHERE id = $1', [req.params.id]);
+        const result = await pool.query(`
+            SELECT
+                pm.*,
+                COALESCE(pay.total_paid, 0) AS payment_total,
+                COALESCE(pay.payment_count, 0) AS payment_count,
+                pay.last_payment_date,
+                pay.last_payment_method
+            FROM pending_members pm
+            LEFT JOIN (
+                SELECT
+                    pending_member_id,
+                    COUNT(*)::int AS payment_count,
+                    COALESCE(SUM(payment_amount), 0) AS total_paid,
+                    MAX(payment_date) AS last_payment_date,
+                    (ARRAY_AGG(payment_method ORDER BY payment_date DESC, id DESC))[1] AS last_payment_method
+                FROM pending_member_payments
+                GROUP BY pending_member_id
+            ) pay ON pay.pending_member_id = pm.id
+            WHERE pm.id = $1
+        `, [req.params.id]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Pending member not found' });
         }
@@ -2094,6 +2190,96 @@ app.get('/api/pending-members/:id', async (req, res) => {
     } catch (err) {
         console.error('Error fetching pending member:', err);
         res.status(500).json({ error: 'Database error' });
+    }
+});
+
+app.get('/api/pending-members/:id/payments', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                pmp.*,
+                COALESCE(au.username, pmp.recorded_by_admin_username) AS recorded_by
+            FROM pending_member_payments pmp
+            LEFT JOIN admin_users au ON au.id = pmp.recorded_by_admin_user_id
+            WHERE pmp.pending_member_id = $1
+            ORDER BY pmp.payment_date DESC, pmp.created_at DESC, pmp.id DESC
+        `, [req.params.id]);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error fetching pending member payments:', err);
+        res.status(500).json({ error: 'Failed to fetch induction payments' });
+    }
+});
+
+app.post('/api/pending-members/:id/payments', requirePermission('record_payments'), async (req, res) => {
+    const pendingMemberId = parseInt(req.params.id, 10);
+    const paymentAmount = moneyValue(req.body.payment_amount);
+    const paymentDate = req.body.payment_date;
+    const subscriptionYear = parseInt(req.body.subscription_year, 10);
+    const paymentMethod = sanitizeString(req.body.payment_method || 'Not Specified') || 'Not Specified';
+    const receiptNumber = sanitizeString(req.body.receipt_number || '');
+    const notes = sanitizeString(req.body.notes || '');
+    const recorder = getSessionAdminRecorder(req);
+
+    if (!Number.isFinite(pendingMemberId)) {
+        return res.status(400).json({ error: 'Valid candidate id is required' });
+    }
+    if (paymentAmount <= 0) {
+        return res.status(400).json({ error: 'payment_amount must be greater than zero' });
+    }
+    if (!paymentDate) {
+        return res.status(400).json({ error: 'payment_date is required' });
+    }
+    if (!Number.isFinite(subscriptionYear)) {
+        return res.status(400).json({ error: 'subscription_year is required' });
+    }
+
+    try {
+        const pendingResult = await pool.query(
+            "SELECT id, candidate_code, status FROM pending_members WHERE id = $1",
+            [pendingMemberId]
+        );
+        if (pendingResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Pending member not found' });
+        }
+        if (pendingResult.rows[0].status !== 'Pending') {
+            return res.status(400).json({ error: 'Payments can only be recorded for active induction candidates' });
+        }
+
+        const result = await pool.query(`
+            INSERT INTO pending_member_payments (
+                pending_member_id, subscription_year, payment_amount, payment_date,
+                payment_method, receipt_number, notes,
+                recorded_by_admin_user_id, recorded_by_admin_username
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING *
+        `, [
+            pendingMemberId,
+            subscriptionYear,
+            paymentAmount,
+            paymentDate,
+            paymentMethod,
+            receiptNumber || null,
+            notes || null,
+            recorder.adminUserId,
+            recorder.adminUsername
+        ]);
+
+        res.locals.activityAction = 'record_pending_member_payment';
+        res.locals.activityEntityType = 'pending_member';
+        res.locals.activityEntityId = pendingMemberId;
+        res.locals.activityDescription = `${req.session.user} recorded induction payment for ${pendingResult.rows[0].candidate_code || pendingMemberId}`;
+        res.locals.activityMetadata = { pendingMemberId, subscriptionYear, paymentAmount, paymentMethod };
+
+        res.status(201).json({
+            message: 'Induction payment recorded successfully',
+            payment: result.rows[0]
+        });
+    } catch (err) {
+        console.error('Error recording pending member payment:', err);
+        res.status(500).json({ error: 'Failed to record induction payment' });
     }
 });
 
@@ -2206,7 +2392,7 @@ app.post('/api/pending-members/:id/promote', requirePermission('bulk_import'), a
             return res.status(400).json({ error: 'Candidate has already been processed' });
         }
 
-        const { member, pending_member: deletedPending } = await promotePendingMemberFromRow(client, pending, {
+        const { member, pending_member: deletedPending, transferred_payments: transferredPayments } = await promotePendingMemberFromRow(client, pending, {
             induction_date: req.body.induction_date,
             member_type: req.body.member_type,
             membership_category: req.body.membership_category
@@ -2218,7 +2404,8 @@ app.post('/api/pending-members/:id/promote', requirePermission('bulk_import'), a
         res.locals.activityEntityType = 'pending_member';
         res.locals.activityEntityId = pending.id;
         res.locals.activityDescription = `${req.session.user} promoted ${pending.candidate_code || pending.id} to ${member.membership_number}`;
-        res.json({ member, pending_member: deletedPending });
+        res.locals.activityMetadata = { transferredPayments };
+        res.json({ member, pending_member: deletedPending, transferred_payments: transferredPayments });
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('Error promoting pending member:', err);
@@ -2320,7 +2507,8 @@ app.post('/api/pending-members/bulk-import', requirePermission('bulk_import'), a
                 id: pending.id,
                 candidate_code: pending.candidate_code,
                 membership_number: result.member.membership_number,
-                member_type: result.member.member_type
+                member_type: result.member.member_type,
+                transferred_payments: result.transferred_payments || 0
             });
         }
 
@@ -6050,23 +6238,40 @@ app.get('/api/dashboard/payment-methods', async (req, res) => {
         const memberType = req.query.memberType || null;
         const params = [];
         let query = `
+            WITH payment_source AS (
+                SELECT
+                    COALESCE(s.payment_method, 'Not Specified') AS payment_method,
+                    s.amount_paid AS amount_paid,
+                    m.member_type
+                FROM subscriptions s
+                INNER JOIN members m ON m.id = s.member_id
+                WHERE s.payment_date >= CURRENT_DATE - INTERVAL '1 year'
+                  AND s.status = 'Paid'
+                UNION ALL
+                SELECT
+                    COALESCE(pmp.payment_method, 'Not Specified') AS payment_method,
+                    pmp.payment_amount AS amount_paid,
+                    pm.member_type
+                FROM pending_member_payments pmp
+                INNER JOIN pending_members pm ON pm.id = pmp.pending_member_id
+                WHERE pmp.payment_date >= CURRENT_DATE - INTERVAL '1 year'
+                  AND pm.status = 'Pending'
+            )
             SELECT 
-                COALESCE(s.payment_method, 'Not Specified') as payment_method,
+                payment_method,
                 COUNT(*) as transactions,
-                SUM(s.amount_paid) as total_paid,
-                ROUND(AVG(s.amount_paid), 2) as avg_payment
-            FROM subscriptions s
-            INNER JOIN members m ON m.id = s.member_id
-            WHERE s.payment_date >= CURRENT_DATE - INTERVAL '1 year'
-              AND s.status = 'Paid'`;
+                SUM(amount_paid) as total_paid,
+                ROUND(AVG(amount_paid), 2) as avg_payment
+            FROM payment_source
+            WHERE TRUE`;
 
         if (memberType) {
             params.push(memberType);
-            query += ` AND m.member_type = $${params.length}`;
+            query += ` AND member_type = $${params.length}`;
         }
 
         query += `
-            GROUP BY s.payment_method
+            GROUP BY payment_method
             ORDER BY total_paid DESC NULLS LAST
         `;
 
@@ -6233,23 +6438,130 @@ app.get('/api/dashboard/inducted-this-year', async (req, res) => {
             ORDER BY total_inducted DESC, member_type
         `;
 
-        const [membersResult, summaryResult, byTypeResult] = await Promise.all([
+        const pendingParams = [currentYear];
+        let pendingTypeFilter = '';
+        if (memberType) {
+            pendingParams.push(memberType);
+            pendingTypeFilter = ` AND pm.member_type = $${pendingParams.length}`;
+        }
+
+        const pendingSummaryQuery = `
+            WITH candidates AS (
+                SELECT
+                    pm.id,
+                    COALESCE(SUM(pmp.payment_amount), 0) AS paid_amount
+                FROM pending_members pm
+                LEFT JOIN pending_member_payments pmp ON pmp.pending_member_id = pm.id
+                WHERE pm.status = 'Pending'
+                  AND pm.proposed_induction_date IS NOT NULL
+                  AND EXTRACT(YEAR FROM pm.proposed_induction_date)::INT = $1
+                  ${pendingTypeFilter}
+                GROUP BY pm.id
+            )
+            SELECT
+                COUNT(*) AS pending_candidates,
+                COUNT(*) FILTER (WHERE paid_amount > 0) AS pending_candidates_paid,
+                COALESCE(SUM(paid_amount), 0) AS pending_payments_total
+            FROM candidates
+        `;
+
+        const pendingByTypeQuery = `
+            WITH candidates AS (
+                SELECT
+                    pm.id,
+                    pm.member_type,
+                    COALESCE(SUM(pmp.payment_amount), 0) AS paid_amount
+                FROM pending_members pm
+                LEFT JOIN pending_member_payments pmp ON pmp.pending_member_id = pm.id
+                WHERE pm.status = 'Pending'
+                  AND pm.proposed_induction_date IS NOT NULL
+                  AND EXTRACT(YEAR FROM pm.proposed_induction_date)::INT = $1
+                  ${pendingTypeFilter}
+                GROUP BY pm.id, pm.member_type
+            )
+            SELECT
+                member_type,
+                COUNT(*) AS pending_candidates,
+                COUNT(*) FILTER (WHERE paid_amount > 0) AS pending_candidates_paid,
+                COALESCE(SUM(paid_amount), 0) AS pending_payments_total
+            FROM candidates
+            GROUP BY member_type
+            ORDER BY pending_candidates DESC, member_type
+        `;
+
+        const pendingMembersQuery = `
+            SELECT
+                pm.id,
+                pm.candidate_code,
+                pm.member_type,
+                pm.membership_category,
+                COALESCE(
+                    NULLIF(TRIM(CONCAT_WS(' ', NULLIF(pm.first_name, ''), COALESCE(NULLIF(pm.surname, ''), NULLIF(pm.last_name, '')), NULLIF(pm.other_names, ''))), ''),
+                    NULLIF(pm.organization, ''),
+                    'Unknown'
+                ) AS member_name,
+                pm.organization,
+                pm.region,
+                pm.email,
+                pm.proposed_induction_date::DATE AS induction_date,
+                TO_CHAR(pm.proposed_induction_date, 'DD/MM/YYYY') AS induction_date_display,
+                COALESCE(SUM(pmp.payment_amount), 0) AS pending_payment_total,
+                MAX(TO_CHAR(pmp.payment_date, 'DD/MM/YYYY')) AS last_payment_date,
+                (ARRAY_AGG(pmp.payment_method ORDER BY pmp.payment_date DESC NULLS LAST, pmp.id DESC))[1] AS last_payment_method,
+                COALESCE(
+                    (ARRAY_AGG(au.username ORDER BY pmp.payment_date DESC NULLS LAST, pmp.id DESC))[1],
+                    (ARRAY_AGG(pmp.recorded_by_admin_username ORDER BY pmp.payment_date DESC NULLS LAST, pmp.id DESC))[1]
+                ) AS recorded_by
+            FROM pending_members pm
+            LEFT JOIN pending_member_payments pmp ON pmp.pending_member_id = pm.id
+            LEFT JOIN admin_users au ON au.id = pmp.recorded_by_admin_user_id
+            WHERE pm.status = 'Pending'
+              AND pm.proposed_induction_date IS NOT NULL
+              AND EXTRACT(YEAR FROM pm.proposed_induction_date)::INT = $1
+              ${pendingTypeFilter}
+            GROUP BY
+                pm.id,
+                pm.candidate_code,
+                pm.member_type,
+                pm.membership_category,
+                pm.first_name,
+                pm.surname,
+                pm.last_name,
+                pm.other_names,
+                pm.organization,
+                pm.region,
+                pm.email,
+                pm.proposed_induction_date
+            ORDER BY pm.proposed_induction_date DESC NULLS LAST, pm.candidate_code
+            LIMIT ${limit}
+        `;
+
+        const [membersResult, summaryResult, byTypeResult, pendingSummaryResult, pendingByTypeResult, pendingMembersResult] = await Promise.all([
             pool.query(membersQuery, params),
             pool.query(summaryQuery, params),
-            pool.query(byTypeQuery, params)
+            pool.query(byTypeQuery, params),
+            pool.query(pendingSummaryQuery, pendingParams),
+            pool.query(pendingByTypeQuery, pendingParams),
+            pool.query(pendingMembersQuery, pendingParams)
         ]);
 
         const summary = summaryResult.rows[0] || {};
+        const pendingSummary = pendingSummaryResult.rows[0] || {};
         res.json({
             current_year: currentYear,
             next_subscription_year: currentYear + 1,
             summary: {
                 total_inducted: parseInt(summary.total_inducted || 0, 10),
                 members_with_next_year_credit: parseInt(summary.members_with_next_year_credit || 0, 10),
-                next_year_credit_total: parseFloat(summary.next_year_credit_total || 0)
+                next_year_credit_total: parseFloat(summary.next_year_credit_total || 0),
+                pending_candidates: parseInt(pendingSummary.pending_candidates || 0, 10),
+                pending_candidates_paid: parseInt(pendingSummary.pending_candidates_paid || 0, 10),
+                pending_payments_total: parseFloat(pendingSummary.pending_payments_total || 0)
             },
             by_type: byTypeResult.rows,
-            members: membersResult.rows
+            pending_by_type: pendingByTypeResult.rows,
+            members: membersResult.rows,
+            pending_members: pendingMembersResult.rows
         });
     } catch (err) {
         console.error('Error fetching inducted-this-year analytics:', err);
@@ -6706,6 +7018,123 @@ app.post('/api/migrate/update-subscription-amounts', async (req, res) => {
 // PAYMENT HISTORY ENDPOINTS
 // ============================================================
 
+async function recordMemberPaymentWithLedger(client, {
+    memberId,
+    subscriptionYear,
+    paymentAmount,
+    paymentDate,
+    paymentMethod = null,
+    receiptNumber = null,
+    notes = null,
+    recorder = {}
+}) {
+    const appliedYear = parseInt(subscriptionYear, 10) || resolvePaymentYear(paymentDate);
+    const normalizedAmount = moneyValue(paymentAmount);
+    if (!Number.isFinite(appliedYear)) {
+        const err = new Error('subscription_year is required');
+        err.statusCode = 400;
+        throw err;
+    }
+    if (normalizedAmount <= 0) {
+        const err = new Error('payment_amount must be greater than zero');
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const member = await getMemberLedgerContext(client, memberId);
+    let expectedAmount = await getApplicableExpectedAmount(
+        client,
+        member.member_type,
+        member.membership_category,
+        appliedYear,
+        paymentDate
+    );
+    const matchedCorporateExpected = await getCorporateMatchedExpectedAmount(
+        client,
+        member.member_type,
+        appliedYear,
+        normalizedAmount
+    );
+    if (matchedCorporateExpected !== null) {
+        expectedAmount = matchedCorporateExpected;
+    }
+
+    const paymentResult = await client.query(`
+        INSERT INTO payments (
+            member_id, subscription_year, payment_amount, payment_date,
+            payment_method, receipt_number, notes,
+            recorded_by_admin_user_id, recorded_by_admin_username
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING *
+    `, [
+        memberId,
+        appliedYear,
+        normalizedAmount,
+        paymentDate,
+        paymentMethod || null,
+        receiptNumber || null,
+        notes || null,
+        recorder.adminUserId || null,
+        recorder.adminUsername || null
+    ]);
+
+    await client.query(`
+        INSERT INTO subscriptions (
+            member_id, subscription_year, status, amount_paid,
+            expected_amount, credit_applied, credit_balance,
+            payment_method, receipt_number, payment_date,
+            recorded_by_admin_user_id, recorded_by_admin_username
+        )
+        VALUES ($1, $2, 'Pending', $3, $4, 0, 0, $5, $6, $7, $8, $9)
+        ON CONFLICT (member_id, subscription_year)
+        DO UPDATE SET
+            amount_paid = COALESCE(subscriptions.amount_paid, 0) + EXCLUDED.amount_paid,
+            expected_amount = CASE
+                WHEN COALESCE(EXCLUDED.expected_amount, 0) > 0 THEN EXCLUDED.expected_amount
+                WHEN COALESCE(subscriptions.expected_amount, 0) > 0 THEN subscriptions.expected_amount
+                ELSE EXCLUDED.expected_amount
+            END,
+            payment_method = COALESCE(EXCLUDED.payment_method, subscriptions.payment_method),
+            receipt_number = COALESCE(EXCLUDED.receipt_number, subscriptions.receipt_number),
+            payment_date = COALESCE(EXCLUDED.payment_date, subscriptions.payment_date),
+            recorded_by_admin_user_id = EXCLUDED.recorded_by_admin_user_id,
+            recorded_by_admin_username = EXCLUDED.recorded_by_admin_username
+    `, [
+        memberId,
+        appliedYear,
+        normalizedAmount,
+        expectedAmount,
+        paymentMethod || null,
+        receiptNumber || null,
+        paymentDate,
+        recorder.adminUserId || null,
+        recorder.adminUsername || null
+    ]);
+
+    await reconcileCorporateRateMatchedSubscriptions(client, {
+        memberId,
+        subscriptionYear: appliedYear
+    });
+    await reconcileCorporateAdmissionYearSubscriptions(client, { memberId });
+
+    const updatedTimeline = await recalculateMemberCreditLedger(client, memberId, {
+        persistAutoYears: true,
+        includeCurrentYear: true,
+        includeFutureCreditYears: true,
+        recorder
+    });
+
+    const appliedSubscription = updatedTimeline.subscriptions.find(sub => sub.subscription_year === appliedYear);
+    return {
+        payment: paymentResult.rows[0],
+        appliedYear,
+        expectedAmount,
+        appliedSubscription,
+        updatedTimeline
+    };
+}
+
 // Record a new payment (adds to payments table and triggers subscription update)
 app.post('/api/payments', requirePermission('record_payments'), async (req, res) => {
     const client = await pool.connect();
@@ -6723,114 +7152,37 @@ app.post('/api/payments', requirePermission('record_payments'), async (req, res)
         }
 
         const memberId = parseInt(member_id, 10);
-        const appliedYear = parseInt(subscription_year, 10) || resolvePaymentYear(payment_date);
 
         await client.query('BEGIN');
 
-        const member = await getMemberLedgerContext(client, memberId);
-        let expectedAmount = await getApplicableExpectedAmount(
-            client,
-            member.member_type,
-            member.membership_category,
-            appliedYear,
-            payment_date
-        );
-        const matchedCorporateExpected = await getCorporateMatchedExpectedAmount(
-            client,
-            member.member_type,
-            appliedYear,
-            paymentAmount
-        );
-        if (matchedCorporateExpected !== null) {
-            expectedAmount = matchedCorporateExpected;
-        }
-        
-        // Record the cash receipt, then apply it to the selected subscription year.
-        const paymentResult = await client.query(`
-            INSERT INTO payments (
-                member_id, subscription_year, payment_amount, payment_date,
-                payment_method, receipt_number, notes,
-                recorded_by_admin_user_id, recorded_by_admin_username
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            RETURNING *
-        `, [
+        const paymentLedger = await recordMemberPaymentWithLedger(client, {
             memberId,
-            appliedYear,
+            subscriptionYear: subscription_year,
             paymentAmount,
-            payment_date,
-            payment_method || null,
-            receipt_number || null,
-            notes || null,
-            recorder.adminUserId,
-            recorder.adminUsername
-        ]);
-
-        await client.query(`
-            INSERT INTO subscriptions (
-                member_id, subscription_year, status, amount_paid,
-                expected_amount, credit_applied, credit_balance,
-                payment_method, receipt_number, payment_date,
-                recorded_by_admin_user_id, recorded_by_admin_username
-            )
-            VALUES ($1, $2, 'Pending', $3, $4, 0, 0, $5, $6, $7, $8, $9)
-            ON CONFLICT (member_id, subscription_year)
-            DO UPDATE SET
-                amount_paid = COALESCE(subscriptions.amount_paid, 0) + EXCLUDED.amount_paid,
-                expected_amount = CASE
-                    WHEN COALESCE(EXCLUDED.expected_amount, 0) > 0 THEN EXCLUDED.expected_amount
-                    WHEN COALESCE(subscriptions.expected_amount, 0) > 0 THEN subscriptions.expected_amount
-                    ELSE EXCLUDED.expected_amount
-                END,
-                payment_method = COALESCE(EXCLUDED.payment_method, subscriptions.payment_method),
-                receipt_number = COALESCE(EXCLUDED.receipt_number, subscriptions.receipt_number),
-                payment_date = COALESCE(EXCLUDED.payment_date, subscriptions.payment_date),
-                recorded_by_admin_user_id = EXCLUDED.recorded_by_admin_user_id,
-                recorded_by_admin_username = EXCLUDED.recorded_by_admin_username
-        `, [
-            memberId,
-            appliedYear,
-            paymentAmount,
-            expectedAmount,
-            payment_method || null,
-            receipt_number || null,
-            payment_date,
-            recorder.adminUserId,
-            recorder.adminUsername
-        ]);
-
-        await reconcileCorporateRateMatchedSubscriptions(client, {
-            memberId,
-            subscriptionYear: appliedYear
-        });
-        await reconcileCorporateAdmissionYearSubscriptions(client, { memberId });
-
-        const updatedTimeline = await recalculateMemberCreditLedger(client, memberId, {
-            persistAutoYears: true,
-            includeCurrentYear: true,
-            includeFutureCreditYears: true,
+            paymentDate: payment_date,
+            paymentMethod: payment_method,
+            receiptNumber: receipt_number,
+            notes,
             recorder
         });
-
-        const appliedSubscription = updatedTimeline.subscriptions.find(sub => sub.subscription_year === appliedYear);
 
         await client.query('COMMIT');
         res.status(201).json({
             message: 'Payment recorded successfully',
-            payment: paymentResult.rows[0],
-            applied_year: appliedYear,
-            subscription: appliedSubscription || null,
+            payment: paymentLedger.payment,
+            applied_year: paymentLedger.appliedYear,
+            subscription: paymentLedger.appliedSubscription || null,
             summary: {
-                expected_amount: appliedSubscription ? appliedSubscription.expected_amount : expectedAmount,
-                amount_paid: appliedSubscription ? appliedSubscription.amount_paid : paymentAmount,
-                credit_applied: appliedSubscription ? appliedSubscription.credit_applied : 0,
-                total_applied: appliedSubscription
-                    ? Math.max(0, moneyValue(appliedSubscription.amount_paid) + moneyValue(appliedSubscription.credit_applied) - moneyValue(appliedSubscription.credit_balance))
+                expected_amount: paymentLedger.appliedSubscription ? paymentLedger.appliedSubscription.expected_amount : paymentLedger.expectedAmount,
+                amount_paid: paymentLedger.appliedSubscription ? paymentLedger.appliedSubscription.amount_paid : paymentAmount,
+                credit_applied: paymentLedger.appliedSubscription ? paymentLedger.appliedSubscription.credit_applied : 0,
+                total_applied: paymentLedger.appliedSubscription
+                    ? Math.max(0, moneyValue(paymentLedger.appliedSubscription.amount_paid) + moneyValue(paymentLedger.appliedSubscription.credit_applied) - moneyValue(paymentLedger.appliedSubscription.credit_balance))
                     : paymentAmount,
-                credit_balance_for_next_year: appliedSubscription ? appliedSubscription.credit_balance : 0,
-                current_credit_balance: updatedTimeline.current_credit_balance,
-                projected_credit_balance: updatedTimeline.projected_credit_balance,
-                status: appliedSubscription ? appliedSubscription.status : 'Pending'
+                credit_balance_for_next_year: paymentLedger.appliedSubscription ? paymentLedger.appliedSubscription.credit_balance : 0,
+                current_credit_balance: paymentLedger.updatedTimeline.current_credit_balance,
+                projected_credit_balance: paymentLedger.updatedTimeline.projected_credit_balance,
+                status: paymentLedger.appliedSubscription ? paymentLedger.appliedSubscription.status : 'Pending'
             }
         });
     } catch (err) {

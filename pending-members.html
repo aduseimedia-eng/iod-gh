@@ -230,6 +230,19 @@
             box-shadow: var(--shadow-md);
         }
 
+        .payment-modal {
+            width: min(760px, 100%);
+            max-height: min(88vh, 760px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+        }
+
+        .payment-modal .panel-body {
+            overflow-y: auto;
+        }
+
         .confirm-modal {
             width: min(460px, 100%);
             box-shadow: var(--shadow-md);
@@ -296,6 +309,70 @@
         .promote-summary span {
             color: var(--text-light);
             font-size: 0.78rem;
+        }
+
+        .payment-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .payment-summary-card {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #f8fafc;
+            padding: 0.8rem;
+        }
+
+        .payment-summary-card span {
+            display: block;
+            color: var(--text-light);
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .payment-summary-card strong {
+            display: block;
+            margin-top: 0.25rem;
+            color: var(--primary);
+            font-size: 1rem;
+        }
+
+        .payment-history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+
+        .payment-history-table th,
+        .payment-history-table td {
+            padding: 0.65rem;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
+
+        .payment-history-table th {
+            color: var(--text-light);
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: #f8fafc;
+        }
+
+        .payment-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            color: var(--success);
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            border-radius: 999px;
+            padding: 0.22rem 0.5rem;
+            font-size: 0.7rem;
+            font-weight: 700;
         }
 
         .icon-close {
@@ -858,6 +935,99 @@
                 </section>
                 </div>
 
+                <div class="modal-overlay" id="payment-modal" onclick="handlePaymentBackdrop(event)">
+                <section class="panel payment-modal" role="dialog" aria-modal="true" aria-labelledby="payment-title">
+                    <div class="panel-header">
+                        <div>
+                            <h2 id="payment-title">Candidate Payments</h2>
+                            <p id="payment-candidate-label" style="color:var(--text-light);font-size:0.78rem;margin-top:0.15rem;"></p>
+                        </div>
+                        <button type="button" class="icon-close" onclick="closePaymentModal()" title="Close">
+                            <i class="fas fa-xmark"></i>
+                        </button>
+                    </div>
+                    <div class="panel-body">
+                        <input type="hidden" id="payment-candidate-id">
+                        <div class="payment-summary-grid">
+                            <div class="payment-summary-card">
+                                <span>Total Paid</span>
+                                <strong id="payment-total-paid">&#8373;0.00</strong>
+                            </div>
+                            <div class="payment-summary-card">
+                                <span>Receipts</span>
+                                <strong id="payment-receipt-count">0</strong>
+                            </div>
+                            <div class="payment-summary-card">
+                                <span>Last Payment</span>
+                                <strong id="payment-last-date">-</strong>
+                            </div>
+                        </div>
+
+                        <form id="candidate-payment-form" onsubmit="saveCandidatePayment(event)">
+                            <div class="form-grid">
+                                <div class="form-field">
+                                    <label for="candidate-payment-amount">Amount (&#8373;)</label>
+                                    <input id="candidate-payment-amount" type="number" min="0" step="0.01" placeholder="0.00" required>
+                                </div>
+                                <div class="form-field">
+                                    <label for="candidate-payment-date">Payment Date</label>
+                                    <input id="candidate-payment-date" type="date" required>
+                                </div>
+                                <div class="form-field">
+                                    <label for="candidate-payment-year">Apply To Year</label>
+                                    <input id="candidate-payment-year" type="number" min="2025" max="2035" step="1" required>
+                                </div>
+                                <div class="form-field">
+                                    <label for="candidate-payment-method">Method</label>
+                                    <select id="candidate-payment-method">
+                                        <option value="Bank Transfer">Bank Transfer</option>
+                                        <option value="Mobile Money">Mobile Money</option>
+                                        <option value="Cash">Cash</option>
+                                        <option value="Cheque">Cheque</option>
+                                        <option value="Card">Card</option>
+                                        <option value="Not Specified">Not Specified</option>
+                                    </select>
+                                </div>
+                                <div class="form-field">
+                                    <label for="candidate-payment-receipt">Receipt Number</label>
+                                    <input id="candidate-payment-receipt" type="text" placeholder="Optional">
+                                </div>
+                                <div class="form-field full">
+                                    <label for="candidate-payment-notes">Notes</label>
+                                    <textarea id="candidate-payment-notes" placeholder="e.g. Annual fees paid before induction"></textarea>
+                                </div>
+                            </div>
+                            <div class="button-row">
+                                <button type="button" class="btn-secondary" onclick="closePaymentModal()">Close</button>
+                                <button type="submit" class="btn-primary" id="candidate-payment-submit">
+                                    <i class="fas fa-receipt"></i> Record Payment
+                                </button>
+                            </div>
+                        </form>
+
+                        <div style="margin-top:1rem;">
+                            <h3 style="font-size:0.9rem;margin-bottom:0.6rem;color:var(--text-dark);">Payment Records</h3>
+                            <div class="table-wrap" style="box-shadow:none;">
+                                <table class="payment-history-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Year</th>
+                                            <th>Amount</th>
+                                            <th>Method</th>
+                                            <th>Recorded By</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="candidate-payment-history">
+                                        <tr><td colspan="5" class="empty">No payments recorded yet.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                </div>
+
                 <div class="modal-overlay" id="confirm-modal" onclick="handleConfirmBackdrop(event)">
                 <section class="panel confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
                     <div class="panel-header">
@@ -962,6 +1132,7 @@
         let showHistory = false;
         let confirmModalAction = null;
         let selectedCandidateIds = new Set();
+        let activePaymentCandidate = null;
 
         document.getElementById('pending-form').addEventListener('submit', savePendingMember);
         document.getElementById('promote-form').addEventListener('submit', submitPromotion);
@@ -975,6 +1146,7 @@
             if (event.key === 'Escape') {
                 closeCandidateModal();
                 closePromoteModal();
+                closePaymentModal();
                 closeConfirmModal();
             }
         });
@@ -1112,6 +1284,25 @@
                 .join(' ') || candidate.organization || 'Unnamed candidate';
         }
 
+        function formatCurrency(value) {
+            const amount = parseFloat(value || 0);
+            return `${String.fromCharCode(8373)}${(Number.isFinite(amount) ? amount : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('en-GB');
+        }
+
+        function getCandidateSuggestedPaymentYear(candidate) {
+            const inductionDate = candidate && candidate.proposed_induction_date ? new Date(candidate.proposed_induction_date) : null;
+            const inductionYear = inductionDate && !Number.isNaN(inductionDate.getTime())
+                ? inductionDate.getFullYear()
+                : new Date().getFullYear();
+            return candidate && candidate.member_type === 'Corporate' ? inductionYear : inductionYear + 1;
+        }
+
         function sanitizeInput(value) {
             return String(value || '').trim().replace(/[<>]/g, '').replace(/javascript:/gi, '').replace(/on\w+=/gi, '');
         }
@@ -1246,6 +1437,10 @@
                     ? `${categoryLabel} - ${candidate.membership_category}`
                     : categoryLabel;
                 const categoryClass = candidate.category_confirmed ? '' : ' category-pending';
+                const paymentTotal = parseFloat(candidate.payment_total || 0);
+                const paymentHtml = paymentTotal > 0
+                    ? `<div style="margin-top:0.35rem;"><span class="payment-pill"><i class="fas fa-receipt"></i> ${formatCurrency(paymentTotal)}</span></div>`
+                    : '';
                 return `
                     <tr>
                         <td>
@@ -1254,6 +1449,7 @@
                         <td>
                             <div style="font-weight:700;color:var(--text-dark)">${escapeHtml(name)}</div>
                             <div style="font-size:0.72rem;color:var(--text-light)">${escapeHtml(candidate.candidate_code || '')}</div>
+                            ${paymentHtml}
                         </td>
                         <td class="truncate-cell">${escapeHtml(candidate.organization || '-')}</td>
                         <td>
@@ -1266,6 +1462,7 @@
                         <td><span class="badge">${escapeHtml(candidate.status || 'Pending')}</span></td>
                         <td>
                             <div class="actions">
+                                ${canPromote ? `<button class="btn-primary" title="Record payment" onclick="openPaymentModal(${candidate.id})"><i class="fas fa-receipt"></i></button>` : ''}
                                 ${canPromote ? `<button class="btn-secondary" title="Edit" onclick="editCandidate(${candidate.id})"><i class="fas fa-pen"></i></button>` : ''}
                                 ${canPromote ? `<button class="btn-success" title="Promote to main database" onclick="promoteCandidate(${candidate.id})"><i class="fas fa-user-check"></i></button>` : ''}
                                 ${canPromote ? `<button class="btn-danger" title="Archive" onclick="archiveCandidate(${candidate.id})"><i class="fas fa-box-archive"></i></button>` : ''}
@@ -1430,7 +1627,10 @@
                         const result = await response.json();
                         closeConfirmModal();
                         selectedCandidateIds.clear();
-                        showAlert(`${result.imported_count || 0} candidate${result.imported_count === 1 ? '' : 's'} imported into the database.`);
+                        const transferred = Array.isArray(result.imported)
+                            ? result.imported.reduce((sum, row) => sum + (parseInt(row.transferred_payments || 0, 10) || 0), 0)
+                            : 0;
+                        showAlert(`${result.imported_count || 0} candidate${result.imported_count === 1 ? '' : 's'} imported${transferred ? ` with ${transferred} payment record${transferred === 1 ? '' : 's'} transferred` : ''}.`);
                         await loadPendingMembers();
                         return;
                     }
@@ -1496,6 +1696,115 @@
             updateCandidateFields();
         }
 
+        async function openPaymentModal(id) {
+            const candidate = pendingMembers.find(item => Number(item.id) === Number(id));
+            if (!candidate) return;
+
+            activePaymentCandidate = candidate;
+            document.getElementById('payment-candidate-id').value = candidate.id;
+            document.getElementById('payment-title').textContent = 'Candidate Payments';
+            document.getElementById('payment-candidate-label').textContent = `${getCandidateDisplayName(candidate)} - ${candidate.candidate_code || 'Induction candidate'}`;
+            document.getElementById('candidate-payment-form').reset();
+            document.getElementById('candidate-payment-date').value = new Date().toISOString().slice(0, 10);
+            document.getElementById('candidate-payment-year').value = getCandidateSuggestedPaymentYear(candidate);
+            document.getElementById('candidate-payment-method').value = 'Bank Transfer';
+            document.getElementById('payment-total-paid').textContent = formatCurrency(candidate.payment_total || 0);
+            document.getElementById('payment-receipt-count').textContent = parseInt(candidate.payment_count || 0, 10).toLocaleString();
+            document.getElementById('payment-last-date').textContent = formatDate(candidate.last_payment_date);
+            document.getElementById('candidate-payment-history').innerHTML = '<tr><td colspan="5" class="empty">Loading payments...</td></tr>';
+            document.getElementById('payment-modal').classList.add('open');
+            document.body.classList.add('modal-open');
+            await loadCandidatePayments(candidate.id);
+        }
+
+        function closePaymentModal() {
+            const modal = document.getElementById('payment-modal');
+            if (modal) modal.classList.remove('open');
+            activePaymentCandidate = null;
+            if (!document.querySelector('.modal-overlay.open')) {
+                document.body.classList.remove('modal-open');
+            }
+        }
+
+        function handlePaymentBackdrop(event) {
+            if (event.target.id === 'payment-modal') closePaymentModal();
+        }
+
+        async function loadCandidatePayments(id) {
+            const tbody = document.getElementById('candidate-payment-history');
+            try {
+                const response = await fetch(`/api/pending-members/${id}/payments`);
+                const payments = response.ok ? await response.json() : [];
+                const total = payments.reduce((sum, payment) => sum + (parseFloat(payment.payment_amount) || 0), 0);
+                document.getElementById('payment-total-paid').textContent = formatCurrency(total);
+                document.getElementById('payment-receipt-count').textContent = payments.length.toLocaleString();
+                document.getElementById('payment-last-date').textContent = payments.length ? formatDate(payments[0].payment_date) : '-';
+
+                if (!payments.length) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty">No payments recorded yet.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = payments.map(payment => `
+                    <tr>
+                        <td>${formatDate(payment.payment_date)}</td>
+                        <td>${escapeHtml(payment.subscription_year || '-')}</td>
+                        <td><strong>${formatCurrency(payment.payment_amount)}</strong></td>
+                        <td>${escapeHtml(payment.payment_method || '-')}</td>
+                        <td>${escapeHtml(payment.recorded_by || payment.recorded_by_admin_username || '-')}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading candidate payments:', error);
+                tbody.innerHTML = '<tr><td colspan="5" class="empty">Failed to load payments.</td></tr>';
+            }
+        }
+
+        async function saveCandidatePayment(event) {
+            event.preventDefault();
+            const id = Number(document.getElementById('payment-candidate-id').value);
+            if (!id) return;
+
+            const submitBtn = document.getElementById('candidate-payment-submit');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recording...';
+
+            try {
+                const response = await fetch(`/api/pending-members/${id}/payments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        payment_amount: parseFloat(document.getElementById('candidate-payment-amount').value || '0'),
+                        payment_date: document.getElementById('candidate-payment-date').value,
+                        subscription_year: parseInt(document.getElementById('candidate-payment-year').value, 10),
+                        payment_method: sanitizeInput(document.getElementById('candidate-payment-method').value),
+                        receipt_number: sanitizeInput(document.getElementById('candidate-payment-receipt').value),
+                        notes: sanitizeInput(document.getElementById('candidate-payment-notes').value)
+                    })
+                });
+
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    showAlert(result.error || 'Failed to record payment.', 'error');
+                    return;
+                }
+
+                showAlert('Induction payment recorded.');
+                document.getElementById('candidate-payment-form').reset();
+                document.getElementById('candidate-payment-date').value = new Date().toISOString().slice(0, 10);
+                document.getElementById('candidate-payment-year').value = activePaymentCandidate ? getCandidateSuggestedPaymentYear(activePaymentCandidate) : new Date().getFullYear();
+                document.getElementById('candidate-payment-method').value = 'Bank Transfer';
+                await loadCandidatePayments(id);
+                await loadPendingMembers();
+            } catch (error) {
+                console.error('Error recording candidate payment:', error);
+                showAlert('Failed to record payment.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-receipt"></i> Record Payment';
+            }
+        }
+
         async function promoteCandidate(id) {
             const candidate = pendingMembers.find(item => item.id === id);
             if (!candidate) return;
@@ -1533,7 +1842,8 @@
 
             if (response.ok) {
                 const result = await response.json();
-                showAlert(`${label} promoted as ${result.member.membership_number}.`);
+                const transferred = parseInt(result.transferred_payments || 0, 10);
+                showAlert(`${label} promoted as ${result.member.membership_number}${transferred ? ` with ${transferred} payment record${transferred === 1 ? '' : 's'} transferred` : ''}.`);
                 closePromoteModal();
                 resetForm();
                 await loadPendingMembers();

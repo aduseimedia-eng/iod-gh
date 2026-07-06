@@ -2650,12 +2650,15 @@
                 const inductionSummary = inductedThisYearReport.summary || {};
                 const inductedCount = parseInt(inductionSummary.total_inducted || 0, 10);
                 const creditedCount = parseInt(inductionSummary.members_with_next_year_credit || 0, 10);
+                const pendingPaidCount = parseInt(inductionSummary.pending_candidates_paid || 0, 10);
+                const totalInductionPaymentValue = (parseFloat(inductionSummary.next_year_credit_total || 0) || 0)
+                    + (parseFloat(inductionSummary.pending_payments_total || 0) || 0);
                 insights.push({
                     tone: inductedCount > 0 ? 'success' : 'info',
                     icon: 'fa-user-check',
                     title: 'Inducted This Year',
                     value: `${inductedCount.toLocaleString()} members`,
-                    detail: `${creditedCount.toLocaleString()} already paid toward ${inductedThisYearReport.next_subscription_year || currentYear + 1}; ${formatCurrency(inductionSummary.next_year_credit_total || 0)} recorded`
+                    detail: `${creditedCount.toLocaleString()} inducted and ${pendingPaidCount.toLocaleString()} candidates have paid; ${formatCurrency(totalInductionPaymentValue)} recorded`
                 });
             } else {
                 insights.push({
@@ -2884,19 +2887,29 @@
             const summary = report.summary || {};
             const byType = Array.isArray(report.by_type) ? report.by_type : [];
             const members = Array.isArray(report.members) ? report.members : [];
+            const pendingByType = Array.isArray(report.pending_by_type) ? report.pending_by_type : [];
+            const pendingMembers = Array.isArray(report.pending_members) ? report.pending_members : [];
             const currentYear = report.current_year || new Date().getFullYear();
             const nextYear = report.next_subscription_year || currentYear + 1;
             const totalInducted = parseInt(summary.total_inducted || 0, 10);
+            const pendingCandidates = parseInt(summary.pending_candidates || 0, 10);
+            const pendingCandidatesPaid = parseInt(summary.pending_candidates_paid || 0, 10);
+            const pendingPaymentsTotal = parseFloat(summary.pending_payments_total || 0) || 0;
+            const totalParticipants = totalInducted + pendingCandidates;
 
-            if (!totalInducted) {
-                content.innerHTML = `<div class="empty-state"><i class="fas fa-user-check"></i><p>No members have been inducted in ${currentYear}.</p></div>`;
+            if (!totalParticipants) {
+                content.innerHTML = `<div class="empty-state"><i class="fas fa-user-check"></i><p>No inducted members or pending candidates found for ${currentYear}.</p></div>`;
                 return;
             }
 
             const rowsToDisplay = members.slice(0, 10);
+            const pendingRowsToDisplay = pendingMembers.slice(0, 10);
             const typeRows = byType.length
                 ? byType
                 : [{ member_type: 'All', total_inducted: totalInducted, members_with_next_year_credit: summary.members_with_next_year_credit || 0, next_year_credit_total: summary.next_year_credit_total || 0 }];
+            const pendingTypeRows = pendingByType.length
+                ? pendingByType
+                : (pendingCandidates ? [{ member_type: 'All', pending_candidates: pendingCandidates, pending_candidates_paid: pendingCandidatesPaid, pending_payments_total: pendingPaymentsTotal }] : []);
 
             content.innerHTML = `
                 <div class="insight-stat-grid" style="margin-bottom: 1rem;">
@@ -2911,6 +2924,14 @@
                     <div class="insight-stat">
                         <div class="insight-stat-label">${nextYear} Fees Recorded</div>
                         <div class="insight-stat-value">${formatCurrency(summary.next_year_credit_total || 0)}</div>
+                    </div>
+                    <div class="insight-stat">
+                        <div class="insight-stat-label">Pending Candidates</div>
+                        <div class="insight-stat-value">${pendingCandidates.toLocaleString()}</div>
+                    </div>
+                    <div class="insight-stat">
+                        <div class="insight-stat-label">Candidate Fees Paid</div>
+                        <div class="insight-stat-value">${formatCurrency(pendingPaymentsTotal)}</div>
                     </div>
                 </div>
                 <div class="chart-support-table inducted-no-scroll-table">
@@ -2935,6 +2956,31 @@
                         </tbody>
                     </table>
                 </div>
+                ${pendingTypeRows.length ? `
+                <div style="margin: 1rem 0 0.55rem; font-weight: 600; color: #12086f;">Pending induction payments</div>
+                <div class="chart-support-table inducted-no-scroll-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Member Type</th>
+                                <th>Pending</th>
+                                <th>Paid</th>
+                                <th>Fees Recorded</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${pendingTypeRows.map(row => `
+                                <tr>
+                                    <td><strong>${escapeHtml(row.member_type === 'All' ? 'All Types' : formatMemberType(row.member_type))}</strong></td>
+                                    <td>${parseInt(row.pending_candidates || 0, 10).toLocaleString()}</td>
+                                    <td>${parseInt(row.pending_candidates_paid || 0, 10).toLocaleString()}</td>
+                                    <td>${formatCurrency(row.pending_payments_total || 0)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ` : ''}
                 <div style="margin: 1rem 0 0.55rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
                     <span style="font-weight: 600; color: #12086f;">Latest inducted members</span>
                     <span style="color: #666; font-size: 0.85rem;">Showing ${rowsToDisplay.length} of ${totalInducted.toLocaleString()}</span>
@@ -2969,6 +3015,39 @@
                         </tbody>
                     </table>
                 </div>
+                ${pendingRowsToDisplay.length ? `
+                <div style="margin: 1rem 0 0.55rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                    <span style="font-weight: 600; color: #12086f;">Pending candidates with induction payments</span>
+                    <span style="color: #666; font-size: 0.85rem;">Showing ${pendingRowsToDisplay.length} of ${pendingCandidates.toLocaleString()}</span>
+                </div>
+                <div class="chart-support-table inducted-no-scroll-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Candidate #</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Proposed Induction</th>
+                                <th>Fees Paid</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${pendingRowsToDisplay.map(row => `
+                                <tr>
+                                    <td><strong>${escapeHtml(row.candidate_code || 'N/A')}</strong></td>
+                                    <td>
+                                        <strong>${escapeHtml(row.member_name || 'Unknown')}</strong>
+                                        ${row.organization ? `<div style="color:#6b7280; font-size:0.78rem; margin-top:2px;">${escapeHtml(row.organization)}</div>` : ''}
+                                    </td>
+                                    <td><span class="status-badge badge-pending">${escapeHtml(formatMemberType(row.member_type))}</span></td>
+                                    <td>${escapeHtml(row.induction_date_display || '-')}</td>
+                                    <td><strong>${formatCurrency(row.pending_payment_total || 0)}</strong></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ` : ''}
             `;
         }
 
@@ -3767,11 +3846,12 @@
                 if (!response.ok) throw new Error(data.error || 'Failed to export inducted members');
 
                 const rows = Array.isArray(data.members) ? data.members : [];
+                const pendingRows = Array.isArray(data.pending_members) ? data.pending_members : [];
                 const currentYear = data.current_year || new Date().getFullYear();
                 const nextYear = data.next_subscription_year || currentYear + 1;
 
-                if (!rows.length) {
-                    showAlert(`No ${currentYear} inducted members to export`, 'error');
+                if (!rows.length && !pendingRows.length) {
+                    showAlert(`No ${currentYear} inducted members or pending candidates to export`, 'error');
                     return;
                 }
 
@@ -3791,6 +3871,25 @@
                         row.recorded_by || ''
                     ].map(csvCell).join(',')}`;
                 });
+
+                if (pendingRows.length) {
+                    csv += `\n\nPending Candidates With Pre-Induction Payments\nCandidate Code,Name,Member Type,Organization,Region,Email,Proposed Induction Date,Fees Paid,Last Payment Date,Payment Method,Recorded By`;
+                    pendingRows.forEach(row => {
+                        csv += `\n${[
+                            row.candidate_code || '',
+                            row.member_name || '',
+                            formatMemberType(row.member_type),
+                            row.organization || '',
+                            row.region || '',
+                            row.email || '',
+                            row.induction_date_display || '',
+                            parseFloat(row.pending_payment_total || 0).toFixed(2),
+                            row.last_payment_date || '',
+                            row.last_payment_method || '',
+                            row.recorded_by || ''
+                        ].map(csvCell).join(',')}`;
+                    });
+                }
 
                 downloadCSV(`Inducted_This_Year_${currentYear}.csv`, csv);
                 showAlert('Inducted-this-year data exported successfully', 'success');
