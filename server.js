@@ -3894,6 +3894,19 @@ app.post('/api/members/import', upload.single('file'), async (req, res) => {
                 await client.query(`SAVEPOINT row_${i}`);
                 // Map CSV columns to database fields using the provided mapping
                 // If no mapping provided, try direct field names
+                const importValueAliases = {
+                    expertise: [
+                        'expertise',
+                        'area of expertise',
+                        'areas of expertise',
+                        'professional expertise',
+                        'expertise area',
+                        'specialization',
+                        'specialisation',
+                        'specialty',
+                        'speciality'
+                    ]
+                };
                 const getMappedValue = (dbField) => {
                     // First try using the column mapping
                     const csvColumn = columnMapping[dbField];
@@ -3905,6 +3918,18 @@ app.post('/api/members/import', upload.single('file'), async (req, res) => {
                     if (row[dbField] !== undefined && row[dbField] !== null) {
                         const val = String(row[dbField]).trim();
                         return val || null;
+                    }
+                    const aliases = importValueAliases[dbField] || [];
+                    if (aliases.length) {
+                        const aliasKeys = aliases.map(alias => normalizeImportHeader(alias).replace(/[^A-Z0-9]/g, ''));
+                        const matchedColumn = Object.keys(row).find(column => {
+                            const normalizedColumn = normalizeImportHeader(column).replace(/[^A-Z0-9]/g, '');
+                            return aliasKeys.some(alias => normalizedColumn === alias || normalizedColumn.includes(alias) || alias.includes(normalizedColumn));
+                        });
+                        if (matchedColumn && row[matchedColumn] !== undefined && row[matchedColumn] !== null) {
+                            const val = String(row[matchedColumn]).trim();
+                            return val || null;
+                        }
                     }
                     return null;
                 };
@@ -3974,9 +3999,9 @@ app.post('/api/members/import', upload.single('file'), async (req, res) => {
                             membership_number, member_type, organization, membership_category,
                             postal_address, date_of_admission, registration_date,
                             srl_no, reg_no, contact_person, contact_phone, contact_email,
-                            phone_number, email
+                            phone_number, email, expertise
                         ) VALUES (
-                            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+                            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
                         )
                         ON CONFLICT (membership_number) DO UPDATE SET
                             member_type = EXCLUDED.member_type,
@@ -3991,7 +4016,8 @@ app.post('/api/members/import', upload.single('file'), async (req, res) => {
                             contact_phone = COALESCE(NULLIF(EXCLUDED.contact_phone, ''), members.contact_phone),
                             contact_email = COALESCE(NULLIF(EXCLUDED.contact_email, ''), members.contact_email),
                             phone_number = COALESCE(NULLIF(EXCLUDED.phone_number, ''), members.phone_number),
-                            email = COALESCE(NULLIF(EXCLUDED.email, ''), members.email)
+                            email = COALESCE(NULLIF(EXCLUDED.email, ''), members.email),
+                            expertise = COALESCE(NULLIF(EXCLUDED.expertise, ''), members.expertise)
                         RETURNING id, (xmax = 0) AS inserted
                     `, [
                         membership_number,
@@ -4007,7 +4033,8 @@ app.post('/api/members/import', upload.single('file'), async (req, res) => {
                         getMappedValue('contact_phone'),
                         getMappedValue('contact_email'),
                         getMappedValue('phone_number'),
-                        getMappedValue('email')
+                        getMappedValue('email'),
+                        getMappedValue('expertise')
                     ]);
                 } else {
                     // Personal member - use personal fields

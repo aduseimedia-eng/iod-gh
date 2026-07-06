@@ -5818,7 +5818,8 @@
                 { key: 'contact_phone', label: 'Contact Phone' },
                 { key: 'contact_email', label: 'Contact Email' },
                 { key: 'phone_number', label: 'Organization Phone' },
-                { key: 'email', label: 'Organization Email' }
+                { key: 'email', label: 'Organization Email' },
+                { key: 'expertise', label: 'Expertise' }
             ];
             
             const dbFields = isCorporateImport ? corporateFields : personalFields;
@@ -5834,7 +5835,7 @@
                 'gender': ['gender', 'GENDER', 'SEX'],
                 'organization': ['organization', 'ORGANIZATION', 'ORGANISATION', 'COMPANY', 'ORG', 'COMPANY NAME', 'ORGANIZATION NAME', 'ORGANISATION NAME', 'FULL NAME'],
                 'designation': ['designation', 'DESIGNATION', 'POSITION', 'ROLE', 'JOB TITLE'],
-                'expertise': ['expertise', 'EXPERTISE', 'AREA OF EXPERTISE'],
+                'expertise': ['expertise', 'EXPERTISE', 'AREA OF EXPERTISE', 'AREAS OF EXPERTISE', 'PROFESSIONAL EXPERTISE', 'EXPERTISE AREA', 'SPECIALIZATION', 'SPECIALISATION', 'SPECIALTY', 'SPECIALITY'],
                 'sector': ['sector', 'SECTOR', 'PUBLIC/PRIVATE'],
                 'region': ['region', 'REGION', 'LOCATION', 'AREA'],
                 'postal_address': ['postal_address', 'ADDRESS', 'ADDR'],
@@ -5935,7 +5936,7 @@
             const allFields = ['membership_number', 'member_type', 'title', 'first_name', 'surname', 'other_names', 'gender', 
                              'organization', 'sector', 'region', 'designation', 'date_of_admission', 
                              'phone_number', 'email', 'postal_address', 'srl_no', 'reg_no', 
-                             'membership_category', 'contact_person', 'contact_phone', 'contact_email'];
+                             'membership_category', 'contact_person', 'contact_phone', 'contact_email', 'expertise'];
             
             allFields.forEach(field => {
                 const select = document.getElementById(`map-${field}`);
