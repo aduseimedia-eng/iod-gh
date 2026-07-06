@@ -834,6 +834,73 @@ app.delete('/api/admin/users/:id', requireSuperAdmin, async (req, res) => {
     }
 });
 
+app.delete('/api/admin/members/bulk-by-type', requireSuperAdmin, async (req, res) => {
+    const allowedMemberTypes = new Set(['AIOD', 'FIOD', 'MIOD', 'Honorary', 'Corporate']);
+    const memberType = String(req.body.member_type || '').trim();
+    const confirmation = String(req.body.confirmation || '').trim();
+    const expectedConfirmation = `DELETE ${memberType}`;
+
+    if (!allowedMemberTypes.has(memberType)) {
+        return res.status(400).json({ error: 'Select a valid membership type' });
+    }
+
+    if (confirmation !== expectedConfirmation) {
+        return res.status(400).json({ error: `Type ${expectedConfirmation} to confirm this bulk delete` });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const preview = await client.query(`
+            SELECT COUNT(*)::int AS count
+            FROM members
+            WHERE member_type = $1
+        `, [memberType]);
+
+        const membersToDelete = preview.rows[0]?.count || 0;
+        if (membersToDelete === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: `No ${memberType} members found to delete` });
+        }
+
+        const result = await client.query(`
+            DELETE FROM members
+            WHERE member_type = $1
+            RETURNING id, membership_number, member_type, first_name, surname, last_name, organization
+        `, [memberType]);
+
+        await client.query('COMMIT');
+
+        res.locals.activityAction = 'bulk_delete_members_by_type';
+        res.locals.activityEntityType = 'member';
+        res.locals.activityDescription = `${req.session.user} bulk deleted ${result.rowCount} ${memberType} members`;
+        res.locals.activityMetadata = {
+            memberType,
+            deletedCount: result.rowCount,
+            sample: result.rows.slice(0, 20).map(member => ({
+                id: member.id,
+                membership_number: member.membership_number,
+                name: member.member_type === 'Corporate'
+                    ? (member.organization || member.membership_number)
+                    : (`${member.first_name || ''} ${member.surname || member.last_name || ''}`.replace(/\s+/g, ' ').trim() || member.membership_number)
+            }))
+        };
+
+        res.json({
+            message: `${result.rowCount} ${memberType} members deleted successfully`,
+            member_type: memberType,
+            deleted_count: result.rowCount
+        });
+    } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('Error bulk deleting members by type:', err);
+        res.status(500).json({ error: 'Failed to bulk delete members' });
+    } finally {
+        client.release();
+    }
+});
+
 app.get('/api/admin/activity-logs', requireSuperAdmin, async (req, res) => {
     const requestedLimit = parseInt(req.query.limit, 10);
     const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 200) : 50;

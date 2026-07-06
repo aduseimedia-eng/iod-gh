@@ -4395,6 +4395,37 @@
                         <div class="no-data" style="padding: 2rem;">Loading activity...</div>
                     </div>
                 </div>
+
+                <div class="superadmin-panel" style="margin-top: 1rem; border-color: #fecaca;">
+                    <div class="superadmin-section-title">
+                        <span style="color: var(--danger);"><i class="fas fa-triangle-exclamation"></i> Bulk Delete Members</span>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 0.75rem; background: #fff5f5; border: 1px solid #fecaca; border-radius: 12px; padding: 0.9rem 1rem; margin-bottom: 1rem;">
+                        <i class="fas fa-circle-info" style="color: var(--danger); margin-top: 2px;"></i>
+                        <div style="font-size: 0.82rem; line-height: 1.55; color: var(--text-dark);">
+                            This permanently deletes every member with the selected membership type from the database. Related payment and subscription records are removed with those members.
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Membership Type</label>
+                        <select id="bulk-delete-member-type" onchange="updateBulkDeletePreview()">
+                            <option value="">Select membership type</option>
+                            <option value="AIOD">AIOD</option>
+                            <option value="FIOD">FIOD</option>
+                            <option value="MIOD">MIOD</option>
+                            <option value="Honorary">Honorary</option>
+                            <option value="Corporate">Corporate</option>
+                        </select>
+                    </div>
+                    <div id="bulk-delete-member-preview" style="display: none; margin-bottom: 1rem; padding: 0.85rem 1rem; background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; font-size: 0.82rem; color: var(--text-dark);"></div>
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Confirm Bulk Delete</label>
+                        <input type="text" id="bulk-delete-member-confirmation" placeholder="Select a type first" autocomplete="off">
+                    </div>
+                    <button id="bulk-delete-members-btn" class="btn-primary" onclick="bulkDeleteMembersByType()" style="width: 100%; justify-content: center; border-radius: 12px; padding: 0.85rem; font-size: 0.9rem; background: linear-gradient(135deg, var(--danger) 0%, #7f1d1d 100%);">
+                        <i class="fas fa-trash"></i> Delete Members by Type
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -4543,6 +4574,11 @@
             document.getElementById('new-admin-username').value = '';
             document.getElementById('new-admin-email').value = '';
             document.getElementById('new-admin-password').value = '';
+            const bulkDeleteType = document.getElementById('bulk-delete-member-type');
+            const bulkDeleteConfirmation = document.getElementById('bulk-delete-member-confirmation');
+            if (bulkDeleteType) bulkDeleteType.value = '';
+            if (bulkDeleteConfirmation) bulkDeleteConfirmation.value = '';
+            updateBulkDeletePreview();
             resetPasswordStrength();
             document.getElementById('pw-match-label').style.display = 'none';
             hideSettingsAlert();
@@ -5004,6 +5040,91 @@
                 await loadAdminManagement();
             } catch (err) {
                 showSettingsAlert(err.message || 'Failed to delete admin.', 'error');
+            }
+        }
+
+        function updateBulkDeletePreview() {
+            const select = document.getElementById('bulk-delete-member-type');
+            const input = document.getElementById('bulk-delete-member-confirmation');
+            const preview = document.getElementById('bulk-delete-member-preview');
+            if (!select || !input || !preview) return;
+
+            const memberType = select.value;
+            if (!memberType) {
+                preview.style.display = 'none';
+                preview.innerHTML = '';
+                input.placeholder = 'Select a type first';
+                return;
+            }
+
+            const count = database.filter(member => member.member_type === memberType).length;
+            const confirmation = `DELETE ${memberType}`;
+            input.placeholder = `Type ${confirmation}`;
+            preview.style.display = 'block';
+            preview.innerHTML = `
+                <strong style="color: var(--danger);">${count.toLocaleString()} ${escapeHtml(memberType)} member${count === 1 ? '' : 's'}</strong>
+                will be deleted. Type <strong>${escapeHtml(confirmation)}</strong> to confirm.
+            `;
+        }
+
+        async function bulkDeleteMembersByType() {
+            hideSettingsAlert();
+            if (!currentAuthContext.isSuperAdmin) {
+                return showSettingsAlert('SuperAdmin access is required.', 'error');
+            }
+
+            const select = document.getElementById('bulk-delete-member-type');
+            const input = document.getElementById('bulk-delete-member-confirmation');
+            const button = document.getElementById('bulk-delete-members-btn');
+            const memberType = select ? select.value : '';
+            const confirmation = input ? input.value.trim() : '';
+            const expectedConfirmation = memberType ? `DELETE ${memberType}` : '';
+
+            if (!memberType) {
+                return showSettingsAlert('Select a membership type to delete.', 'error');
+            }
+
+            const count = database.filter(member => member.member_type === memberType).length;
+            if (count <= 0) {
+                return showSettingsAlert(`No ${memberType} members found in the current data.`, 'error');
+            }
+
+            if (confirmation !== expectedConfirmation) {
+                return showSettingsAlert(`Type ${expectedConfirmation} to confirm.`, 'error');
+            }
+
+            if (!confirm(`Permanently delete ${count} ${memberType} members from the database? This cannot be undone.`)) {
+                return;
+            }
+
+            const originalHtml = button ? button.innerHTML : '';
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+            }
+
+            try {
+                const response = await fetch('/api/admin/members/bulk-by-type', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ member_type: memberType, confirmation })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to bulk delete members');
+
+                if (input) input.value = '';
+                if (select) select.value = '';
+                showSettingsAlert(`${Number(data.deleted_count || 0).toLocaleString()} ${data.member_type || memberType} members deleted.`, 'success');
+                await loadAllData();
+                updateBulkDeletePreview();
+                await loadAdminActivityLogs();
+            } catch (err) {
+                showSettingsAlert(err.message || 'Failed to bulk delete members.', 'error');
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = originalHtml || '<i class="fas fa-trash"></i> Delete Members by Type';
+                }
             }
         }
 
