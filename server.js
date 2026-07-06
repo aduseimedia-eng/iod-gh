@@ -3978,9 +3978,7 @@ app.post('/api/members/import', upload.single('file'), async (req, res) => {
                     getMappedValue('member_number') ||
                     getMappedValue('mem_no');
 
-                let membership_number = importedMembershipNumber
-                    ? importedMembershipNumber.replace(/\s+/g, '')
-                    : null;
+                let membership_number = importedMembershipNumber || null;
 
                 if (!membership_number) {
                     membership_number = await generateMembershipNumber(client, member_type);
