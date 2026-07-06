@@ -1337,6 +1337,17 @@
             flex: 0 0 auto;
         }
 
+        .payment-success-icon.warning,
+        .payment-success-icon.error {
+            color: #b91c1c;
+            background: #fee2e2;
+        }
+
+        .payment-success-icon.info {
+            color: var(--primary);
+            background: #eef2ff;
+        }
+
         .payment-success-title {
             margin: 0;
             color: var(--text-dark);
@@ -1352,6 +1363,12 @@
 
         .payment-success-body {
             padding: 1rem 1.25rem 1.2rem;
+        }
+
+        .app-notice-message {
+            color: var(--text-light);
+            font-size: 0.86rem;
+            line-height: 1.55;
         }
 
         .payment-success-breakdown {
@@ -4524,6 +4541,7 @@
         let cachedAdminUsers = [];
         let resetAdminPasswordTargetId = null;
         let permissionsTargetAdminId = null;
+        let lastPermissionNoticeAt = 0;
         const ADMIN_ACTIVITY_LIMIT = 25;
         const ADMIN_PERMISSION_LABELS = {
             view_members: 'View members',
@@ -4583,6 +4601,70 @@
             div.textContent = value == null ? '' : String(value);
             return div.innerHTML;
         }
+
+        function closeAppNoticePopup() {
+            const modal = document.getElementById('app-notice-popup');
+            if (modal) modal.remove();
+        }
+
+        function showAppNoticePopup({ title = 'Notice', subtitle = '', message = '', type = 'info', buttonLabel = 'Close' } = {}) {
+            closeAppNoticePopup();
+
+            const iconClass = type === 'success'
+                ? 'fa-check'
+                : (type === 'warning' || type === 'error' ? 'fa-lock' : 'fa-info-circle');
+            const popupHtml = `
+                <div id="app-notice-popup" class="payment-success-overlay" onclick="if(event.target === this) closeAppNoticePopup()">
+                    <div class="payment-success-dialog" role="dialog" aria-modal="true" aria-labelledby="app-notice-title">
+                        <div class="payment-success-head">
+                            <div class="payment-success-icon ${escapeHtml(type)}"><i class="fas ${iconClass}"></i></div>
+                            <div>
+                                <h3 id="app-notice-title" class="payment-success-title">${escapeHtml(title)}</h3>
+                                ${subtitle ? `<div class="payment-success-subtitle">${escapeHtml(subtitle)}</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="payment-success-body">
+                            ${message ? `<div class="app-notice-message">${escapeHtml(message)}</div>` : ''}
+                            <div class="payment-success-actions">
+                                <button type="button" class="payment-action-btn primary" onclick="closeAppNoticePopup()">${escapeHtml(buttonLabel)}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', popupHtml);
+        }
+
+        function isPermissionErrorMessage(message) {
+            return /permission required|access required|not permitted|not allowed|unauthorized/i.test(String(message || ''));
+        }
+
+        function showPermissionDeniedPopup(message) {
+            lastPermissionNoticeAt = Date.now();
+            showAppNoticePopup({
+                title: 'Permission required',
+                subtitle: 'This account cannot perform that action',
+                message: message || 'Please ask an admin with the right permission to make this change.',
+                type: 'warning',
+                buttonLabel: 'Close'
+            });
+        }
+
+        window.alert = function(message) {
+            const text = String(message || '');
+            if (isPermissionErrorMessage(text) && Date.now() - lastPermissionNoticeAt < 1200) {
+                return;
+            }
+
+            showAppNoticePopup({
+                title: isPermissionErrorMessage(text) ? 'Permission required' : 'Notice',
+                subtitle: isPermissionErrorMessage(text) ? 'This account cannot perform that action' : '',
+                message: text,
+                type: isPermissionErrorMessage(text) ? 'warning' : 'info',
+                buttonLabel: 'Close'
+            });
+        };
 
         function getDisplaySubscriptionStatus(sub) {
             if (!sub) return 'Pending';
@@ -4645,6 +4727,13 @@
             const response = await _origFetch(...args);
             if (response.status === 401 && !args[0]?.toString().includes('/api/login')) {
                 window.location.href = appUrl('login.html');
+            }
+            if (response.status === 403) {
+                const data = await response.clone().json().catch(() => ({}));
+                const message = data.error || data.message || '';
+                if (isPermissionErrorMessage(message)) {
+                    showPermissionDeniedPopup(message);
+                }
             }
             return response;
         };
