@@ -4366,6 +4366,10 @@
                                 </button>
                             </div>
                         </div>
+                        <div class="form-group" style="margin-bottom: 1.2rem;">
+                            <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Permissions</label>
+                            <div id="new-admin-permissions" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.45rem;"></div>
+                        </div>
                         <button id="create-admin-btn" class="btn-primary" onclick="createAdminUser()" style="width: 100%; justify-content: center; border-radius: 12px; padding: 0.85rem; font-size: 0.9rem;">
                             <i class="fas fa-user-plus"></i> Create Admin
                         </button>
@@ -4394,6 +4398,21 @@
                     <div id="admin-activity-list">
                         <div class="no-data" style="padding: 2rem;">Loading activity...</div>
                     </div>
+                </div>
+
+                <div class="superadmin-panel" style="margin-top: 1rem; border-color: #bfdbfe;">
+                    <div class="superadmin-section-title">
+                        <span><i class="fas fa-database"></i> Database Backup</span>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 0.75rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 0.9rem 1rem; margin-bottom: 1rem;">
+                        <i class="fas fa-shield-halved" style="color: var(--secondary); margin-top: 2px;"></i>
+                        <div style="font-size: 0.82rem; line-height: 1.55; color: var(--text-dark);">
+                            Download a JSON backup of members, subscriptions, payments, rates, induction candidates, and admin activity logs.
+                        </div>
+                    </div>
+                    <button id="database-backup-btn" class="btn-primary" onclick="downloadDatabaseBackup()" style="width: 100%; justify-content: center; border-radius: 12px; padding: 0.85rem; font-size: 0.9rem;">
+                        <i class="fas fa-download"></i> Download Database Backup
+                    </button>
                 </div>
 
                 <div class="superadmin-panel" style="margin-top: 1rem; border-color: #fecaca;">
@@ -4475,15 +4494,89 @@
         </div>
     </div>
 
+    <div id="admin-permissions-modal" class="modal">
+        <div class="modal-content" style="max-width: 560px; position: relative;">
+            <div class="modal-header" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; margin: -2rem -2rem 1.5rem -2rem; padding: 1.5rem 2rem;">
+                <h2 style="margin: 0; color: white;"><i class="fas fa-user-shield"></i> Admin Permissions</h2>
+                <button class="close-btn" onclick="closeAdminPermissionsModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="admin-permissions-error" style="display:none; padding: 0.85rem 1rem; margin-bottom: 1rem; border-radius: 12px; font-size: 0.82rem; font-weight: 600; color: #c53030; background: #fff5f5; border: 1px solid #feb2b2;"></div>
+            <div style="margin-bottom: 1rem;">
+                <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px;">Admin</div>
+                <div id="admin-permissions-target" style="margin-top: 0.25rem; color: var(--primary); font-size: 1rem; font-weight: 700;"></div>
+            </div>
+            <div id="admin-permissions-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.55rem; margin-bottom: 1.25rem;"></div>
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                <button type="button" class="btn-secondary" onclick="closeAdminPermissionsModal()" style="border-radius: 12px;">Cancel</button>
+                <button type="button" id="admin-permissions-submit" class="btn-primary" onclick="submitAdminPermissions()" style="border-radius: 12px;">
+                    <i class="fas fa-save"></i> Save Permissions
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="api-client.js"></script>
     <script>
         // ==========================================
         // AUTH HELPERS
         // ==========================================
-        let currentAuthContext = { authenticated: false, role: 'admin', isSuperAdmin: false };
+        let currentAuthContext = { authenticated: false, role: 'admin', isSuperAdmin: false, permissions: [] };
         let cachedAdminUsers = [];
         let resetAdminPasswordTargetId = null;
+        let permissionsTargetAdminId = null;
         const ADMIN_ACTIVITY_LIMIT = 25;
+        const ADMIN_PERMISSION_LABELS = {
+            view_members: 'View members',
+            edit_members: 'Edit members',
+            delete_members: 'Delete members',
+            record_payments: 'Record payments',
+            bulk_import: 'Bulk import',
+            manage_good_standing: 'Good standing',
+            manage_rates: 'Rates',
+            backup_database: 'Backup database',
+            manage_admins: 'Manage admins'
+        };
+        const DEFAULT_NEW_ADMIN_PERMISSIONS = [
+            'view_members',
+            'edit_members',
+            'delete_members',
+            'record_payments',
+            'bulk_import',
+            'manage_good_standing',
+            'manage_rates'
+        ];
+
+        function getAllAdminPermissions() {
+            return Object.keys(ADMIN_PERMISSION_LABELS);
+        }
+
+        function normalizeAdminPermissions(value) {
+            if (Array.isArray(value)) return value.map(String).filter(permission => ADMIN_PERMISSION_LABELS[permission]);
+            return [];
+        }
+
+        function hasCurrentPermission(permission) {
+            if (currentAuthContext.isSuperAdmin) return true;
+            return normalizeAdminPermissions(currentAuthContext.permissions).includes(permission);
+        }
+
+        function renderPermissionCheckboxes(containerId, selectedPermissions = DEFAULT_NEW_ADMIN_PERMISSIONS, inputName = 'admin-permission') {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const selected = new Set(normalizeAdminPermissions(selectedPermissions));
+            container.innerHTML = getAllAdminPermissions().map(permission => `
+                <label style="display:flex;align-items:center;gap:0.45rem;padding:0.52rem 0.6rem;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:0.78rem;color:var(--text-dark);">
+                    <input type="checkbox" name="${inputName}" value="${permission}" ${selected.has(permission) ? 'checked' : ''}>
+                    ${escapeHtml(ADMIN_PERMISSION_LABELS[permission])}
+                </label>
+            `).join('');
+        }
+
+        function getCheckedPermissions(containerId, inputName = 'admin-permission') {
+            return Array.from(document.querySelectorAll(`#${containerId} input[name="${inputName}"]:checked`))
+                .map(input => input.value)
+                .filter(permission => ADMIN_PERMISSION_LABELS[permission]);
+        }
 
         function escapeHtml(value) {
             const div = document.createElement('div');
@@ -4516,12 +4609,12 @@
             try {
                 const response = await fetch('/api/auth-status');
                 const data = await response.json();
-                currentAuthContext = data || { authenticated: false, role: 'admin', isSuperAdmin: false };
+                currentAuthContext = data || { authenticated: false, role: 'admin', isSuperAdmin: false, permissions: [] };
                 updateSuperAdminVisibility();
                 updateWelcomeBanner();
                 return currentAuthContext;
             } catch (err) {
-                currentAuthContext = { authenticated: false, role: 'admin', isSuperAdmin: false };
+                currentAuthContext = { authenticated: false, role: 'admin', isSuperAdmin: false, permissions: [] };
                 updateSuperAdminVisibility();
                 updateWelcomeBanner();
                 return currentAuthContext;
@@ -4529,7 +4622,7 @@
         }
 
         function updateSuperAdminVisibility() {
-            const canManageAdmins = !!currentAuthContext.isSuperAdmin;
+            const canManageAdmins = hasCurrentPermission('manage_admins');
             const adminTab = document.getElementById('tab-admins');
             if (adminTab) adminTab.style.display = canManageAdmins ? 'flex' : 'none';
         }
@@ -4574,6 +4667,7 @@
             document.getElementById('new-admin-username').value = '';
             document.getElementById('new-admin-email').value = '';
             document.getElementById('new-admin-password').value = '';
+            renderPermissionCheckboxes('new-admin-permissions', DEFAULT_NEW_ADMIN_PERMISSIONS, 'new-admin-permission');
             const bulkDeleteType = document.getElementById('bulk-delete-member-type');
             const bulkDeleteConfirmation = document.getElementById('bulk-delete-member-confirmation');
             if (bulkDeleteType) bulkDeleteType.value = '';
@@ -4582,7 +4676,7 @@
             resetPasswordStrength();
             document.getElementById('pw-match-label').style.display = 'none';
             hideSettingsAlert();
-            switchSettingsTab(initialTab === 'admins' && data.isSuperAdmin ? 'admins' : 'username');
+            switchSettingsTab(initialTab === 'admins' && hasCurrentPermission('manage_admins') ? 'admins' : 'username');
             document.getElementById('settings-modal').classList.add('show');
         }
 
@@ -4591,7 +4685,7 @@
         }
 
         function switchSettingsTab(tab) {
-            if (tab === 'admins' && !currentAuthContext.isSuperAdmin) {
+            if (tab === 'admins' && !hasCurrentPermission('manage_admins')) {
                 tab = 'username';
             }
 
@@ -4600,7 +4694,7 @@
                 const btn = document.getElementById('tab-' + t);
                 const panel = document.getElementById('settings-panel-' + t);
                 if (!btn || !panel) return;
-                if (t === 'admins' && !currentAuthContext.isSuperAdmin) {
+                if (t === 'admins' && !hasCurrentPermission('manage_admins')) {
                     btn.style.display = 'none';
                     panel.style.display = 'none';
                     return;
@@ -4792,7 +4886,7 @@
         }
 
         async function loadAdminManagement() {
-            if (!currentAuthContext.isSuperAdmin) return;
+            if (!hasCurrentPermission('manage_admins')) return;
             await Promise.all([loadAdminUsers(), loadAdminActivityLogs()]);
         }
 
@@ -4830,9 +4924,14 @@
                 const statusHtml = user.is_active
                     ? '<span class="admin-pill active">Active</span>'
                     : '<span class="admin-pill inactive">Inactive</span>';
+                const permissions = normalizeAdminPermissions(user.permissions);
+                const permissionsHtml = isSuperAdmin
+                    ? '<span class="admin-pill superadmin"><i class="fas fa-lock"></i> All</span>'
+                    : `<div style="display:flex;flex-wrap:wrap;gap:0.25rem;">${permissions.slice(0, 3).map(permission => `<span class="admin-pill">${escapeHtml(ADMIN_PERMISSION_LABELS[permission] || permission)}</span>`).join('')}${permissions.length > 3 ? `<span class="admin-pill">+${permissions.length - 3}</span>` : ''}</div>`;
                 const actionHtml = (!isSuperAdmin && !isCurrentUser)
                     ? `<div class="admin-action-group">
                             <button class="admin-status-action warning" onclick="openAdminPasswordReset(${Number(user.id)})"><i class="fas fa-key"></i> Reset Password</button>
+                            <button class="admin-status-action" onclick="openAdminPermissions(${Number(user.id)})"><i class="fas fa-user-shield"></i> Permissions</button>
                             <button class="admin-status-action ${user.is_active ? 'danger' : ''}" onclick="toggleAdminStatus(${Number(user.id)}, ${!user.is_active})">${user.is_active ? 'Deactivate' : 'Activate'}</button>
                             <button class="admin-status-action danger" onclick="deleteAdminUser(${Number(user.id)})"><i class="fas fa-trash"></i> Delete</button>
                        </div>`
@@ -4846,6 +4945,7 @@
                         </td>
                         <td>${escapeHtml(user.email || '-')}</td>
                         <td>${roleHtml}</td>
+                        <td>${permissionsHtml}</td>
                         <td>${statusHtml}</td>
                         <td>${escapeHtml(formatAdminDate(user.last_login_at))}</td>
                         <td>${escapeHtml(user.created_by_username || '-')}</td>
@@ -4862,6 +4962,7 @@
                                 <th>User</th>
                                 <th>Email</th>
                                 <th>Role</th>
+                                <th>Permissions</th>
                                 <th>Status</th>
                                 <th>Last Login</th>
                                 <th>Created By</th>
@@ -4879,6 +4980,7 @@
             const username = document.getElementById('new-admin-username').value.trim();
             const email = document.getElementById('new-admin-email').value.trim();
             const password = document.getElementById('new-admin-password').value;
+            const permissions = getCheckedPermissions('new-admin-permissions', 'new-admin-permission');
             const button = document.getElementById('create-admin-btn');
 
             if (username.length < 3) {
@@ -4897,7 +4999,7 @@
                 const response = await fetch('/api/admin/users', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, email, password })
+                    body: JSON.stringify({ username, email, password, permissions })
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Failed to create admin');
@@ -4905,6 +5007,7 @@
                 document.getElementById('new-admin-username').value = '';
                 document.getElementById('new-admin-email').value = '';
                 document.getElementById('new-admin-password').value = '';
+                renderPermissionCheckboxes('new-admin-permissions', DEFAULT_NEW_ADMIN_PERMISSIONS, 'new-admin-permission');
                 showSettingsAlert(`Admin "${data.username}" created.`, 'success');
                 await loadAdminManagement();
             } catch (err) {
@@ -5002,6 +5105,82 @@
             } finally {
                 button.disabled = false;
                 button.innerHTML = '<i class="fas fa-key"></i> Reset Password';
+            }
+        }
+
+        function showAdminPermissionsError(message) {
+            const el = document.getElementById('admin-permissions-error');
+            if (!el) return;
+            el.textContent = message;
+            el.style.display = 'block';
+        }
+
+        function hideAdminPermissionsError() {
+            const el = document.getElementById('admin-permissions-error');
+            if (!el) return;
+            el.textContent = '';
+            el.style.display = 'none';
+        }
+
+        function openAdminPermissions(adminId) {
+            hideSettingsAlert();
+            hideAdminPermissionsError();
+
+            const admin = cachedAdminUsers.find(user => Number(user.id) === Number(adminId));
+            if (!admin) {
+                return showSettingsAlert('Admin user could not be found. Refresh the admin list and try again.', 'error');
+            }
+            if (admin.role === 'superadmin' || Number(admin.id) === Number(currentAuthContext.adminId)) {
+                return showSettingsAlert('This account is locked for permission changes here.', 'error');
+            }
+
+            permissionsTargetAdminId = Number(admin.id);
+            document.getElementById('admin-permissions-target').textContent = admin.username || 'Admin';
+            renderPermissionCheckboxes('admin-permissions-list', normalizeAdminPermissions(admin.permissions), 'edit-admin-permission');
+            document.getElementById('admin-permissions-modal').classList.add('show');
+        }
+
+        function closeAdminPermissionsModal() {
+            const modal = document.getElementById('admin-permissions-modal');
+            if (modal) modal.classList.remove('show');
+            permissionsTargetAdminId = null;
+            hideAdminPermissionsError();
+        }
+
+        async function submitAdminPermissions() {
+            hideAdminPermissionsError();
+            if (!permissionsTargetAdminId) {
+                return showAdminPermissionsError('Select an admin account first.');
+            }
+
+            const permissions = getCheckedPermissions('admin-permissions-list', 'edit-admin-permission');
+            const button = document.getElementById('admin-permissions-submit');
+            const originalHtml = button ? button.innerHTML : '';
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            }
+
+            try {
+                const response = await fetch(`/api/admin/users/${permissionsTargetAdminId}/permissions`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ permissions })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Failed to update permissions');
+
+                const username = data.admin?.username || 'admin';
+                closeAdminPermissionsModal();
+                showSettingsAlert(`Permissions updated for "${username}".`, 'success');
+                await loadAdminManagement();
+            } catch (err) {
+                showAdminPermissionsError(err.message || 'Failed to update permissions.');
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = originalHtml || '<i class="fas fa-save"></i> Save Permissions';
+                }
             }
         }
 
@@ -5124,6 +5303,48 @@
                 if (button) {
                     button.disabled = false;
                     button.innerHTML = originalHtml || '<i class="fas fa-trash"></i> Delete Members by Type';
+                }
+            }
+        }
+
+        async function downloadDatabaseBackup() {
+            hideSettingsAlert();
+            if (!hasCurrentPermission('backup_database')) {
+                return showSettingsAlert('Backup database permission is required.', 'error');
+            }
+
+            const button = document.getElementById('database-backup-btn');
+            const originalHtml = button ? button.innerHTML : '';
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing...';
+            }
+
+            try {
+                const response = await fetch('/api/admin/database-backup');
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error || 'Failed to download database backup');
+                }
+                const blob = await response.blob();
+                const disposition = response.headers.get('Content-Disposition') || '';
+                const match = disposition.match(/filename="?([^"]+)"?/i);
+                const filename = match ? match[1] : `iod-member-database-backup-${Date.now()}.json`;
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+                showSettingsAlert('Database backup downloaded.', 'success');
+            } catch (err) {
+                showSettingsAlert(err.message || 'Failed to download database backup.', 'error');
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = originalHtml || '<i class="fas fa-download"></i> Download Database Backup';
                 }
             }
         }
@@ -7490,12 +7711,14 @@
 
         // Close modal when clicking outside
         window.onclick = (event) => {
-            const modals = ['member-modal', 'view-modal', 'import-modal', 'admin-reset-password-modal'];
+            const modals = ['member-modal', 'view-modal', 'import-modal', 'admin-reset-password-modal', 'admin-permissions-modal'];
             modals.forEach(id => {
                 const modal = document.getElementById(id);
                 if (event.target === modal) {
                     if (id === 'admin-reset-password-modal') {
                         closeAdminPasswordResetModal();
+                    } else if (id === 'admin-permissions-modal') {
+                        closeAdminPermissionsModal();
                     } else {
                         modal.classList.remove('show');
                     }

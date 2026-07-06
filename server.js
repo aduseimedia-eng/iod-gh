@@ -78,6 +78,42 @@ app.use(session({
 const ADMIN_ROLE_SUPERADMIN = 'superadmin';
 const ADMIN_ROLE_ADMIN = 'admin';
 const ACTIVITY_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const ADMIN_PERMISSIONS = [
+    'view_members',
+    'edit_members',
+    'delete_members',
+    'record_payments',
+    'bulk_import',
+    'manage_good_standing',
+    'manage_rates',
+    'backup_database',
+    'manage_admins'
+];
+const DEFAULT_ADMIN_PERMISSIONS = [
+    'view_members',
+    'edit_members',
+    'delete_members',
+    'record_payments',
+    'bulk_import',
+    'manage_good_standing',
+    'manage_rates'
+];
+
+function normalizePermissions(value, role = ADMIN_ROLE_ADMIN) {
+    if (normalizeAdminRole(role) === ADMIN_ROLE_SUPERADMIN) return ADMIN_PERMISSIONS.slice();
+
+    let permissions = value;
+    if (typeof permissions === 'string') {
+        try {
+            permissions = JSON.parse(permissions);
+        } catch (err) {
+            permissions = [];
+        }
+    }
+    if (!Array.isArray(permissions)) permissions = DEFAULT_ADMIN_PERMISSIONS;
+    const allowed = new Set(ADMIN_PERMISSIONS);
+    return [...new Set(permissions.map(String).filter(permission => allowed.has(permission)))];
+}
 
 function normalizeAdminRole(role) {
     return String(role || '').toLowerCase() === ADMIN_ROLE_SUPERADMIN ? ADMIN_ROLE_SUPERADMIN : ADMIN_ROLE_ADMIN;
@@ -101,7 +137,7 @@ async function hydrateAdminSession(req) {
 
     try {
         const result = await pool.query(
-            'SELECT id, username, email, role, is_active FROM admin_users WHERE id = $1',
+            'SELECT id, username, email, role, permissions, is_active FROM admin_users WHERE id = $1',
             [req.session.adminId]
         );
 
@@ -113,11 +149,32 @@ async function hydrateAdminSession(req) {
         req.session.user = admin.username;
         req.session.email = admin.email || '';
         req.session.role = normalizeAdminRole(admin.role);
+        req.session.permissions = normalizePermissions(admin.permissions, admin.role);
         return true;
     } catch (err) {
         console.error('Error refreshing admin session:', err.message || err);
         return true;
     }
+}
+
+function hasAdminPermission(req, permission) {
+    if (isSuperAdminSession(req)) return true;
+    const permissions = normalizePermissions(req.session?.permissions, req.session?.role);
+    return permissions.includes(permission);
+}
+
+function requirePermission(permission) {
+    return async (req, res, next) => {
+        if (req.session && req.session.authenticated && req.session.adminId && !req.session.permissions) {
+            await hydrateAdminSession(req);
+        }
+
+        if (!hasAdminPermission(req, permission)) {
+            return res.status(403).json({ error: `${permission.replace(/_/g, ' ')} permission required` });
+        }
+
+        next();
+    };
 }
 
 async function requireSuperAdmin(req, res, next) {
@@ -243,11 +300,13 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         const role = normalizeAdminRole(admin.role);
+        const permissions = normalizePermissions(admin.permissions, role);
         req.session.authenticated = true;
         req.session.user = admin.username;
         req.session.adminId = admin.id;
         req.session.role = role;
         req.session.email = admin.email || '';
+        req.session.permissions = permissions;
 
         try {
             await pool.query('UPDATE admin_users SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1', [admin.id]);
@@ -265,7 +324,7 @@ app.post('/api/login', async (req, res) => {
             metadata: { role }
         });
 
-        res.json({ message: 'Login successful', user: admin.username, role, adminId: admin.id });
+        res.json({ message: 'Login successful', user: admin.username, role, adminId: admin.id, permissions });
     } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({ error: 'Server error' });
@@ -317,7 +376,8 @@ app.get('/api/auth-status', async (req, res) => {
             adminId: req.session.adminId,
             email: req.session.email || '',
             role,
-            isSuperAdmin: role === ADMIN_ROLE_SUPERADMIN
+            isSuperAdmin: role === ADMIN_ROLE_SUPERADMIN,
+            permissions: normalizePermissions(req.session.permissions, role)
         });
     }
     res.json({ authenticated: false });
@@ -626,7 +686,7 @@ app.use(express.static('.')); // Serve static files (HTML, CSS, JS)
 // SUPERADMIN ADMINISTRATION ENDPOINTS
 // ============================================================
 
-app.get('/api/admin/users', requireSuperAdmin, async (req, res) => {
+app.get('/api/admin/users', requirePermission('manage_admins'), async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT
@@ -634,6 +694,7 @@ app.get('/api/admin/users', requireSuperAdmin, async (req, res) => {
                 au.username,
                 au.email,
                 au.role,
+                au.permissions,
                 au.is_active,
                 au.last_login_at,
                 au.created_at,
@@ -654,10 +715,11 @@ app.get('/api/admin/users', requireSuperAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/admin/users', requireSuperAdmin, async (req, res) => {
+app.post('/api/admin/users', requirePermission('manage_admins'), async (req, res) => {
     const username = String(req.body.username || '').trim();
     const email = String(req.body.email || '').trim();
     const password = String(req.body.password || '');
+    const permissions = normalizePermissions(req.body.permissions, ADMIN_ROLE_ADMIN);
 
     if (username.length < 3) {
         return res.status(400).json({ error: 'Username must be at least 3 characters' });
@@ -679,17 +741,17 @@ app.post('/api/admin/users', requireSuperAdmin, async (req, res) => {
 
         const passwordHash = await bcrypt.hash(password, 10);
         const result = await pool.query(`
-            INSERT INTO admin_users (username, email, password_hash, role, is_active, created_by_admin_id)
-            VALUES ($1, $2, $3, $4, TRUE, $5)
-            RETURNING id, username, email, role, is_active, last_login_at, created_at, updated_at, created_by_admin_id
-        `, [username, email || null, passwordHash, ADMIN_ROLE_ADMIN, req.session.adminId]);
+            INSERT INTO admin_users (username, email, password_hash, role, permissions, is_active, created_by_admin_id)
+            VALUES ($1, $2, $3, $4, $5::jsonb, TRUE, $6)
+            RETURNING id, username, email, role, permissions, is_active, last_login_at, created_at, updated_at, created_by_admin_id
+        `, [username, email || null, passwordHash, ADMIN_ROLE_ADMIN, JSON.stringify(permissions), req.session.adminId]);
 
         const createdAdmin = result.rows[0];
         res.locals.activityAction = 'create_admin_user';
         res.locals.activityEntityType = 'admin_user';
         res.locals.activityEntityId = createdAdmin.id;
         res.locals.activityDescription = `${req.session.user} created admin user ${createdAdmin.username}`;
-        res.locals.activityMetadata = { createdUsername: createdAdmin.username, createdRole: createdAdmin.role };
+        res.locals.activityMetadata = { createdUsername: createdAdmin.username, createdRole: createdAdmin.role, permissions };
 
         res.status(201).json(createdAdmin);
     } catch (err) {
@@ -699,7 +761,7 @@ app.post('/api/admin/users', requireSuperAdmin, async (req, res) => {
     }
 });
 
-app.patch('/api/admin/users/:id/status', requireSuperAdmin, async (req, res) => {
+app.patch('/api/admin/users/:id/status', requirePermission('manage_admins'), async (req, res) => {
     const adminId = parseInt(req.params.id, 10);
     const isActive = req.body.isActive === true;
 
@@ -726,7 +788,7 @@ app.patch('/api/admin/users/:id/status', requireSuperAdmin, async (req, res) => 
             UPDATE admin_users
             SET is_active = $1, updated_at = NOW()
             WHERE id = $2
-            RETURNING id, username, email, role, is_active, last_login_at, created_at, updated_at, created_by_admin_id
+            RETURNING id, username, email, role, permissions, is_active, last_login_at, created_at, updated_at, created_by_admin_id
         `, [isActive, adminId]);
 
         res.locals.activityAction = isActive ? 'activate_admin_user' : 'deactivate_admin_user';
@@ -742,7 +804,7 @@ app.patch('/api/admin/users/:id/status', requireSuperAdmin, async (req, res) => 
     }
 });
 
-app.patch('/api/admin/users/:id/password', requireSuperAdmin, async (req, res) => {
+app.patch('/api/admin/users/:id/password', requirePermission('manage_admins'), async (req, res) => {
     const adminId = parseInt(req.params.id, 10);
     const newPassword = String(req.body.newPassword || '');
 
@@ -774,7 +836,7 @@ app.patch('/api/admin/users/:id/password', requireSuperAdmin, async (req, res) =
             UPDATE admin_users
             SET password_hash = $1, updated_at = NOW()
             WHERE id = $2
-            RETURNING id, username, email, role, is_active, last_login_at, created_at, updated_at, created_by_admin_id
+            RETURNING id, username, email, role, permissions, is_active, last_login_at, created_at, updated_at, created_by_admin_id
         `, [passwordHash, adminId]);
 
         res.locals.activityAction = 'reset_admin_password';
@@ -793,7 +855,53 @@ app.patch('/api/admin/users/:id/password', requireSuperAdmin, async (req, res) =
     }
 });
 
-app.delete('/api/admin/users/:id', requireSuperAdmin, async (req, res) => {
+app.patch('/api/admin/users/:id/permissions', requirePermission('manage_admins'), async (req, res) => {
+    const adminId = parseInt(req.params.id, 10);
+    const permissions = normalizePermissions(req.body.permissions, ADMIN_ROLE_ADMIN);
+
+    if (!Number.isFinite(adminId)) {
+        return res.status(400).json({ error: 'Invalid admin id' });
+    }
+
+    if (adminId === req.session.adminId) {
+        return res.status(400).json({ error: 'You cannot change your own permissions' });
+    }
+
+    try {
+        const existing = await pool.query('SELECT id, username, role FROM admin_users WHERE id = $1', [adminId]);
+        if (existing.rows.length === 0) {
+            return res.status(404).json({ error: 'Admin user not found' });
+        }
+
+        const admin = existing.rows[0];
+        if (normalizeAdminRole(admin.role) === ADMIN_ROLE_SUPERADMIN) {
+            return res.status(400).json({ error: 'SuperAdmin permissions cannot be changed here' });
+        }
+
+        const result = await pool.query(`
+            UPDATE admin_users
+            SET permissions = $1::jsonb, updated_at = NOW()
+            WHERE id = $2
+            RETURNING id, username, email, role, permissions, is_active, last_login_at, created_at, updated_at, created_by_admin_id
+        `, [JSON.stringify(permissions), adminId]);
+
+        res.locals.activityAction = 'update_admin_permissions';
+        res.locals.activityEntityType = 'admin_user';
+        res.locals.activityEntityId = adminId;
+        res.locals.activityDescription = `${req.session.user} updated permissions for admin user ${admin.username}`;
+        res.locals.activityMetadata = { targetUsername: admin.username, permissions };
+
+        res.json({
+            message: 'Admin permissions updated successfully',
+            admin: result.rows[0]
+        });
+    } catch (err) {
+        console.error('Error updating admin permissions:', err);
+        res.status(500).json({ error: 'Failed to update admin permissions' });
+    }
+});
+
+app.delete('/api/admin/users/:id', requirePermission('manage_admins'), async (req, res) => {
     const adminId = parseInt(req.params.id, 10);
 
     if (!Number.isFinite(adminId)) {
@@ -834,7 +942,7 @@ app.delete('/api/admin/users/:id', requireSuperAdmin, async (req, res) => {
     }
 });
 
-app.delete('/api/admin/members/bulk-by-type', requireSuperAdmin, async (req, res) => {
+app.delete('/api/admin/members/bulk-by-type', requirePermission('delete_members'), async (req, res) => {
     const allowedMemberTypes = new Set(['AIOD', 'FIOD', 'MIOD', 'Honorary', 'Corporate']);
     const memberType = String(req.body.member_type || '').trim();
     const confirmation = String(req.body.confirmation || '').trim();
@@ -901,7 +1009,50 @@ app.delete('/api/admin/members/bulk-by-type', requireSuperAdmin, async (req, res
     }
 });
 
-app.get('/api/admin/activity-logs', requireSuperAdmin, async (req, res) => {
+const BACKUP_TABLES = [
+    'members',
+    'subscriptions',
+    'payments',
+    'subscription_rates',
+    'pending_members',
+    'admin_activity_logs'
+];
+
+app.get('/api/admin/database-backup', requirePermission('backup_database'), async (req, res) => {
+    try {
+        const backup = {
+            app: 'iod-ghana-member-database',
+            generated_at: new Date().toISOString(),
+            generated_by: req.session?.user || null,
+            version: 1,
+            restore_plan: 'Keep this JSON file in secure storage. Restore should be performed by a SuperAdmin/developer from a verified backup after taking the live app offline and validating row counts.',
+            tables: {}
+        };
+
+        for (const table of BACKUP_TABLES) {
+            const result = await pool.query(`SELECT * FROM ${table} ORDER BY 1`);
+            backup.tables[table] = result.rows;
+        }
+
+        res.locals.activityAction = 'export_database_backup';
+        res.locals.activityEntityType = 'database';
+        res.locals.activityDescription = `${req.session.user} exported a database backup`;
+        res.locals.activityMetadata = {
+            tables: BACKUP_TABLES,
+            rowCounts: Object.fromEntries(BACKUP_TABLES.map(table => [table, backup.tables[table].length]))
+        };
+
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="iod-member-database-backup-${stamp}.json"`);
+        res.json(backup);
+    } catch (err) {
+        console.error('Error exporting database backup:', err);
+        res.status(500).json({ error: 'Failed to export database backup' });
+    }
+});
+
+app.get('/api/admin/activity-logs', requirePermission('manage_admins'), async (req, res) => {
     const requestedLimit = parseInt(req.query.limit, 10);
     const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 200) : 50;
 
@@ -935,7 +1086,7 @@ app.get('/api/admin/activity-logs', requireSuperAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/members/:id/reset-payment-transactions', async (req, res) => {
+app.post('/api/members/:id/reset-payment-transactions', requirePermission('record_payments'), async (req, res) => {
     const memberId = Number(req.params.id);
     if (!Number.isFinite(memberId)) {
         return res.status(400).json({ error: 'Invalid member ID' });
@@ -1081,6 +1232,7 @@ async function initializeAdminUsers() {
                 password_hash VARCHAR(255) NOT NULL,
                 email VARCHAR(255),
                 role VARCHAR(20) NOT NULL DEFAULT 'admin',
+                permissions JSONB NOT NULL DEFAULT '[]'::jsonb,
                 is_active BOOLEAN NOT NULL DEFAULT TRUE,
                 created_by_admin_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
                 last_login_at TIMESTAMP,
@@ -1093,6 +1245,7 @@ async function initializeAdminUsers() {
         await pool.query(`
             ALTER TABLE admin_users
                 ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'admin',
+                ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'::jsonb,
                 ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
                 ADD COLUMN IF NOT EXISTS created_by_admin_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
                 ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP
@@ -1109,6 +1262,19 @@ async function initializeAdminUsers() {
             SET is_active = TRUE
             WHERE is_active IS NULL
         `);
+
+        await pool.query(`
+            UPDATE admin_users
+            SET permissions = $1::jsonb
+            WHERE role = $2
+        `, [JSON.stringify(ADMIN_PERMISSIONS), ADMIN_ROLE_SUPERADMIN]);
+
+        await pool.query(`
+            UPDATE admin_users
+            SET permissions = $1::jsonb
+            WHERE role = $2
+              AND (permissions IS NULL OR permissions = '[]'::jsonb)
+        `, [JSON.stringify(DEFAULT_ADMIN_PERMISSIONS), ADMIN_ROLE_ADMIN]);
 
         await pool.query(`
             DO $$
@@ -1162,8 +1328,8 @@ async function initializeAdminUsers() {
             const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
             await pool.query(
-                'INSERT INTO admin_users (username, password_hash, email, role, is_active) VALUES ($1, $2, $3, $4, TRUE)',
-                [defaultUsername, passwordHash, process.env.ADMIN_DEFAULT_EMAIL || 'admin@iodghana.org', ADMIN_ROLE_SUPERADMIN]
+                'INSERT INTO admin_users (username, password_hash, email, role, permissions, is_active) VALUES ($1, $2, $3, $4, $5::jsonb, TRUE)',
+                [defaultUsername, passwordHash, process.env.ADMIN_DEFAULT_EMAIL || 'admin@iodghana.org', ADMIN_ROLE_SUPERADMIN, JSON.stringify(ADMIN_PERMISSIONS)]
             );
 
             console.log(`Default SuperAdmin user "${defaultUsername}" created`);
@@ -1173,7 +1339,7 @@ async function initializeAdminUsers() {
         if (parseInt(superAdminCount.rows[0].count, 10) === 0) {
             const firstAdmin = await pool.query('SELECT id, username FROM admin_users ORDER BY id ASC LIMIT 1');
             if (firstAdmin.rows.length > 0) {
-                await pool.query('UPDATE admin_users SET role = $1, is_active = TRUE, updated_at = NOW() WHERE id = $2', [ADMIN_ROLE_SUPERADMIN, firstAdmin.rows[0].id]);
+                await pool.query('UPDATE admin_users SET role = $1, permissions = $2::jsonb, is_active = TRUE, updated_at = NOW() WHERE id = $3', [ADMIN_ROLE_SUPERADMIN, JSON.stringify(ADMIN_PERMISSIONS), firstAdmin.rows[0].id]);
                 console.log(`Existing admin user "${firstAdmin.rows[0].username}" promoted to SuperAdmin`);
             }
         }
@@ -1563,6 +1729,71 @@ async function initializePendingMembers() {
     }
 }
 
+async function initializeDatabaseConstraints() {
+    const constraints = [
+        {
+            table: 'members',
+            name: 'members_member_type_check',
+            sql: "ALTER TABLE members ADD CONSTRAINT members_member_type_check CHECK (member_type IN ('AIOD', 'FIOD', 'MIOD', 'Honorary', 'Corporate')) NOT VALID"
+        },
+        {
+            table: 'members',
+            name: 'members_gender_check',
+            sql: "ALTER TABLE members ADD CONSTRAINT members_gender_check CHECK (gender IS NULL OR gender IN ('Male', 'Female')) NOT VALID"
+        },
+        {
+            table: 'members',
+            name: 'members_corporate_category_check',
+            sql: "ALTER TABLE members ADD CONSTRAINT members_corporate_category_check CHECK (member_type <> 'Corporate' OR membership_category IS NULL OR membership_category IN ('Platinum', 'Gold', 'Silver', 'Bronze', 'Standard')) NOT VALID"
+        },
+        {
+            table: 'subscriptions',
+            name: 'subscriptions_status_check',
+            sql: "ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_status_check CHECK (status IS NULL OR status IN ('Pending', 'Partial', 'Paid', 'Waived')) NOT VALID"
+        },
+        {
+            table: 'subscriptions',
+            name: 'subscriptions_year_check',
+            sql: 'ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_year_check CHECK (subscription_year BETWEEN 1900 AND 2200) NOT VALID'
+        },
+        {
+            table: 'subscriptions',
+            name: 'subscriptions_nonnegative_amounts_check',
+            sql: 'ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_nonnegative_amounts_check CHECK (COALESCE(amount_paid, 0) >= 0 AND COALESCE(expected_amount, 0) >= 0 AND COALESCE(credit_applied, 0) >= 0 AND COALESCE(credit_balance, 0) >= 0) NOT VALID'
+        },
+        {
+            table: 'payments',
+            name: 'payments_positive_amount_check',
+            sql: 'ALTER TABLE payments ADD CONSTRAINT payments_positive_amount_check CHECK (payment_amount > 0) NOT VALID'
+        }
+    ];
+
+    try {
+        for (const constraint of constraints) {
+            await pool.query(`
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1
+                        FROM pg_constraint
+                        WHERE conname = '${constraint.name}'
+                    ) THEN
+                        ${constraint.sql};
+                    END IF;
+                END $$
+            `);
+        }
+
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_members_member_type ON members(member_type)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_members_membership_category ON members(membership_category)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_subscriptions_member_year ON subscriptions(member_id, subscription_year)');
+
+        console.log('Database constraints initialized successfully');
+    } catch (err) {
+        console.error('Error initializing database constraints:', err);
+    }
+}
+
 async function repairHonoraryMembershipNumberSequence() {
     const client = await pool.connect();
     try {
@@ -1626,6 +1857,7 @@ async function initializeApplication() {
     await initializeAdminUsers();
     await initializeSubscriptionRates();
     await initializePendingMembers();
+    await initializeDatabaseConstraints();
     await repairHonoraryMembershipNumberSequence();
 }
 
@@ -1865,7 +2097,7 @@ app.get('/api/pending-members/:id', async (req, res) => {
     }
 });
 
-app.post('/api/pending-members', async (req, res) => {
+app.post('/api/pending-members', requirePermission('bulk_import'), async (req, res) => {
     const { errors, sanitized } = validateAndSanitizeMemberData(req.body);
     if (errors.length > 0) {
         return res.status(400).json({ error: 'Validation failed', details: errors });
@@ -1915,7 +2147,7 @@ app.post('/api/pending-members', async (req, res) => {
     }
 });
 
-app.put('/api/pending-members/:id', async (req, res) => {
+app.put('/api/pending-members/:id', requirePermission('bulk_import'), async (req, res) => {
     const { errors, sanitized } = validateAndSanitizeMemberData(req.body);
     if (errors.length > 0) {
         return res.status(400).json({ error: 'Validation failed', details: errors });
@@ -1951,7 +2183,7 @@ app.put('/api/pending-members/:id', async (req, res) => {
     }
 });
 
-app.post('/api/pending-members/:id/promote', async (req, res) => {
+app.post('/api/pending-members/:id/promote', requirePermission('bulk_import'), async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -1996,7 +2228,7 @@ app.post('/api/pending-members/:id/promote', async (req, res) => {
     }
 });
 
-app.patch('/api/pending-members/bulk-category', async (req, res) => {
+app.patch('/api/pending-members/bulk-category', requirePermission('bulk_import'), async (req, res) => {
     const ids = Array.isArray(req.body.ids)
         ? req.body.ids.map(id => parseInt(id, 10)).filter(Number.isFinite)
         : [];
@@ -2035,7 +2267,7 @@ app.patch('/api/pending-members/bulk-category', async (req, res) => {
     }
 });
 
-app.post('/api/pending-members/bulk-import', async (req, res) => {
+app.post('/api/pending-members/bulk-import', requirePermission('bulk_import'), async (req, res) => {
     const ids = Array.isArray(req.body.ids)
         ? req.body.ids.map(id => parseInt(id, 10)).filter(Number.isFinite)
         : [];
@@ -2117,7 +2349,7 @@ app.post('/api/pending-members/bulk-import', async (req, res) => {
     }
 });
 
-app.delete('/api/pending-members/history', async (req, res) => {
+app.delete('/api/pending-members/history', requirePermission('delete_members'), async (req, res) => {
     try {
         const result = await pool.query(`
             DELETE FROM pending_members
@@ -2140,7 +2372,7 @@ app.delete('/api/pending-members/history', async (req, res) => {
     }
 });
 
-app.delete('/api/pending-members/:id', async (req, res) => {
+app.delete('/api/pending-members/:id', requirePermission('delete_members'), async (req, res) => {
     try {
         const result = await pool.query(`
             UPDATE pending_members
@@ -2401,7 +2633,7 @@ app.get('/api/members/:id', async (req, res) => {
 });
 
 // Create member
-app.post('/api/members', async (req, res) => {
+app.post('/api/members', requirePermission('edit_members'), async (req, res) => {
     // Validate and sanitize input
     const { errors, sanitized } = validateAndSanitizeMemberData(req.body);
     if (errors.length > 0) {
@@ -3766,7 +3998,7 @@ async function recalculateMemberCreditLedger(client, memberId, options = {}) {
 }
 
 // Preview file (CSV or Excel - returns first 10 rows and headers)
-app.post('/api/members/import/preview', upload.single('file'), async (req, res) => {
+app.post('/api/members/import/preview', requirePermission('bulk_import'), upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
@@ -3813,7 +4045,7 @@ app.post('/api/members/import/preview', upload.single('file'), async (req, res) 
 });
 
 // Import members from CSV or Excel
-app.post('/api/members/import', upload.single('file'), async (req, res) => {
+app.post('/api/members/import', requirePermission('bulk_import'), upload.single('file'), async (req, res) => {
     const client = await pool.connect();
     
     try {
@@ -4230,7 +4462,7 @@ app.post('/api/members/import', upload.single('file'), async (req, res) => {
 });
 
 // Update member
-app.put('/api/members/:id', async (req, res) => {
+app.put('/api/members/:id', requirePermission('edit_members'), async (req, res) => {
     // Validate and sanitize input
     const { errors, sanitized } = validateAndSanitizeMemberData(req.body);
     if (errors.length > 0) {
@@ -4441,7 +4673,7 @@ app.put('/api/members/:id', async (req, res) => {
 });
 
 // Delete member
-app.delete('/api/members/:id', async (req, res) => {
+app.delete('/api/members/:id', requirePermission('delete_members'), async (req, res) => {
     try {
         const result = await pool.query('DELETE FROM members WHERE id = $1 RETURNING *', [req.params.id]);
 
@@ -4481,7 +4713,7 @@ app.get('/api/members/:id/subscriptions', async (req, res) => {
 });
 
 // Add subscription for a member
-app.post('/api/members/:id/subscriptions', async (req, res) => {
+app.post('/api/members/:id/subscriptions', requirePermission('record_payments'), async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -4627,7 +4859,7 @@ app.post('/api/members/:id/subscriptions', async (req, res) => {
 });
 
 // Update subscription with credit balance logic
-app.put('/api/subscriptions/:id', async (req, res) => {
+app.put('/api/subscriptions/:id', requirePermission('record_payments'), async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -4817,7 +5049,7 @@ app.put('/api/subscriptions/:id', async (req, res) => {
 });
 
 // Delete subscription (with credit chain recalculation)
-app.delete('/api/subscriptions/:id', async (req, res) => {
+app.delete('/api/subscriptions/:id', requirePermission('record_payments'), async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -4927,7 +5159,7 @@ app.get('/api/subscription-rates/:year', async (req, res) => {
 });
 
 // Set/Update subscription rate for a member type and year
-app.post('/api/subscription-rates', async (req, res) => {
+app.post('/api/subscription-rates', requirePermission('manage_rates'), async (req, res) => {
     try {
         const { member_type, subscription_year, expected_amount, early_bird_amount, early_bird_deadline, description, membership_category } = req.body;
         
@@ -4955,7 +5187,7 @@ app.post('/api/subscription-rates', async (req, res) => {
 });
 
 // Bulk update rates for a year
-app.post('/api/subscription-rates/bulk', async (req, res) => {
+app.post('/api/subscription-rates/bulk', requirePermission('manage_rates'), async (req, res) => {
     try {
         const { subscription_year, rates, early_bird_deadline } = req.body;
         
@@ -5062,7 +5294,7 @@ app.get('/api/subscription-rates/:year/:memberType', async (req, res) => {
 });
 
 // Process payment with deferred/credit balance logic
-app.post('/api/members/:id/process-payment', async (req, res) => {
+app.post('/api/members/:id/process-payment', requirePermission('record_payments'), async (req, res) => {
     try {
         const memberId = req.params.id;
         const { subscription_year, amount_paid, payment_method, receipt_number, payment_date } = req.body;
@@ -6475,7 +6707,7 @@ app.post('/api/migrate/update-subscription-amounts', async (req, res) => {
 // ============================================================
 
 // Record a new payment (adds to payments table and triggers subscription update)
-app.post('/api/payments', async (req, res) => {
+app.post('/api/payments', requirePermission('record_payments'), async (req, res) => {
     const client = await pool.connect();
     try {
         const { member_id, payment_amount, payment_date, payment_method, receipt_number, notes, subscription_year } = req.body;
